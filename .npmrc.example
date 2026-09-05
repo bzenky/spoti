@@ -1,0 +1,6 @@
+registry=https://registry.npmjs.org/
+access=public
+engine-strict=true
+
+# For CI, provide NPM_TOKEN through the environment; never paste a token here.
+# //registry.npmjs.org/:_authToken=${NPM_TOKEN}

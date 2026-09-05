@@ -78,12 +78,43 @@ Control playback:
 
 ```bash
 spoti now
+spoti now --watch
 spoti play "Numb"
 spoti play "Numb" --first
+spoti play "Numb" --watch
+spoti play "Numb" --no-watch
 spoti pause
 spoti resume
 spoti next
 spoti previous
+spoti volume 50
+spoti volume +10
+spoti volume -10
+```
+
+Manage playback devices:
+
+```bash
+spoti devices
+spoti device "My Computer"
+```
+
+When playback has no active device, `spoti play` and `spoti resume` automatically target it if exactly one controllable device is available.
+
+Seek within the current track:
+
+```bash
+spoti seek 1:30
+spoti seek +30
+spoti seek -10
+```
+
+View the queue or search for a track to add:
+
+```bash
+spoti queue
+spoti queue "Faint"
+spoti queue "Faint" --first
 ```
 
 Search without starting playback:
@@ -101,6 +132,34 @@ spoti logout
 
 When attached to an interactive terminal, `spoti play <query>` asks you to select a result. In non-interactive usage it chooses the first result automatically; `--first` makes that behavior explicit.
 
+Watch mode continuously refreshes the current track and progress until `Ctrl+C` is pressed. `--watch` enables it for one command, while `--no-watch` overrides a saved preference.
+
+## Configuration
+
+View all settings:
+
+```bash
+spoti config
+```
+
+Read, update, or reset settings:
+
+```bash
+spoti config get watchAfterPlay
+spoti config set watchAfterPlay true
+spoti config set refreshIntervalMs 2000
+spoti config reset
+```
+
+Available settings:
+
+| Setting | Default | Description |
+| --- | ---: | --- |
+| `watchAfterPlay` | `false` | Keep `spoti play` open in watch mode after playback starts. |
+| `refreshIntervalMs` | `1000` | Watch refresh interval from `1000` to `30000` milliseconds. |
+
+Command flags take precedence over saved configuration. Application preferences are stored in `$XDG_CONFIG_HOME/spoti/config.json`, or `~/.config/spoti/config.json` when `XDG_CONFIG_HOME` is not set.
+
 ## Credentials
 
 Credentials are stored locally in:
@@ -115,7 +174,7 @@ or, when `XDG_CONFIG_HOME` is not set:
 ~/.config/spoti/credentials.json
 ```
 
-The credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically. Keep `SPOTIFY_CLIENT_ID` available in the environment because Spotify requires it during token refresh. Never provide or store a Spotify client secret in `spoti`.
+The credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically. Version `0.2.0` adds the `user-read-currently-playing` scope for queue access; credentials created by `0.1.0` require one new `spoti login` authorization. Keep `SPOTIFY_CLIENT_ID` available in the environment because Spotify requires it during token refresh. Never provide or store a Spotify client secret in `spoti`.
 
 ## Spotify API policy
 
@@ -147,4 +206,4 @@ The release workflow attaches the npm package tarball and a `SHA256SUMS` file, a
 
 ## Current scope
 
-Version `0.1.0` supports authentication, current playback, track search, direct track playback, pause/resume, and next/previous controls. Queue, volume, seek, shuffle, repeat, device switching, library features, JSON output, and a TUI are planned for later releases.
+Version `0.2.0` supports authentication, track search and playback, current playback and watch mode, pause/resume, next/previous, persistent configuration, volume and seek controls, queue management, device listing and selection, and automatic single-device fallback. Shuffle, repeat, album/artist/playlist context playback, library features, JSON output, update notifications, and a TUI are planned for later releases.

@@ -15,6 +15,7 @@ import {
   type TokenSet,
 } from '../src/auth/spotify-auth-client.js';
 import { AuthService } from '../src/services/auth.service.js';
+import { SPOTIFY_SCOPES } from '../src/spotify/scopes.js';
 
 import {
   FileCredentialStore,
@@ -68,14 +69,22 @@ describe('Spotify authentication API', () => {
         ),
       )
       .mockResolvedValueOnce(
-        Response.json({ access_token: 'access', expires_in: 3600 }),
+        Response.json({
+          access_token: 'access',
+          expires_in: 3600,
+          scope: 'user-read-playback-state user-read-currently-playing',
+        }),
       );
     const sleeper = vi.fn().mockResolvedValue(undefined);
     const client = new SpotifyAuthClient(fetcher, sleeper);
 
     await expect(
       client.refreshAccessToken({ clientId: 'client', refreshToken: 'refresh' }),
-    ).resolves.toEqual({ accessToken: 'access', expiresIn: 3600 });
+    ).resolves.toEqual({
+          accessToken: 'access',
+          expiresIn: 3600,
+          scopes: ['user-read-playback-state', 'user-read-currently-playing'],
+        });
     expect(sleeper).toHaveBeenCalledWith(1_000);
   });
 });
@@ -197,11 +206,25 @@ describe('AuthService login', () => {
 });
 
 describe('AuthService refresh', () => {
+  it('requires login again when stored credentials lack a newly required scope', async () => {
+    const store = new MemoryCredentialStore({
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      expiresAt: 999_999,
+    });
+    const service = new AuthService({ credentialStore: store, now: () => 100_000 });
+
+    await expect(service.getAccessToken()).rejects.toThrow(
+      'user-read-currently-playing',
+    );
+  });
+
   it('deduplicates concurrent refresh and preserves an omitted refresh token', async () => {
     const credentials: Credentials = {
       accessToken: 'expired',
       refreshToken: 'keep-me',
       expiresAt: 1,
+      scopes: [...SPOTIFY_SCOPES],
     };
     const store = new MemoryCredentialStore(credentials);
     let releaseRefresh: ((token: TokenSet) => void) | undefined;
@@ -236,6 +259,7 @@ describe('AuthService refresh', () => {
       accessToken: 'fresh',
       refreshToken: 'keep-me',
       expiresAt: 3_700_000,
+      scopes: [...SPOTIFY_SCOPES],
     });
   });
 
@@ -244,6 +268,7 @@ describe('AuthService refresh', () => {
       accessToken: 'expired',
       refreshToken: 'expired-refresh',
       expiresAt: 1,
+      scopes: [...SPOTIFY_SCOPES],
     });
     const api: SpotifyAuthApi = {
       exchangeCode: vi.fn(),

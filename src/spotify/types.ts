@@ -38,6 +38,8 @@ export interface SpotifyPlaybackState {
     id: string | null;
     name: string;
     is_active: boolean;
+    volume_percent: number | null;
+    supports_volume: boolean;
   };
 }
 

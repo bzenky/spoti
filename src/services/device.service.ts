@@ -1,0 +1,103 @@
+import type { SpotifyApi } from '../spotify/client.js';
+import { AppError, NoActiveDeviceError } from '../utils/errors.js';
+
+export interface Device {
+  id: string | null;
+  isActive: boolean;
+  isPrivateSession: boolean;
+  isRestricted: boolean;
+  name: string;
+  type: string;
+  volumePercent: number | null;
+  supportsVolume: boolean;
+}
+
+interface DeviceObject {
+  id: string | null;
+  is_active: boolean;
+  is_private_session: boolean;
+  is_restricted: boolean;
+  name: string;
+  type: string;
+  volume_percent: number | null;
+  supports_volume: boolean;
+}
+
+interface DevicesResponse {
+  devices: DeviceObject[];
+}
+
+export class DeviceService {
+  constructor(private readonly spotify: SpotifyApi) {}
+
+  async getDevices(): Promise<Device[]> {
+    const response = await this.spotify.get<DevicesResponse>('/me/player/devices');
+    return response.devices.map(mapDevice);
+  }
+
+  async getActiveDevice(): Promise<Device> {
+    const activeDevice = (await this.getDevices()).find((device) => device.isActive);
+    if (!activeDevice) throw new NoActiveDeviceError();
+    return activeDevice;
+  }
+
+  async getControllableDevices(): Promise<Device[]> {
+    return (await this.getDevices()).filter(
+      (device) => device.id !== null && !device.isRestricted,
+    );
+  }
+
+  async findDevice(nameOrId: string): Promise<Device> {
+    const query = nameOrId.trim();
+    const normalizedQuery = query.toLocaleLowerCase();
+    const devices = await this.getControllableDevices();
+
+    const idMatch = devices.find(
+      (device) => device.id?.toLocaleLowerCase() === normalizedQuery,
+    );
+    if (idMatch) return idMatch;
+
+    const nameMatches = devices.filter(
+      (device) => device.name.toLocaleLowerCase() === normalizedQuery,
+    );
+    if (nameMatches.length === 1) return nameMatches[0]!;
+
+    if (nameMatches.length > 1) {
+      const deviceIds = nameMatches.map((device) => device.id).join(', ');
+      throw new AppError(
+        `Multiple controllable Spotify devices are named "${query}". Use a device ID instead: ${deviceIds}.`,
+      );
+    }
+
+    throw new AppError(
+      `No controllable Spotify device matches "${query}". Check the device name or ID and ensure Spotify is open on that device.`,
+    );
+  }
+
+  async transferPlayback(deviceId: string, play?: boolean): Promise<void> {
+    const normalizedDeviceId = deviceId.trim();
+    if (!normalizedDeviceId) {
+      throw new AppError('A Spotify device ID is required to transfer playback.');
+    }
+
+    await this.spotify.put<void>('/me/player', {
+      body: {
+        device_ids: [normalizedDeviceId],
+        ...(play === undefined ? {} : { play }),
+      },
+    });
+  }
+}
+
+function mapDevice(device: DeviceObject): Device {
+  return {
+    id: device.id,
+    isActive: device.is_active,
+    isPrivateSession: device.is_private_session,
+    isRestricted: device.is_restricted,
+    name: device.name,
+    type: device.type,
+    volumePercent: device.volume_percent,
+    supportsVolume: device.supports_volume,
+  };
+}

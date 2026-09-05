@@ -16,6 +16,7 @@ const tokenResponseSchema = z.object({
   access_token: z.string().min(1),
   refresh_token: z.string().min(1).optional(),
   expires_in: z.number().int().positive(),
+  scope: z.string().optional(),
 });
 
 const userProfileSchema = z.object({
@@ -28,6 +29,7 @@ export interface TokenSet {
   accessToken: string;
   refreshToken?: string;
   expiresIn: number;
+  scopes?: string[];
 }
 
 export interface ExchangeCodeInput {
@@ -132,6 +134,9 @@ export class SpotifyAuthClient implements SpotifyAuthApi {
     };
     if (token.data.refresh_token !== undefined) {
       result.refreshToken = token.data.refresh_token;
+    }
+    if (token.data.scope !== undefined) {
+      result.scopes = token.data.scope.split(' ').filter(Boolean);
     }
     return result;
   }

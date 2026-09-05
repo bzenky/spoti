@@ -1,4 +1,7 @@
-import { SPOTIFY_SCOPES } from '../spotify/scopes.js';
+import {
+  LEGACY_SPOTIFY_SCOPES,
+  SPOTIFY_SCOPES,
+} from '../spotify/scopes.js';
 import type { UserProfile } from './models.js';
 import {
   generateOAuthState,
@@ -88,6 +91,7 @@ export class AuthService {
       accessToken: token.accessToken,
       refreshToken: token.refreshToken,
       expiresAt: this.clock() + token.expiresIn * 1_000,
+      scopes: token.scopes ?? [...SPOTIFY_SCOPES],
     };
     const user = await this.spotifyAuthApi.getCurrentUser(credentials.accessToken);
     await this.credentialStore.write(credentials);
@@ -101,6 +105,15 @@ export class AuthService {
   async getAccessToken(): Promise<string> {
     const credentials = await this.credentialStore.read();
     if (!credentials) throw new AuthenticationRequiredError();
+    const grantedScopes = credentials.scopes ?? [...LEGACY_SPOTIFY_SCOPES];
+    const missingScopes = SPOTIFY_SCOPES.filter(
+      (scope) => !grantedScopes.includes(scope),
+    );
+    if (missingScopes.length > 0) {
+      throw new AuthenticationRequiredError(
+        `spoti needs new Spotify permissions (${missingScopes.join(', ')}).\n\nRun: spoti login`,
+      );
+    }
     if (!isTokenExpired(credentials, this.clock())) return credentials.accessToken;
 
     return this.startTokenRefresh(credentials);
@@ -155,6 +168,8 @@ export class AuthService {
       accessToken: token.accessToken,
       refreshToken: token.refreshToken ?? credentials.refreshToken,
       expiresAt: this.clock() + token.expiresIn * 1_000,
+      scopes:
+        token.scopes ?? credentials.scopes ?? [...LEGACY_SPOTIFY_SCOPES],
     };
     await this.credentialStore.write(updatedCredentials);
     return updatedCredentials.accessToken;

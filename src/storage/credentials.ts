@@ -11,6 +11,7 @@ const credentialsSchema = z.strictObject({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1),
   expiresAt: z.number().int().nonnegative(),
+  scopes: z.array(z.string().min(1)).optional(),
 });
 
 export type Credentials = z.infer<typeof credentialsSchema>;

@@ -2,18 +2,25 @@
 
 import { createProgram } from './app.js';
 import { AuthService } from './services/auth.service.js';
+import { DeviceService } from './services/device.service.js';
 import { PlayerService } from './services/player.service.js';
+import { QueueService } from './services/queue.service.js';
 import { SearchService } from './services/search.service.js';
+import { FileConfigStore } from './storage/config.js';
 import { SpotifyClient } from './spotify/client.js';
 import { consoleOutput } from './ui/output.js';
 import { AppError, toError } from './utils/errors.js';
 
 const auth = new AuthService();
 const spotify = new SpotifyClient(auth);
+const device = new DeviceService(spotify);
 const program = createProgram({
   auth,
-  player: new PlayerService(spotify),
+  device,
+  player: new PlayerService(spotify, device),
+  queue: new QueueService(spotify),
   search: new SearchService(spotify),
+  config: new FileConfigStore(),
   output: consoleOutput,
 });
 

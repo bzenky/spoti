@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PlayerService } from '../src/services/player.service.js';
 import { SearchService } from '../src/services/search.service.js';
 import type { SpotifyApi } from '../src/spotify/client.js';
+import { NoActiveDeviceError } from '../src/utils/errors.js';
 import { createProgressBar, formatDuration } from '../src/utils/time.js';
 
 function createApi(): SpotifyApi {
@@ -48,6 +49,106 @@ describe('PlayerService', () => {
       progressMs: 10_000,
       track: { name: 'Numb', artists: ['Linkin Park'], album: 'Meteora' },
     });
+  });
+
+  it('automatically retries playback on the only controllable device', async () => {
+    const api = createApi();
+    vi.mocked(api.put)
+      .mockRejectedValueOnce(new NoActiveDeviceError())
+      .mockResolvedValueOnce(undefined);
+    const service = new PlayerService(api, {
+      getControllableDevices: async () => [
+        {
+          id: 'device-id',
+          name: 'Laptop',
+          type: 'Computer',
+          isActive: false,
+          isPrivateSession: false,
+          isRestricted: false,
+          volumePercent: 50,
+          supportsVolume: true,
+        },
+      ],
+    });
+
+    await service.playTrack(track.uri);
+
+    expect(api.put).toHaveBeenNthCalledWith(2, '/me/player/play', {
+      body: { uris: [track.uri] },
+      query: { device_id: 'device-id' },
+    });
+  });
+
+  it('seeks absolutely and relative to current progress', async () => {
+    const api = createApi();
+    const service = new PlayerService(api);
+    await expect(service.seek(90_000)).resolves.toBe(90_000);
+    expect(api.put).toHaveBeenCalledWith('/me/player/seek', {
+      query: { position_ms: 90_000 },
+    });
+
+    vi.mocked(api.get).mockResolvedValue({
+      is_playing: true,
+      progress_ms: 30_000,
+      item: track,
+      device: {
+        id: 'device',
+        name: 'Laptop',
+        is_active: true,
+        volume_percent: 50,
+        supports_volume: true,
+      },
+    });
+    await expect(service.changePosition(-40_000)).resolves.toBe(0);
+  });
+
+  it('sets an absolute volume through the documented query parameter', async () => {
+    const api = createApi();
+    await expect(new PlayerService(api).setVolume(50)).resolves.toBe(50);
+    expect(api.put).toHaveBeenCalledWith('/me/player/volume', {
+      query: { volume_percent: 50 },
+    });
+  });
+
+  it('adjusts and clamps the active device volume', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      is_playing: true,
+      progress_ms: 10_000,
+      item: track,
+      device: {
+        id: 'device',
+        name: 'Laptop',
+        is_active: true,
+        volume_percent: 95,
+        supports_volume: true,
+      },
+    });
+
+    await expect(new PlayerService(api).changeVolume(10)).resolves.toBe(100);
+    expect(api.put).toHaveBeenCalledWith('/me/player/volume', {
+      query: { volume_percent: 100 },
+    });
+  });
+
+  it('rejects relative volume changes on unsupported devices', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      is_playing: true,
+      progress_ms: 10_000,
+      item: track,
+      device: {
+        id: 'device',
+        name: 'Speaker',
+        is_active: true,
+        volume_percent: null,
+        supports_volume: false,
+      },
+    });
+
+    await expect(new PlayerService(api).changeVolume(-10)).rejects.toThrow(
+      'does not support volume control',
+    );
   });
 
   it('sends the selected track URI to Spotify', async () => {

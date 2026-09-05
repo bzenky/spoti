@@ -442,19 +442,13 @@ Switch device:
 spoti device "MacBook Pro"
 ```
 
-## Shuffle
+## Configuration and Watch Mode
 
 ```bash
-spoti shuffle on
-spoti shuffle off
-```
-
-## Repeat
-
-```bash
-spoti repeat off
-spoti repeat track
-spoti repeat context
+spoti config
+spoti config set watchAfterPlay true
+spoti now --watch
+spoti play "Numb" --watch
 ```
 
 ---
@@ -483,6 +477,18 @@ spoti play artist "Linkin Park"
 spoti playlists
 spoti playlist "Workout"
 spoti play playlist "Workout"
+```
+
+## Shuffle and Repeat
+
+These controls become useful once `spoti` can start album, artist, and playlist contexts.
+
+```bash
+spoti shuffle on
+spoti shuffle off
+spoti repeat off
+spoti repeat track
+spoti repeat context
 ```
 
 ## Library
@@ -977,13 +983,16 @@ At this point the MVP is complete.
 
 ## Phase 6 — Player Controls
 
-- [ ] Volume
-- [ ] Seek
-- [ ] Shuffle
-- [ ] Repeat
-- [ ] Device listing
-- [ ] Device switching
-- [ ] Queue management
+- [x] Configuration
+- [x] Watch mode
+- [x] Volume
+- [x] Seek
+- [x] Device listing
+- [x] Device switching
+- [x] Automatic single-device fallback
+- [x] Queue management
+- [ ] Shuffle — deferred until context playback
+- [ ] Repeat — deferred until context playback
 
 ---
 

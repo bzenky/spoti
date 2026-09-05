@@ -5,6 +5,7 @@ import type { PlayerService } from './services/player.service.js';
 import type { SearchService } from './services/search.service.js';
 import { formatPlayback, formatTrack, type Output } from './ui/output.js';
 import { selectTrack } from './ui/prompts.js';
+import { VERSION } from './version.js';
 
 export interface AppDependencies {
   auth: AuthService;
@@ -21,7 +22,7 @@ export function createProgram(dependencies: AppDependencies): Command {
   program
     .name('spoti')
     .description('Control Spotify from your terminal')
-    .version('0.1.0');
+    .version(VERSION);
 
   program
     .command('login')

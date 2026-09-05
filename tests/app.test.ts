@@ -5,6 +5,7 @@ import type { AuthService } from '../src/services/auth.service.js';
 import type { PlayerService } from '../src/services/player.service.js';
 import type { SearchService } from '../src/services/search.service.js';
 import type { Track } from '../src/services/models.js';
+import { VERSION } from '../src/version.js';
 
 const track: Track = {
   id: '1',
@@ -45,6 +46,10 @@ async function run(args: string[], deps: ReturnType<typeof dependencies>): Promi
 }
 
 describe('CLI application', () => {
+  it('uses the package version', () => {
+    expect(createProgram(dependencies()).version()).toBe(VERSION);
+  });
+
   it('plays the interactively selected result', async () => {
     const deps = dependencies();
     vi.mocked(deps.search.searchTracks).mockResolvedValue([track]);

@@ -40,7 +40,7 @@ The redirect URI must use HTTPS except for local development, where an explicit 
 Once published to npm:
 
 ```bash
-npm install --global spoti
+npm install --global @bzenky/spoti
 spoti --help
 ```
 

@@ -132,6 +132,19 @@ npm test
 npm run build
 ```
 
+## Releases
+
+GitHub Releases are created automatically when a version tag is pushed. The tag must match the version in `package.json`:
+
+```bash
+npm version patch
+npm run verify
+git push origin main
+git push origin v0.1.1
+```
+
+The release workflow attaches the npm package tarball and a `SHA256SUMS` file, and generates release notes from the Git history. Publishing to npm remains a separate explicit step.
+
 ## Current scope
 
 Version `0.1.0` supports authentication, current playback, track search, direct track playback, pause/resume, and next/previous controls. Queue, volume, seek, shuffle, repeat, device switching, library features, JSON output, and a TUI are planned for later releases.

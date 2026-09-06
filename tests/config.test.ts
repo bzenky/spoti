@@ -100,6 +100,23 @@ describe('FileConfigStore', () => {
     });
   });
 
+  it('resets one key to its default while preserving other values', async () => {
+    const store = new FileConfigStore({ directory: await createTemporaryDirectory() });
+    await store.write({
+      spotifyClientId: 'client123',
+      watchAfterPlay: true,
+      refreshIntervalMs: 8_000,
+    });
+
+    await store.resetKey('spotifyClientId');
+
+    expect(await store.read()).toEqual({
+      spotifyClientId: null,
+      watchAfterPlay: true,
+      refreshIntervalMs: 8_000,
+    });
+  });
+
   it('resets to defaults and is idempotent', async () => {
     const store = new FileConfigStore({ directory: await createTemporaryDirectory() });
     await store.write({

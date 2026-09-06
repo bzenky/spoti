@@ -545,13 +545,14 @@ Focus on CLI experience.
 
 ## Fuzzy Search
 
-Running:
+Running `spoti` with no arguments shows the full command overview. Interactive search is explicit:
 
 ```bash
-spoti
+spoti interactive
+spoti i
 ```
 
-could open:
+This opens:
 
 ```text
 Search Spotify
@@ -571,10 +572,30 @@ Keyboard controls:
 
 ```text
 ↑ / ↓   select
-Enter   play
+Enter   search or play
 Tab     change result category
 Esc     close
 ```
+
+
+## Shell Completions
+
+```bash
+spoti completion bash
+spoti completion zsh
+spoti completion fish
+```
+
+Completion scripts are static and never invoke Spotify or contact the network.
+
+## CLI Polish
+
+- TTY-only loading indicators for network operations
+- No-argument command overview instead of forcing an interactive mode
+- Short command aliases such as `i`, `p`, `pa`, `np`, `q`, `s`, `dev`, `pls`, and `rec`
+- `spoti config path`
+- `spoti config unset <key>`
+- GitHub Actions upgraded to Node 24-based action runtimes
 
 ---
 
@@ -898,33 +919,6 @@ spoti open
 
 Open the current track in the Spotify application.
 
-### JSON Output
-
-Useful for scripting:
-
-```bash
-spoti now --json
-```
-
-Example:
-
-```json
-{
-  "track": "Numb",
-  "artist": "Linkin Park",
-  "album": "Meteora",
-  "progress": 134000,
-  "duration": 187000
-}
-```
-
-This could make the CLI useful in:
-
-- shell scripts
-- status bars
-- Waybar
-- tmux
-- desktop widgets
 
 ---
 
@@ -1047,13 +1041,14 @@ At this point the MVP is complete.
 
 - [x] Cached, non-blocking npm update notifications
 - [x] Explicit `spoti update --check` and confirmed `spoti update`
-- [ ] Fuzzy search
-- [ ] aliases
+- [x] Interactive multi-category search
+- [x] aliases
 - [ ] better terminal formatting
-- [ ] loading indicators
-- [ ] JSON output
-- [ ] shell completions
-- [ ] config system
+- [x] TTY-only loading indicators
+- [ ] JSON output — deferred until a concrete scripting use case exists
+- [x] shell completions
+- [x] config path and per-key reset
+- [x] Node 24-based GitHub Actions
 
 ---
 

@@ -48,6 +48,12 @@ import {
   selectPlaylistAction,
   selectTrack,
 } from './ui/prompts.js';
+import { generateCompletionScript, type CompletionShell } from './ui/completions.js';
+import { withProgress, type ProgressRunner } from './ui/progress.js';
+import {
+  runInteractiveSearch,
+  type InteractiveSearchResult,
+} from './ui/interactive-search.js';
 import { watchPlayback, type PlaybackWatcher } from './ui/watch.js';
 import { ConfigurationError } from './utils/errors.js';
 import { formatDuration } from './utils/time.js';
@@ -75,6 +81,8 @@ export interface AppDependencies {
   choosePlaylistAction?: typeof selectPlaylistAction;
   requestSpotifyClientId?: typeof promptSpotifyClientId;
   confirmUpdate?: typeof confirmUpdate;
+  interactiveSearch?: () => Promise<InteractiveSearchResult>;
+  progress?: ProgressRunner;
   watchPlayback?: PlaybackWatcher;
 }
 
@@ -89,10 +97,22 @@ export function createProgram(dependencies: AppDependencies): Command {
   const choosePlaylistAction = dependencies.choosePlaylistAction ?? selectPlaylistAction;
   const requestClientId = dependencies.requestSpotifyClientId ?? promptSpotifyClientId;
   const requestUpdateConfirmation = dependencies.confirmUpdate ?? confirmUpdate;
+  const startInteractiveSearch =
+    dependencies.interactiveSearch ??
+    (() =>
+      runInteractiveSearch({
+        search: dependencies.search,
+        player: dependencies.player,
+      }));
+  const showProgress = dependencies.progress ?? withProgress;
+  const runTask = <Result>(label: string, task: () => Promise<Result>): Promise<Result> =>
+    showProgress(label, task);
   const startWatching = dependencies.watchPlayback ?? watchPlayback;
 
   const runAlbumAction = async (album: Album): Promise<void> => {
-    const detail = await dependencies.catalog.getAlbum(album.id);
+    const detail = await runTask('Loading album…', () =>
+      dependencies.catalog.getAlbum(album.id),
+    );
     dependencies.output.log(formatAlbumDetail(detail));
     const action = await chooseAlbumAction();
     if (action === 'play-album') {
@@ -111,7 +131,17 @@ export function createProgram(dependencies: AppDependencies): Command {
   program
     .name('spoti')
     .description('Control Spotify from your terminal')
-    .version(VERSION);
+    .version(VERSION)
+    .action(() => program.outputHelp());
+
+  const interactiveCommand = program
+    .command('interactive')
+    .alias('i')
+    .description('Open the keyboard-driven Spotify search')
+    .action(async () => {
+      const result = await startInteractiveSearch();
+      if (result.status === 'not-interactive') interactiveCommand.outputHelp();
+    });
 
   program
     .command('setup')
@@ -162,7 +192,8 @@ export function createProgram(dependencies: AppDependencies): Command {
     .command('config')
     .description('View and update spoti configuration')
     .action(async () => {
-      dependencies.output.log(formatConfig(await dependencies.config.read()));
+      const config = await dependencies.config.read();
+      dependencies.output.log(formatConfig(config));
     });
 
   configCommand
@@ -188,6 +219,26 @@ export function createProgram(dependencies: AppDependencies): Command {
     });
 
   configCommand
+    .command('unset')
+    .description('Reset one configuration value to its default')
+    .argument('<key>', 'configuration key')
+    .action(async (keyName: string) => {
+      const key = parseConfigKey(keyName);
+      await dependencies.config.resetKey(key);
+      dependencies.output.log(`✓ ${key} reset`);
+    });
+
+  configCommand
+    .command('path')
+    .description('Print the configuration file path')
+    .action(() => {
+      if (!dependencies.config.path) {
+        throw new ConfigurationError('The active configuration store has no file path.');
+      }
+      dependencies.output.log(dependencies.config.path);
+    });
+
+  configCommand
     .command('reset')
     .description('Reset configuration to defaults')
     .action(async () => {
@@ -197,6 +248,7 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('now')
+    .alias('np')
     .description('Show the current Spotify playback')
     .option('-w, --watch', 'continuously refresh playback information')
     .action(async (options: { watch?: boolean }) => {
@@ -216,6 +268,7 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('pause')
+    .alias('pa')
     .description('Pause playback')
     .action(async () => {
       await dependencies.player.pause();
@@ -224,6 +277,7 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('resume')
+    .alias('r')
     .description('Resume playback')
     .action(async () => {
       await dependencies.player.resume();
@@ -250,33 +304,33 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('devices')
+    .alias('devs')
     .description('List available Spotify Connect devices')
     .action(async () => {
-      const devices = await dependencies.device.getDevices();
-      if (devices.length === 0) {
-        dependencies.output.log(
-          'No Spotify devices are available. Open Spotify on a device and try again.',
-        );
-        return;
-      }
-      dependencies.output.log(
-        devices
-          .map((device, index) => {
-            const state = device.isActive
-              ? 'active'
-              : device.isRestricted
-                ? 'restricted'
-                : 'available';
-            const volume =
-              device.volumePercent === null ? '' : ` · ${device.volumePercent}%`;
-            return `${index + 1}. ${device.name} · ${device.type} · ${state}${volume}`;
-          })
-          .join('\n'),
+      const devices = await runTask('Loading devices…', () =>
+        dependencies.device.getDevices(),
       );
+      const formatted =
+        devices.length === 0
+          ? 'No Spotify devices are available. Open Spotify on a device and try again.'
+          : devices
+              .map((device, index) => {
+                const state = device.isActive
+                  ? 'active'
+                  : device.isRestricted
+                    ? 'restricted'
+                    : 'available';
+                const volume =
+                  device.volumePercent === null ? '' : ` · ${device.volumePercent}%`;
+                return `${index + 1}. ${device.name} · ${device.type} · ${state}${volume}`;
+              })
+              .join('\n');
+      dependencies.output.log(formatted);
     });
 
   program
     .command('device')
+    .alias('dev')
     .description('Transfer playback to a Spotify Connect device')
     .argument('<number-name-or-id...>', 'displayed number, exact device name, or ID')
     .action(async (nameOrIdParts: string[]) => {
@@ -301,6 +355,7 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('volume')
+    .alias('vol')
     .description('Set or adjust the active device volume')
     .argument('<value>', 'volume from 0-100, or a relative change such as +10 or -10')
     .allowUnknownOption()
@@ -314,13 +369,16 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('queue')
+    .alias('q')
     .description('Show the playback queue or add a searched track')
     .argument('[query...]', 'track name to add')
     .option('--first', 'queue the first search result without prompting')
     .action(async (queryParts: string[], options: { first?: boolean }) => {
       const query = queryParts.join(' ').trim();
       if (!query) {
-        const playbackQueue = await dependencies.queue.getQueue();
+        const playbackQueue = await runTask('Loading queue…', () =>
+          dependencies.queue.getQueue(),
+        );
         const lines = playbackQueue.currentlyPlaying
           ? [
               `Now: ${formatQueueItem(playbackQueue.currentlyPlaying)}`,
@@ -368,6 +426,7 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('repeat')
+    .alias('rep')
     .description('Set the playback repeat mode')
     .argument('<mode>', 'off, track, or context')
     .action(async (mode: string) => {
@@ -385,7 +444,9 @@ export function createProgram(dependencies: AppDependencies): Command {
     .option('--first', 'select the first result without prompting')
     .action(async (queryParts: string[], options: { first?: boolean }) => {
       const query = queryParts.join(' ').trim();
-      const albums = await dependencies.search.searchAlbums(query);
+      const albums = await runTask('Searching albums…', () =>
+        dependencies.search.searchAlbums(query),
+      );
       if (albums.length === 0) {
         dependencies.output.log(`No albums found for "${query}".`);
         return;
@@ -405,7 +466,9 @@ export function createProgram(dependencies: AppDependencies): Command {
     .option('--first', 'select the first result without prompting')
     .action(async (queryParts: string[], options: { first?: boolean }) => {
       const query = queryParts.join(' ').trim();
-      const artists = await dependencies.search.searchArtists(query);
+      const artists = await runTask('Searching artists…', () =>
+        dependencies.search.searchArtists(query),
+      );
       if (artists.length === 0) {
         dependencies.output.log(`No artists found for "${query}".`);
         return;
@@ -415,7 +478,9 @@ export function createProgram(dependencies: AppDependencies): Command {
         dependencies.output.log('Selection cancelled.');
         return;
       }
-      const detail = await dependencies.catalog.getArtist(artist.id);
+      const detail = await runTask('Loading artist…', () =>
+        dependencies.catalog.getArtist(artist.id),
+      );
       dependencies.output.log(formatArtistDetail(detail));
       const action = await chooseArtistAction();
       if (action === 'play-artist') {
@@ -424,7 +489,9 @@ export function createProgram(dependencies: AppDependencies): Command {
         return;
       }
       if (action === 'select-album') {
-        const albums = await dependencies.catalog.getArtistAlbums(detail.id);
+        const albums = await runTask('Loading artist albums…', () =>
+          dependencies.catalog.getArtistAlbums(detail.id),
+        );
         if (albums.length === 0) {
           dependencies.output.log(`No albums found for ${detail.name}.`);
           return;
@@ -436,10 +503,13 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('playlists')
+    .alias('pls')
     .description('List your Spotify playlists')
     .option('-l, --limit <number>', 'maximum number of playlists', parseCollectionLimit, 50)
     .action(async (options: { limit: number }) => {
-      const playlists = await dependencies.playlist.listPlaylists(options.limit);
+      const playlists = await runTask('Loading playlists…', () =>
+        dependencies.playlist.listPlaylists(options.limit),
+      );
       dependencies.output.log(
         playlists.length === 0
           ? 'No playlists found.'
@@ -449,12 +519,15 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('playlist')
+    .alias('pl')
     .description('Show one of your Spotify playlists')
     .argument('<query...>', 'playlist name')
     .option('--first', 'select the first match without prompting')
     .action(async (queryParts: string[], options: { first?: boolean }) => {
       const query = queryParts.join(' ').trim();
-      const allPlaylists = await dependencies.playlist.listPlaylists(50);
+      const allPlaylists = await runTask('Loading playlists…', () =>
+        dependencies.playlist.listPlaylists(50),
+      );
       let playlist: Playlist | null | undefined;
       if (/^\d+$/.test(query)) {
         playlist = findNumberedPlaylist(allPlaylists, query);
@@ -484,7 +557,9 @@ export function createProgram(dependencies: AppDependencies): Command {
     .description('List your liked tracks')
     .option('-l, --limit <number>', 'maximum number of tracks', parseCollectionLimit, 20)
     .action(async (options: { limit: number }) => {
-      const tracks = await dependencies.library.getLikedTracks(options.limit);
+      const tracks = await runTask('Loading liked tracks…', () =>
+        dependencies.library.getLikedTracks(options.limit),
+      );
       dependencies.output.log(
         tracks.length === 0
           ? 'No liked tracks found.'
@@ -518,10 +593,13 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('recent')
+    .alias('rec')
     .description('Show recently played tracks')
     .option('-l, --limit <number>', 'maximum number of tracks', parseCollectionLimit, 20)
     .action(async (options: { limit: number }) => {
-      const tracks = await dependencies.recent.getRecentlyPlayed(options.limit);
+      const tracks = await runTask('Loading recent tracks…', () =>
+        dependencies.recent.getRecentlyPlayed(options.limit),
+      );
       dependencies.output.log(
         tracks.length === 0
           ? 'No recently played tracks found.'
@@ -561,22 +639,36 @@ export function createProgram(dependencies: AppDependencies): Command {
     });
 
   program
+    .command('completion')
+    .description('Generate a shell completion script')
+    .argument('<shell>', 'bash, zsh, or fish')
+    .action((shellName: string) => {
+      dependencies.output.log(generateCompletionScript(parseCompletionShell(shellName)));
+    });
+
+  program
     .command('search')
+    .alias('s')
     .description('Search Spotify tracks')
     .argument('<query...>', 'track name to search for')
     .option('-l, --limit <number>', 'maximum number of results', parseLimit, 10)
     .action(async (queryParts: string[], options: { limit: number }) => {
       const query = queryParts.join(' ');
-      const tracks = await dependencies.search.searchTracks(query, options.limit);
+      const tracks = await runTask('Searching tracks…', () =>
+        dependencies.search.searchTracks(query, options.limit),
+      );
       if (tracks.length === 0) {
         dependencies.output.log(`No tracks found for "${query}".`);
         return;
       }
-      dependencies.output.log(tracks.map((track, index) => formatTrack(track, index)).join('\n'));
+      dependencies.output.log(
+        tracks.map((track, index) => formatTrack(track, index)).join('\n'),
+      );
     });
 
   program
     .command('play')
+    .alias('p')
     .description('Play a track or an explicit album, artist, or playlist context')
     .argument('[query...]', 'track query, or: track|album|artist|playlist <query>')
     .option('--first', 'play the first search result without prompting')
@@ -655,15 +747,21 @@ async function selectPlaybackItem(
 
   if (options.type === 'track') {
     const items = await dependencies.search.searchTracks(query);
-    if (items.length === 0) return reportNoResults(dependencies.output, 'tracks', query);
+    if (items.length === 0) {
+      return reportNoResults(dependencies.output, 'tracks', query);
+    }
     selected = first ? items[0] : await options.chooseTrack(items);
   } else if (options.type === 'album') {
     const items = await dependencies.search.searchAlbums(query);
-    if (items.length === 0) return reportNoResults(dependencies.output, 'albums', query);
+    if (items.length === 0) {
+      return reportNoResults(dependencies.output, 'albums', query);
+    }
     selected = first ? items[0] : await options.chooseAlbum(items);
   } else if (options.type === 'artist') {
     const items = await dependencies.search.searchArtists(query);
-    if (items.length === 0) return reportNoResults(dependencies.output, 'artists', query);
+    if (items.length === 0) {
+      return reportNoResults(dependencies.output, 'artists', query);
+    }
     selected = first ? items[0] : await options.chooseArtist(items);
   } else {
     if (/^\d+$/.test(query)) {
@@ -673,7 +771,9 @@ async function selectPlaybackItem(
       );
     } else {
       const items = await dependencies.search.searchPlaylists(query);
-      if (items.length === 0) return reportNoResults(dependencies.output, 'playlists', query);
+      if (items.length === 0) {
+        return reportNoResults(dependencies.output, 'playlists', query);
+      }
       selected = first ? items[0] : await options.choosePlaylist(items);
     }
   }
@@ -789,6 +889,12 @@ function parseConfigKey(value: string): ConfigKey {
 
 function formatConfig(config: Awaited<ReturnType<ConfigStore['read']>>): string {
   return CONFIG_KEYS.map((key) => `${key}: ${String(config[key])}`).join('\n');
+}
+
+
+function parseCompletionShell(value: string): CompletionShell {
+  if (value === 'bash' || value === 'zsh' || value === 'fish') return value;
+  throw new ConfigurationError('Completion shell must be "bash", "zsh", or "fish".');
 }
 
 function parseLimit(value: string): number {

@@ -32,9 +32,11 @@ export type ConfigKey = (typeof CONFIG_KEYS)[number];
 export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze(configSchema.parse({}));
 
 export interface ConfigStore {
+  readonly path?: string;
   read(): Promise<AppConfig>;
   write(config: AppConfig): Promise<void>;
   set<Key extends ConfigKey>(key: Key, value: AppConfig[Key]): Promise<void>;
+  resetKey<Key extends ConfigKey>(key: Key): Promise<void>;
   reset(): Promise<void>;
 }
 
@@ -112,6 +114,10 @@ export class FileConfigStore implements ConfigStore {
   async set<Key extends ConfigKey>(key: Key, value: AppConfig[Key]): Promise<void> {
     const current = await this.read();
     await this.write({ ...current, [key]: value });
+  }
+
+  async resetKey<Key extends ConfigKey>(key: Key): Promise<void> {
+    await this.set(key, DEFAULT_CONFIG[key]);
   }
 
   async reset(): Promise<void> {

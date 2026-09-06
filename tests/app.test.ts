@@ -13,6 +13,7 @@ import type { RecentService } from '../src/services/recent.service.js';
 import type { SearchService } from '../src/services/search.service.js';
 import type { UpdateService } from '../src/services/update.service.js';
 import { DEFAULT_CONFIG, type ConfigStore } from '../src/storage/config.js';
+import type { ProgressRunner } from '../src/ui/progress.js';
 import type { PlaybackWatcher } from '../src/ui/watch.js';
 import { VERSION } from '../src/version.js';
 
@@ -112,7 +113,9 @@ function dependencies() {
     config: {
       read: vi.fn().mockResolvedValue({ ...DEFAULT_CONFIG }),
       write: vi.fn(),
+      path: '/tmp/spoti/config.json',
       set: vi.fn(),
+      resetKey: vi.fn(),
       reset: vi.fn(),
     } as unknown as ConfigStore,
     output: { log: (message: string) => messages.push(message), error: vi.fn() },
@@ -125,6 +128,8 @@ function dependencies() {
     choosePlaylistAction: vi.fn(),
     requestSpotifyClientId: vi.fn(),
     confirmUpdate: vi.fn(),
+    interactiveSearch: vi.fn().mockResolvedValue({ status: 'cancelled' }),
+    progress: vi.fn(async (_label: string, task: () => Promise<unknown>) => task()) as ProgressRunner,
     watchPlayback: vi.fn() as PlaybackWatcher,
   };
 }
@@ -136,6 +141,16 @@ async function run(args: string[], deps: ReturnType<typeof dependencies>): Promi
 describe('CLI application', () => {
   it('uses the package version', () => {
     expect(createProgram(dependencies()).version()).toBe(VERSION);
+  });
+
+  it('shows command help with no command and opens search explicitly', async () => {
+    const deps = dependencies();
+
+    await run([], deps);
+    expect(deps.interactiveSearch).not.toHaveBeenCalled();
+
+    await run(['interactive'], deps);
+    expect(deps.interactiveSearch).toHaveBeenCalledOnce();
   });
 
   it('saves a provided or interactively entered Spotify client ID', async () => {
@@ -158,6 +173,12 @@ describe('CLI application', () => {
 
     await run(['config', 'set', 'watchAfterPlay', 'true'], deps);
     expect(deps.config.set).toHaveBeenCalledWith('watchAfterPlay', true);
+
+    await run(['config', 'unset', 'spotifyClientId'], deps);
+    expect(deps.config.resetKey).toHaveBeenCalledWith('spotifyClientId');
+
+    await run(['config', 'path'], deps);
+    expect(deps.messages).toContain('/tmp/spoti/config.json');
   });
 
   it('watches after play when enabled in configuration', async () => {
@@ -190,6 +211,7 @@ describe('CLI application', () => {
 
     expect(deps.watchPlayback).not.toHaveBeenCalled();
   });
+
 
   it('uses the configured interval for now --watch', async () => {
     const deps = dependencies();
@@ -294,6 +316,28 @@ describe('CLI application', () => {
     const deps = dependencies();
     await run(['play'], deps);
     expect(deps.player.resume).toHaveBeenCalledOnce();
+  });
+
+  it('supports command aliases', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue(null);
+
+    await run(['np'], deps);
+    await run(['pa'], deps);
+    await run(['r'], deps);
+
+    expect(deps.player.getCurrentPlayback).toHaveBeenCalledOnce();
+    expect(deps.player.pause).toHaveBeenCalledOnce();
+    expect(deps.player.resume).toHaveBeenCalledOnce();
+  });
+
+
+  it('generates shell completions', async () => {
+    const deps = dependencies();
+
+    await run(['completion', 'bash'], deps);
+
+    expect(deps.messages[0]).toContain('complete -F _spoti_completion spoti');
   });
 
   it('rejects malformed search limits', async () => {

@@ -52,7 +52,9 @@ if (!isUpdateCommand && shouldRefreshUpdateCache(cachedUpdate, VERSION)) {
 
 try {
   await program.parseAsync(process.argv);
-  if (updateMessage && process.stderr.isTTY) consoleOutput.error(updateMessage);
+  if (updateMessage && process.stderr.isTTY) {
+    consoleOutput.error(updateMessage);
+  }
 } catch (error) {
   const normalizedError = toError(error);
   consoleOutput.error(normalizedError.message);

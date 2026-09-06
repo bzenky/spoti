@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-06
+
+### Added
+
+- Keyboard-driven multi-category search through `spoti interactive` and its `spoti i` alias.
+- Short aliases for common playback, search, queue, device, playlist, and library commands.
+- Static Bash, Zsh, and Fish completion scripts through `spoti completion <shell>`.
+- TTY-only loading indicators for interactive network operations.
+- `spoti config path` for locating the active configuration file.
+- `spoti config unset <key>` for resetting one setting without clearing the full configuration.
+
+### Changed
+
+- Show the complete command overview when `spoti` is run without a command.
+- Upgrade GitHub Actions checkout and Node setup actions to their Node 24-based releases.
+
+### Fixed
+
+- Restore terminal input and screen state after interactive search exits, is cancelled, or encounters an error.
+- Stop interactive search from keeping the Node.js process alive after the terminal UI closes.
+
 ## [0.3.0] - 2026-09-06
 
 ### Added

@@ -81,6 +81,21 @@ npm run dev -- status
 
 ## Usage
 
+Run `spoti` with no command to see the complete command overview:
+
+```bash
+spoti
+```
+
+Open the interactive multi-category search explicitly:
+
+```bash
+spoti interactive
+# alias: spoti i
+```
+
+Type a query and press Enter. Use `Tab` or left/right to switch between tracks, albums, artists, and playlists; use up/down to select; press Enter to play; press Esc to exit. The terminal is restored even when a request fails.
+
 Authenticate once through Spotify's browser authorization page:
 
 ```bash
@@ -199,6 +214,39 @@ When attached to an interactive terminal, `spoti play <query>` asks you to selec
 
 Watch mode continuously refreshes the current track and progress until `Ctrl+C` is pressed. `--watch` enables it for one command, while `--no-watch` overrides a saved preference.
 
+
+### Command aliases
+
+Common aliases include:
+
+```text
+i     interactive  p     play       pa    pause
+r     resume       np    now        q     queue      s     search
+vol   volume     dev   device     devs  devices
+pl    playlist   pls   playlists  rep   repeat
+rec   recent     n     next       prev  previous
+```
+
+### Shell completions
+
+Generate a static completion script without invoking Spotify or making network requests:
+
+```bash
+spoti completion bash
+spoti completion zsh
+spoti completion fish
+```
+
+For the current shell session:
+
+```bash
+source <(spoti completion bash) # Bash
+source <(spoti completion zsh)  # Zsh
+spoti completion fish | source  # Fish
+```
+
+Interactive network operations display a spinner on stderr. Indicators remain disabled outside a TTY.
+
 ## Configuration
 
 View all settings:
@@ -215,6 +263,8 @@ spoti config set spotifyClientId "your-client-id"
 spoti config get watchAfterPlay
 spoti config set watchAfterPlay true
 spoti config set refreshIntervalMs 2000
+spoti config unset spotifyClientId
+spoti config path
 spoti config reset
 ```
 
@@ -274,4 +324,4 @@ The release workflow attaches the npm package tarball and a `SHA256SUMS` file, a
 
 ## Current scope
 
-Version `0.3.0` supports authentication and persistent client-ID setup; track, album, artist, and playlist discovery and playback; guided playback actions; current playback and watch mode; pause/resume and next/previous; volume, seek, shuffle, and repeat; queue and library management; recently played tracks; deterministic numeric device and playlist selection; and cached update notifications with explicit update commands. JSON output and a TUI remain planned for later releases.
+Version `0.3.0` supports authentication and persistent client-ID setup; track, album, artist, and playlist discovery and playback; guided playback actions; current playback and watch mode; player, queue, library, device, and update controls. The current development branch adds explicit interactive search, aliases, loading indicators, shell completions, configuration polish, and Node 24-based GitHub Actions. A full Ink-based TUI remains planned for `v1.0.0`.

@@ -118,7 +118,22 @@ export class SpotifyClient implements SpotifyApi {
     if (response.status === 204) return undefined as T;
 
     const text = await response.text();
-    return (text ? JSON.parse(text) : undefined) as T;
+    if (!text) return undefined as T;
+
+    const contentType = response.headers.get('content-type')?.toLocaleLowerCase() ?? '';
+    if (!contentType.includes('json')) {
+      if (method !== 'GET') return undefined as T;
+      throw new SpotifyApiError(
+        'Spotify returned an unexpected non-JSON response.',
+        response.status,
+      );
+    }
+
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new SpotifyApiError('Spotify returned malformed JSON.', response.status);
+    }
   }
 }
 

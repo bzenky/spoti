@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { SpotifyClient } from '../src/spotify/client.js';
-import { AuthenticationRequiredError, NoActiveDeviceError } from '../src/utils/errors.js';
+import {
+  AuthenticationRequiredError,
+  NoActiveDeviceError,
+  SpotifyApiError,
+} from '../src/utils/errors.js';
 
 describe('SpotifyClient', () => {
   it('adds authorization, query parameters, and supports 204 responses', async () => {
@@ -18,6 +22,50 @@ describe('SpotifyClient', () => {
     const [url, init] = fetcher.mock.calls[0] ?? [];
     expect(String(url)).toContain('/me/player/play?device_id=abc');
     expect(new Headers(init?.headers).get('authorization')).toBe('Bearer token');
+  });
+
+  it('ignores undocumented non-JSON bodies from successful mutation responses', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('OWojkD0UZS', {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+      }),
+    );
+    const client = new SpotifyClient(
+      {
+        getAccessToken: async () => 'token',
+        forceRefreshAccessToken: async () => 'refreshed-token',
+      },
+      fetcher,
+    );
+
+    await expect(client.put('/me/player/pause')).resolves.toBeUndefined();
+  });
+
+  it('reports malformed or non-JSON data responses without exposing their body', async () => {
+    const auth = {
+      getAccessToken: async () => 'token',
+      forceRefreshAccessToken: async () => 'refreshed-token',
+    };
+    const nonJson = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('unexpected', {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+      }),
+    );
+    await expect(new SpotifyClient(auth, nonJson).get('/me')).rejects.toThrow(
+      'unexpected non-JSON response',
+    );
+
+    const malformed = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('{broken', {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    await expect(new SpotifyClient(auth, malformed).get('/me')).rejects.toBeInstanceOf(
+      SpotifyApiError,
+    );
   });
 
   it('maps authentication and device errors', async () => {

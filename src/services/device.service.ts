@@ -32,7 +32,7 @@ export class DeviceService {
 
   async getDevices(): Promise<Device[]> {
     const response = await this.spotify.get<DevicesResponse>('/me/player/devices');
-    return response.devices.map(mapDevice);
+    return response.devices.map(mapDevice).sort(compareDevices);
   }
 
   async getActiveDevice(): Promise<Device> {
@@ -50,8 +50,27 @@ export class DeviceService {
   async findDevice(nameOrId: string): Promise<Device> {
     const query = nameOrId.trim();
     const normalizedQuery = query.toLocaleLowerCase();
-    const devices = await this.getControllableDevices();
+    const availableDevices = await this.getDevices();
 
+    if (/^\d+$/.test(query)) {
+      const index = Number(query) - 1;
+      const selected = Number.isSafeInteger(index) ? availableDevices[index] : undefined;
+      if (!selected) {
+        throw new AppError(
+          `Device number ${query} is out of range. Run: spoti devices`,
+        );
+      }
+      if (!selected.id || selected.isRestricted) {
+        throw new AppError(
+          `Device ${query} ("${selected.name}") cannot be controlled through Spotify Connect.`,
+        );
+      }
+      return selected;
+    }
+
+    const devices = availableDevices.filter(
+      (device) => device.id !== null && !device.isRestricted,
+    );
     const idMatch = devices.find(
       (device) => device.id?.toLocaleLowerCase() === normalizedQuery,
     );
@@ -87,6 +106,14 @@ export class DeviceService {
       },
     });
   }
+}
+
+function compareDevices(left: Device, right: Device): number {
+  const nameComparison = left.name.localeCompare(right.name, undefined, {
+    sensitivity: 'base',
+  });
+  if (nameComparison !== 0) return nameComparison;
+  return (left.id ?? '').localeCompare(right.id ?? '');
 }
 
 function mapDevice(device: DeviceObject): Device {

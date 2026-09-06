@@ -7,14 +7,26 @@ import { z } from 'zod';
 import { ConfigurationError, toError } from '../utils/errors.js';
 import { getConfigDirectory } from './credentials.js';
 
+const spotifyClientIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(256)
+  .regex(/^[A-Za-z0-9]+$/);
+
 const configSchema = z.strictObject({
+  spotifyClientId: spotifyClientIdSchema.nullable().default(null),
   watchAfterPlay: z.boolean().default(false),
   refreshIntervalMs: z.number().int().min(1_000).max(30_000).default(1_000),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
 
-export const CONFIG_KEYS = ['watchAfterPlay', 'refreshIntervalMs'] as const;
+export const CONFIG_KEYS = [
+  'spotifyClientId',
+  'watchAfterPlay',
+  'refreshIntervalMs',
+] as const;
 export type ConfigKey = (typeof CONFIG_KEYS)[number];
 
 export const DEFAULT_CONFIG: Readonly<AppConfig> = Object.freeze(configSchema.parse({}));
@@ -119,6 +131,14 @@ export function parseConfigValue<Key extends ConfigKey>(
   key: Key,
   value: string,
 ): AppConfig[Key] {
+  if (key === 'spotifyClientId') {
+    const clientId = spotifyClientIdSchema.safeParse(value);
+    if (clientId.success) return clientId.data as AppConfig[Key];
+    throw new ConfigurationError(
+      'Invalid Spotify client ID: expected a non-empty alphanumeric value.',
+    );
+  }
+
   if (key === 'watchAfterPlay') {
     if (value === 'true') return true as AppConfig[Key];
     if (value === 'false') return false as AppConfig[Key];

@@ -21,13 +21,27 @@ Create an application in the [Spotify Developer Dashboard](https://developer.spo
 http://127.0.0.1:43821/callback
 ```
 
-Export the application's client ID before running authentication:
+After installing `spoti`, save the application's client ID once:
+
+```bash
+spoti setup
+spoti login
+```
+
+When developing from source, use:
+
+```bash
+npm run dev -- setup
+npm run dev -- login
+```
+
+The setup command stores the public client ID in your local `spoti` configuration. For temporary sessions, CI, or an explicit override, you can still use:
 
 ```bash
 export SPOTIFY_CLIENT_ID="your-client-id"
 ```
 
-To use a different local callback, register it in the same Spotify application and set:
+The environment variable takes precedence over the stored value. To use a different local callback, register it in the same Spotify application and set:
 
 ```bash
 export SPOTIFY_REDIRECT_URI="http://127.0.0.1:5000/callback"
@@ -90,14 +104,22 @@ spoti previous
 spoti volume 50
 spoti volume +10
 spoti volume -10
+spoti shuffle on
+spoti shuffle off
+spoti repeat off
+spoti repeat track
+spoti repeat context
 ```
 
 Manage playback devices:
 
 ```bash
 spoti devices
+spoti device 2
 spoti device "My Computer"
 ```
+
+Use the displayed one-based number, exact device name, or Spotify device ID.
 
 When playback has no active device, `spoti play` and `spoti resume` automatically target it if exactly one controllable device is available.
 
@@ -124,6 +146,49 @@ spoti search "Breaking the Habit"
 spoti search "Breaking the Habit" --limit 5
 ```
 
+Search, inspect, and play Spotify contexts:
+
+```bash
+spoti album "Meteora"
+spoti artist "Linkin Park"
+spoti playlists
+spoti playlist 1
+spoti playlist "Workout"
+spoti play track "Numb"
+spoti play album "Meteora"
+spoti play artist "Linkin Park"
+spoti play playlist "Workout"
+spoti play playlist 1
+```
+
+User playlists are sorted consistently by name, so the displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`.
+
+In an interactive terminal, `spoti album` can play the entire album or a selected track after showing its details. `spoti artist` can play the artist context or let you select one of the artist’s albums, and `spoti playlist` can start the selected playlist. Non-interactive runs remain display-only and never start playback implicitly.
+
+`spoti play <query>` remains shorthand for track playback. The words `track`, `album`, `artist`, and `playlist` are treated as explicit types when followed by another argument. For a track query that starts with one of those reserved words, use `spoti play track <query>` (or quote the complete query as one shell argument). Context commands support `--first` to skip interactive selection.
+
+Manage and inspect your Spotify library:
+
+```bash
+spoti liked
+spoti liked --limit 10
+spoti like
+spoti unlike
+spoti recent
+spoti recent --limit 10
+```
+
+`spoti like` and `spoti unlike` operate on the currently playing track. Episodes, advertisements, local files, and unavailable items are ignored safely.
+
+Check for updates or install the latest npm release:
+
+```bash
+spoti update --check
+spoti update
+```
+
+`spoti update` asks for confirmation before installing the exact version returned by the update check. It never installs an update silently. Normal commands use a cached update result and refresh it in a detached process at most once every 24 hours, so npm availability does not delay or break Spotify controls.
+
 Remove local credentials:
 
 ```bash
@@ -145,6 +210,8 @@ spoti config
 Read, update, or reset settings:
 
 ```bash
+spoti config get spotifyClientId
+spoti config set spotifyClientId "your-client-id"
 spoti config get watchAfterPlay
 spoti config set watchAfterPlay true
 spoti config set refreshIntervalMs 2000
@@ -155,6 +222,7 @@ Available settings:
 
 | Setting | Default | Description |
 | --- | ---: | --- |
+| `spotifyClientId` | `null` | Public Spotify application client ID saved by `spoti setup`. |
 | `watchAfterPlay` | `false` | Keep `spoti play` open in watch mode after playback starts. |
 | `refreshIntervalMs` | `1000` | Watch refresh interval from `1000` to `30000` milliseconds. |
 
@@ -174,7 +242,7 @@ or, when `XDG_CONFIG_HOME` is not set:
 ~/.config/spoti/credentials.json
 ```
 
-The credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically. Version `0.2.0` adds the `user-read-currently-playing` scope for queue access; credentials created by `0.1.0` require one new `spoti login` authorization. Keep `SPOTIFY_CLIENT_ID` available in the environment because Spotify requires it during token refresh. Never provide or store a Spotify client secret in `spoti`.
+The credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically using the environment client ID when present, otherwise the client ID saved by `spoti setup`. Version `0.3.0` adds minimum permissions for private playlist listing, liked-track access, library modification, and recently played tracks. Existing installations will be asked to run `spoti login` once after upgrading. Never provide or store a Spotify client secret in `spoti`.
 
 ## Spotify API policy
 
@@ -206,4 +274,4 @@ The release workflow attaches the npm package tarball and a `SHA256SUMS` file, a
 
 ## Current scope
 
-Version `0.2.0` supports authentication, track search and playback, current playback and watch mode, pause/resume, next/previous, persistent configuration, volume and seek controls, queue management, device listing and selection, and automatic single-device fallback. Shuffle, repeat, album/artist/playlist context playback, library features, JSON output, update notifications, and a TUI are planned for later releases.
+Version `0.3.0` supports authentication and persistent client-ID setup; track, album, artist, and playlist discovery and playback; guided playback actions; current playback and watch mode; pause/resume and next/previous; volume, seek, shuffle, and repeat; queue and library management; recently played tracks; deterministic numeric device and playlist selection; and cached update notifications with explicit update commands. JSON output and a TUI remain planned for later releases.

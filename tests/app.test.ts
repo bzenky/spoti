@@ -2,11 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createProgram } from '../src/app.js';
 import type { AuthService } from '../src/services/auth.service.js';
+import type { CatalogService } from '../src/services/catalog.service.js';
 import type { DeviceService } from '../src/services/device.service.js';
+import type { LibraryService } from '../src/services/library.service.js';
+import type { Album, Artist, Playlist, Track } from '../src/services/models.js';
 import type { PlayerService } from '../src/services/player.service.js';
+import type { PlaylistService } from '../src/services/playlist.service.js';
 import type { QueueService } from '../src/services/queue.service.js';
+import type { RecentService } from '../src/services/recent.service.js';
 import type { SearchService } from '../src/services/search.service.js';
-import type { Track } from '../src/services/models.js';
+import type { UpdateService } from '../src/services/update.service.js';
 import { DEFAULT_CONFIG, type ConfigStore } from '../src/storage/config.js';
 import type { PlaybackWatcher } from '../src/ui/watch.js';
 import { VERSION } from '../src/version.js';
@@ -20,6 +25,30 @@ const track: Track = {
   durationMs: 185_000,
 };
 
+const album: Album = {
+  id: 'album-1',
+  uri: 'spotify:album:album-1',
+  name: 'Meteora',
+  artists: ['Linkin Park'],
+  totalTracks: 13,
+};
+
+const artist: Artist = {
+  id: 'artist-1',
+  uri: 'spotify:artist:artist-1',
+  name: 'Linkin Park',
+};
+
+const playlist: Playlist = {
+  id: 'playlist-1',
+  uri: 'spotify:playlist:playlist-1',
+  name: 'Workout',
+  description: 'Training tracks',
+  ownerName: 'Bruno',
+  isPublic: false,
+  totalTracks: 1,
+};
+
 function dependencies() {
   const messages: string[] = [];
   return {
@@ -31,8 +60,16 @@ function dependencies() {
       getCurrentUser: vi.fn(),
       getAccessToken: vi.fn(),
     } as unknown as AuthService,
+    catalog: {
+      getAlbum: vi.fn(),
+      getArtist: vi.fn(),
+      getArtistAlbums: vi.fn(),
+    } as unknown as CatalogService,
     player: {
       playTrack: vi.fn(),
+      playContext: vi.fn(),
+      setShuffle: vi.fn(),
+      setRepeat: vi.fn(),
       resume: vi.fn(),
       pause: vi.fn(),
       next: vi.fn(),
@@ -43,7 +80,26 @@ function dependencies() {
       changePosition: vi.fn(),
       getCurrentPlayback: vi.fn(),
     } as unknown as PlayerService,
-    search: { searchTracks: vi.fn() } as unknown as SearchService,
+    search: {
+      searchTracks: vi.fn(),
+      searchAlbums: vi.fn(),
+      searchArtists: vi.fn(),
+      searchPlaylists: vi.fn(),
+    } as unknown as SearchService,
+    playlist: {
+      listPlaylists: vi.fn(),
+      getPlaylist: vi.fn(),
+    } as unknown as PlaylistService,
+    library: {
+      getLikedTracks: vi.fn(),
+      likeCurrentTrack: vi.fn(),
+      unlikeCurrentTrack: vi.fn(),
+    } as unknown as LibraryService,
+    recent: { getRecentlyPlayed: vi.fn() } as unknown as RecentService,
+    update: {
+      checkForeground: vi.fn(),
+      installLatest: vi.fn(),
+    } as unknown as UpdateService,
     device: {
       getDevices: vi.fn(),
       findDevice: vi.fn(),
@@ -61,6 +117,14 @@ function dependencies() {
     } as unknown as ConfigStore,
     output: { log: (message: string) => messages.push(message), error: vi.fn() },
     chooseTrack: vi.fn(),
+    chooseAlbum: vi.fn(),
+    chooseArtist: vi.fn(),
+    choosePlaylist: vi.fn(),
+    chooseAlbumAction: vi.fn(),
+    chooseArtistAction: vi.fn(),
+    choosePlaylistAction: vi.fn(),
+    requestSpotifyClientId: vi.fn(),
+    confirmUpdate: vi.fn(),
     watchPlayback: vi.fn() as PlaybackWatcher,
   };
 }
@@ -74,11 +138,22 @@ describe('CLI application', () => {
     expect(createProgram(dependencies()).version()).toBe(VERSION);
   });
 
+  it('saves a provided or interactively entered Spotify client ID', async () => {
+    const deps = dependencies();
+    await run(['setup', 'provided123'], deps);
+    expect(deps.config.set).toHaveBeenNthCalledWith(1, 'spotifyClientId', 'provided123');
+
+    deps.requestSpotifyClientId.mockResolvedValue('prompted456');
+    await run(['setup'], deps);
+    expect(deps.config.set).toHaveBeenNthCalledWith(2, 'spotifyClientId', 'prompted456');
+    expect(deps.messages).toContain('✓ Spotify client ID saved.\n\nNext: spoti login');
+  });
+
   it('reads and updates configuration values', async () => {
     const deps = dependencies();
     await run(['config'], deps);
     expect(deps.messages).toEqual([
-      'watchAfterPlay: false\nrefreshIntervalMs: 1000',
+      'spotifyClientId: null\nwatchAfterPlay: false\nrefreshIntervalMs: 1000',
     ]);
 
     await run(['config', 'set', 'watchAfterPlay', 'true'], deps);
@@ -88,6 +163,7 @@ describe('CLI application', () => {
   it('watches after play when enabled in configuration', async () => {
     const deps = dependencies();
     vi.mocked(deps.config.read).mockResolvedValue({
+      spotifyClientId: null,
       watchAfterPlay: true,
       refreshIntervalMs: 2_000,
     });
@@ -104,6 +180,7 @@ describe('CLI application', () => {
   it('allows --no-watch to override configuration', async () => {
     const deps = dependencies();
     vi.mocked(deps.config.read).mockResolvedValue({
+      spotifyClientId: null,
       watchAfterPlay: true,
       refreshIntervalMs: 1_000,
     });
@@ -117,6 +194,7 @@ describe('CLI application', () => {
   it('uses the configured interval for now --watch', async () => {
     const deps = dependencies();
     vi.mocked(deps.config.read).mockResolvedValue({
+      spotifyClientId: null,
       watchAfterPlay: false,
       refreshIntervalMs: 3_000,
     });
@@ -148,6 +226,9 @@ describe('CLI application', () => {
     expect(deps.messages).toContain('1. Laptop · Computer · active · 50%');
 
     await run(['device', 'Laptop'], deps);
+    await run(['device', '1'], deps);
+    expect(deps.device.findDevice).toHaveBeenNthCalledWith(1, 'Laptop');
+    expect(deps.device.findDevice).toHaveBeenNthCalledWith(2, '1');
     expect(deps.device.transferPlayback).toHaveBeenCalledWith('device-id');
   });
 
@@ -229,5 +310,173 @@ describe('CLI application', () => {
     await run(['play', 'missing'], deps);
     expect(deps.player.playTrack).not.toHaveBeenCalled();
     expect(deps.messages).toEqual(['No tracks found for "missing".']);
+  });
+
+  it('plays explicit album, artist, and playlist contexts', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.search.searchAlbums).mockResolvedValue([album]);
+    vi.mocked(deps.search.searchArtists).mockResolvedValue([artist]);
+    vi.mocked(deps.search.searchPlaylists).mockResolvedValue([playlist]);
+
+    await run(['play', 'album', 'Meteora', '--first'], deps);
+    await run(['play', 'artist', 'Linkin Park', '--first'], deps);
+    await run(['play', 'playlist', 'Workout', '--first'], deps);
+
+    expect(deps.player.playContext).toHaveBeenNthCalledWith(1, album.uri);
+    expect(deps.player.playContext).toHaveBeenNthCalledWith(2, artist.uri);
+    expect(deps.player.playContext).toHaveBeenNthCalledWith(3, playlist.uri);
+  });
+
+  it('supports explicit track playback and preserves quoted context-prefixed queries', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.search.searchTracks).mockResolvedValue([track]);
+
+    await run(['play', 'track', 'Numb', '--first'], deps);
+    await run(['play', 'album version', '--first'], deps);
+
+    expect(deps.search.searchTracks).toHaveBeenNthCalledWith(1, 'Numb');
+    expect(deps.search.searchTracks).toHaveBeenNthCalledWith(2, 'album version');
+    expect(deps.player.playTrack).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows album and artist details', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.search.searchAlbums).mockResolvedValue([album]);
+    vi.mocked(deps.catalog.getAlbum).mockResolvedValue({ ...album, tracks: [track] });
+    vi.mocked(deps.search.searchArtists).mockResolvedValue([artist]);
+    vi.mocked(deps.catalog.getArtist).mockResolvedValue(artist);
+
+    await run(['album', 'Meteora', '--first'], deps);
+    await run(['artist', 'Linkin Park', '--first'], deps);
+
+    expect(deps.catalog.getAlbum).toHaveBeenCalledWith(album.id);
+    expect(deps.catalog.getArtist).toHaveBeenCalledWith(artist.id);
+    expect(deps.messages.join('\n')).toContain('Meteora — Linkin Park');
+    expect(deps.messages.join('\n')).toContain('Linkin Park');
+  });
+
+  it('offers album playback or individual track playback after inspection', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.search.searchAlbums).mockResolvedValue([album]);
+    vi.mocked(deps.catalog.getAlbum).mockResolvedValue({ ...album, tracks: [track] });
+    deps.chooseAlbumAction.mockResolvedValueOnce('play-album').mockResolvedValueOnce('play-track');
+    deps.chooseTrack.mockResolvedValue(track);
+
+    await run(['album', 'Meteora', '--first'], deps);
+    await run(['album', 'Meteora', '--first'], deps);
+
+    expect(deps.player.playContext).toHaveBeenCalledWith(album.uri);
+    expect(deps.player.playTrack).toHaveBeenCalledWith(track.uri);
+  });
+
+  it('allows selecting an album after inspecting an artist', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.search.searchArtists).mockResolvedValue([artist]);
+    vi.mocked(deps.catalog.getArtist).mockResolvedValue(artist);
+    vi.mocked(deps.catalog.getArtistAlbums).mockResolvedValue([album]);
+    vi.mocked(deps.catalog.getAlbum).mockResolvedValue({ ...album, tracks: [track] });
+    deps.chooseArtistAction.mockResolvedValue('select-album');
+    deps.chooseAlbum.mockResolvedValue(album);
+    deps.chooseAlbumAction.mockResolvedValue('play-album');
+
+    await run(['artist', 'Linkin Park', '--first'], deps);
+
+    expect(deps.catalog.getArtistAlbums).toHaveBeenCalledWith(artist.id);
+    expect(deps.player.playContext).toHaveBeenCalledWith(album.uri);
+  });
+
+  it('lists and displays the user playlists', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlist.listPlaylists).mockResolvedValue([playlist]);
+    deps.choosePlaylistAction.mockResolvedValue('play-playlist');
+    await run(['playlists'], deps);
+    await run(['playlist', 'work', '--first'], deps);
+    await run(['playlist', '1'], deps);
+    await run(['play', 'playlist', '1'], deps);
+
+    expect(deps.playlist.getPlaylist).not.toHaveBeenCalled();
+    expect(deps.playlist.listPlaylists).toHaveBeenCalledWith(50);
+    expect(deps.player.playContext).toHaveBeenCalledWith(playlist.uri);
+    expect(deps.messages.join('\n')).toContain('Workout — Bruno · 1 item');
+  });
+
+  it('rejects an out-of-range playlist number', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlist.listPlaylists).mockResolvedValue([playlist]);
+
+    await expect(run(['playlist', '2'], deps)).rejects.toThrow(
+      'Playlist number 2 is out of range',
+    );
+  });
+
+  it('controls shuffle and repeat modes', async () => {
+    const deps = dependencies();
+
+    await run(['shuffle', 'on'], deps);
+    await run(['repeat', 'context'], deps);
+
+    expect(deps.player.setShuffle).toHaveBeenCalledWith(true);
+    expect(deps.player.setRepeat).toHaveBeenCalledWith('context');
+  });
+
+  it('lists, likes, and unlikes library tracks', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.library.getLikedTracks).mockResolvedValue([
+      { addedAt: '2026-09-05T00:00:00Z', track },
+    ]);
+    vi.mocked(deps.library.likeCurrentTrack).mockResolvedValue(track);
+    vi.mocked(deps.library.unlikeCurrentTrack).mockResolvedValue(track);
+
+    await run(['liked'], deps);
+    await run(['like'], deps);
+    await run(['unlike'], deps);
+
+    expect(deps.messages.join('\n')).toContain('♥ Liked Numb — Linkin Park');
+    expect(deps.messages.join('\n')).toContain('♡ Unliked Numb — Linkin Park');
+  });
+
+  it('lists recently played tracks', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.recent.getRecentlyPlayed).mockResolvedValue([
+      { playedAt: '2026-09-05T00:00:00Z', track },
+    ]);
+
+    await run(['recent', '--limit', '5'], deps);
+
+    expect(deps.recent.getRecentlyPlayed).toHaveBeenCalledWith(5);
+    expect(deps.messages[0]).toContain('played 2026-09-05T00:00:00Z');
+  });
+
+  it('checks for updates without installing', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.update.checkForeground).mockResolvedValue({
+      status: 'update-available',
+      currentVersion: '0.2.0',
+      latestVersion: '0.3.0',
+      checkedAt: 1,
+      source: 'registry',
+    });
+
+    await run(['update', '--check'], deps);
+
+    expect(deps.update.installLatest).not.toHaveBeenCalled();
+    expect(deps.messages).toContain('Update available: 0.2.0 → 0.3.0');
+  });
+
+  it('installs an update only after confirmation', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.update.checkForeground).mockResolvedValue({
+      status: 'update-available',
+      currentVersion: '0.2.0',
+      latestVersion: '0.3.0',
+      checkedAt: 1,
+      source: 'registry',
+    });
+    deps.confirmUpdate.mockResolvedValue(true);
+
+    await run(['update'], deps);
+
+    expect(deps.update.installLatest).toHaveBeenCalledWith(true, '0.3.0');
+    expect(deps.messages).toContain('✓ Updated spoti to 0.3.0.');
   });
 });

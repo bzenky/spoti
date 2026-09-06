@@ -436,9 +436,10 @@ Example:
 3. Living Room TV
 ```
 
-Switch device:
+Switch device using the displayed number, exact name, or Spotify device ID:
 
 ```bash
+spoti device 1
 spoti device "MacBook Pro"
 ```
 
@@ -464,6 +465,8 @@ spoti album "Meteora"
 spoti play album "Meteora"
 ```
 
+After inspecting an album in an interactive terminal, choose whether to play the entire album, select an individual track, or return without starting playback.
+
 ## Artists
 
 ```bash
@@ -471,13 +474,19 @@ spoti artist "Linkin Park"
 spoti play artist "Linkin Park"
 ```
 
+After inspecting an artist, choose whether to play the artist context, select one of the artist’s albums, or return without starting playback.
+
 ## Playlists
 
 ```bash
 spoti playlists
+spoti playlist 1
 spoti playlist "Workout"
+spoti play playlist 1
 spoti play playlist "Workout"
 ```
+
+Playlists are sorted consistently by name so the displayed number works across `spoti playlists`, `spoti playlist <number>`, and `spoti play playlist <number>`. After selecting a playlist interactively, choose whether to start playlist playback or return without starting playback.
 
 ## Shuffle and Repeat
 
@@ -504,6 +513,29 @@ spoti unlike
 ```bash
 spoti recent
 ```
+
+## Update Notifications
+
+Periodically check npm for a newer `@bzenky/spoti` version without slowing down normal commands.
+
+- Run the check in a non-blocking way
+- Cache the result and check at most once every 24 hours
+- Do not display anything when the installed version is current or the check fails
+- When an update exists, show the installed and latest versions with the upgrade command:
+
+```text
+Update available: 0.2.0 → 0.3.0
+Run: spoti update
+```
+
+Explicit commands:
+
+```bash
+spoti update --check
+spoti update
+```
+
+`spoti update --check` only checks npm. `spoti update` requests confirmation before running the npm global installation; it never updates silently.
 
 ---
 
@@ -730,18 +762,23 @@ Example:
 
 ```json
 {
-  "defaultDevice": null,
-  "searchLimit": 10,
-  "interactive": true
+  "spotifyClientId": "your-client-id",
+  "watchAfterPlay": false,
+  "refreshIntervalMs": 1000
 }
 ```
+
+The Spotify client ID is public application metadata. Tokens remain isolated in `credentials.json`, and client secrets are never accepted or stored.
 
 CLI commands:
 
 ```bash
+spoti setup
 spoti config
-spoti config get searchLimit
-spoti config set searchLimit 5
+spoti config get spotifyClientId
+spoti config set spotifyClientId "your-client-id"
+spoti config set watchAfterPlay true
+spoti config set refreshIntervalMs 2000
 ```
 
 ---
@@ -991,23 +1028,25 @@ At this point the MVP is complete.
 - [x] Device switching
 - [x] Automatic single-device fallback
 - [x] Queue management
-- [ ] Shuffle — deferred until context playback
-- [ ] Repeat — deferred until context playback
+- [x] Shuffle
+- [x] Repeat
 
 ---
 
 ## Phase 7 — Spotify Library
 
-- [ ] Albums
-- [ ] Artists
-- [ ] Playlists
-- [ ] Liked songs
-- [ ] Recently played tracks
+- [x] Albums
+- [x] Artists
+- [x] Playlists
+- [x] Liked songs
+- [x] Recently played tracks
 
 ---
 
 ## Phase 8 — CLI Polish
 
+- [x] Cached, non-blocking npm update notifications
+- [x] Explicit `spoti update --check` and confirmed `spoti update`
 - [ ] Fuzzy search
 - [ ] aliases
 - [ ] better terminal formatting

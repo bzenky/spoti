@@ -69,6 +69,21 @@ describe('DeviceService', () => {
     expect(api.get).toHaveBeenCalledWith('/me/player/devices');
   });
 
+  it('sorts devices deterministically so displayed numbers remain stable', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      devices: [
+        spotifyDevice({ id: 'everywhere-id', name: 'Everywhere' }),
+        spotifyDevice({ id: 'echo-id', name: 'Echo Pop de Bruno' }),
+      ],
+    });
+
+    await expect(new DeviceService(api).getDevices()).resolves.toMatchObject([
+      { id: 'echo-id', name: 'Echo Pop de Bruno' },
+      { id: 'everywhere-id', name: 'Everywhere' },
+    ]);
+  });
+
   it('returns the active device and rejects when none is active', async () => {
     const api = createApi();
     vi.mocked(api.get).mockResolvedValue({
@@ -119,6 +134,34 @@ describe('DeviceService', () => {
       id: 'SPEAKER-ID',
     });
     await expect(service.findDevice('Living')).rejects.toBeInstanceOf(AppError);
+  });
+
+  it('selects a device by its one-based displayed number', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      devices: [
+        spotifyDevice({ id: 'everywhere-id', name: 'Everywhere' }),
+        spotifyDevice({ id: 'echo-id', name: 'Echo Pop de Bruno' }),
+      ],
+    });
+    const service = new DeviceService(api);
+
+    await expect(service.findDevice('1')).resolves.toMatchObject({
+      id: 'echo-id',
+      name: 'Echo Pop de Bruno',
+    });
+    await expect(service.findDevice('3')).rejects.toThrow('Device number 3 is out of range');
+  });
+
+  it('rejects a numbered device that Spotify marks as uncontrollable', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      devices: [spotifyDevice({ id: 'restricted-id', name: 'TV', is_restricted: true })],
+    });
+
+    await expect(new DeviceService(api).findDevice('1')).rejects.toThrow(
+      'Device 1 ("TV") cannot be controlled',
+    );
   });
 
   it('rejects ambiguous duplicate names and directs the user to device IDs', async () => {

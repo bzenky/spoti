@@ -22,6 +22,7 @@ import {
   type CredentialStore,
   type Credentials,
 } from '../storage/credentials.js';
+import { FileConfigStore } from '../storage/config.js';
 import {
   AuthenticationRequiredError,
   ConfigurationError,
@@ -38,7 +39,7 @@ type AuthorizationCodeProvider = (
 export interface AuthServiceDependencies {
   credentialStore?: CredentialStore;
   spotifyAuthApi?: SpotifyAuthApi;
-  loadConfig?: () => AuthConfig;
+  loadConfig?: () => AuthConfig | Promise<AuthConfig>;
   requestAuthorizationCode?: AuthorizationCodeProvider;
   createPkcePair?: () => PkcePair;
   createState?: () => string;
@@ -48,7 +49,7 @@ export interface AuthServiceDependencies {
 export class AuthService {
   private readonly credentialStore: CredentialStore;
   private readonly spotifyAuthApi: SpotifyAuthApi;
-  private readonly configLoader: () => AuthConfig;
+  private readonly configLoader: () => AuthConfig | Promise<AuthConfig>;
   private readonly authorizationCodeProvider: AuthorizationCodeProvider;
   private readonly pkceFactory: () => PkcePair;
   private readonly stateFactory: () => string;
@@ -58,7 +59,12 @@ export class AuthService {
   constructor(dependencies: AuthServiceDependencies = {}) {
     this.credentialStore = dependencies.credentialStore ?? new FileCredentialStore();
     this.spotifyAuthApi = dependencies.spotifyAuthApi ?? new SpotifyAuthClient();
-    this.configLoader = dependencies.loadConfig ?? loadAuthConfig;
+    this.configLoader =
+      dependencies.loadConfig ??
+      (async () => {
+        const config = await new FileConfigStore().read();
+        return loadAuthConfig(process.env, config.spotifyClientId);
+      });
     this.authorizationCodeProvider =
       dependencies.requestAuthorizationCode ?? requestAuthorizationCode;
     this.pkceFactory = dependencies.createPkcePair ?? generatePkcePair;
@@ -67,7 +73,7 @@ export class AuthService {
   }
 
   async login(): Promise<UserProfile> {
-    const config = this.configLoader();
+    const config = await this.configLoader();
     const pkce = this.pkceFactory();
     const state = this.stateFactory();
     const authorizationUrl = createAuthorizationUrl(config, pkce.challenge, state);
@@ -148,7 +154,7 @@ export class AuthService {
   }
 
   private async performTokenRefresh(credentials: Credentials): Promise<string> {
-    const config = this.configLoader();
+    const config = await this.configLoader();
     let token: TokenSet;
     try {
       token = await this.spotifyAuthApi.refreshAccessToken({

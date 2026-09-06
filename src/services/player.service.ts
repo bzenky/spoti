@@ -2,7 +2,8 @@ import type { RequestOptions, SpotifyApi } from '../spotify/client.js';
 import type { SpotifyPlaybackState } from '../spotify/types.js';
 import { AppError, NoActiveDeviceError } from '../utils/errors.js';
 import type { DeviceService } from './device.service.js';
-import type { CurrentPlayback, Track } from './models.js';
+import { mapPlaybackItem } from './mappers.js';
+import type { CurrentPlayback, RepeatMode } from './models.js';
 
 export class PlayerService {
   constructor(
@@ -13,9 +14,11 @@ export class PlayerService {
   async getCurrentPlayback(): Promise<CurrentPlayback | null> {
     const playback = await this.spotify.get<SpotifyPlaybackState | undefined>('/me/player');
     if (!playback?.item) return null;
+    const track = mapPlaybackItem(playback.item);
+    if (!track) return null;
     return {
       isPlaying: playback.is_playing,
-      track: mapTrack(playback.item),
+      track,
       progressMs: playback.progress_ms ?? 0,
       deviceName: playback.device.name,
     };
@@ -23,6 +26,24 @@ export class PlayerService {
 
   async playTrack(uri: string): Promise<void> {
     await this.putWithDeviceFallback('/me/player/play', { body: { uris: [uri] } });
+  }
+
+  async playContext(contextUri: string): Promise<void> {
+    await this.putWithDeviceFallback('/me/player/play', {
+      body: { context_uri: contextUri },
+    });
+  }
+
+  async setShuffle(state: boolean): Promise<void> {
+    await this.putWithDeviceFallback('/me/player/shuffle', {
+      query: { state },
+    });
+  }
+
+  async setRepeat(state: RepeatMode): Promise<void> {
+    await this.putWithDeviceFallback('/me/player/repeat', {
+      query: { state },
+    });
   }
 
   async pause(): Promise<void> {
@@ -90,7 +111,7 @@ export class PlayerService {
     if (!device?.id) {
       if (devices.length > 1) {
         throw new AppError(
-          'Multiple Spotify devices are available, but none is active.\n\nRun: spoti devices\nThen select one with: spoti device "<name>"',
+          'Multiple Spotify devices are available, but none is active.\n\nRun: spoti devices\nThen select one with: spoti device <number>',
         );
       }
       throw new NoActiveDeviceError();
@@ -105,17 +126,4 @@ export class PlayerService {
 
 function clampVolume(volume: number): number {
   return Math.min(100, Math.max(0, Math.round(volume)));
-}
-
-function mapTrack(track: SpotifyPlaybackState['item'] & {}): Track {
-  const externalUrl = track.external_urls?.spotify;
-  return {
-    id: track.id,
-    uri: track.uri,
-    name: track.name,
-    artists: track.artists.map((artist) => artist.name),
-    album: track.album.name,
-    durationMs: track.duration_ms,
-    ...(externalUrl ? { externalUrl } : {}),
-  };
 }

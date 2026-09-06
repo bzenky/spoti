@@ -34,7 +34,11 @@ describe('FileConfigStore', () => {
     const store = new FileConfigStore({ directory: await createTemporaryDirectory() });
 
     expect(await store.read()).toEqual(DEFAULT_CONFIG);
-    expect(CONFIG_KEYS).toEqual(['watchAfterPlay', 'refreshIntervalMs']);
+    expect(CONFIG_KEYS).toEqual([
+      'spotifyClientId',
+      'watchAfterPlay',
+      'refreshIntervalMs',
+    ]);
   });
 
   it('merges defaults into an existing partial configuration', async () => {
@@ -43,6 +47,7 @@ describe('FileConfigStore', () => {
     await writeFile(store.path, JSON.stringify({ watchAfterPlay: true }));
 
     expect(await store.read()).toEqual({
+      spotifyClientId: null,
       watchAfterPlay: true,
       refreshIntervalMs: 1_000,
     });
@@ -52,7 +57,11 @@ describe('FileConfigStore', () => {
     const root = await createTemporaryDirectory();
     const directory = join(root, 'nested', 'spoti');
     const store = new FileConfigStore({ directory });
-    const config: AppConfig = { watchAfterPlay: true, refreshIntervalMs: 5_000 };
+    const config: AppConfig = {
+      spotifyClientId: 'client123',
+      watchAfterPlay: true,
+      refreshIntervalMs: 5_000,
+    };
 
     await store.write(config);
 
@@ -76,11 +85,16 @@ describe('FileConfigStore', () => {
 
   it('sets one setting while preserving the others', async () => {
     const store = new FileConfigStore({ directory: await createTemporaryDirectory() });
-    await store.write({ watchAfterPlay: false, refreshIntervalMs: 8_000 });
+    await store.write({
+      spotifyClientId: 'client123',
+      watchAfterPlay: false,
+      refreshIntervalMs: 8_000,
+    });
 
     await store.set('watchAfterPlay', true);
 
     expect(await store.read()).toEqual({
+      spotifyClientId: 'client123',
       watchAfterPlay: true,
       refreshIntervalMs: 8_000,
     });
@@ -88,7 +102,11 @@ describe('FileConfigStore', () => {
 
   it('resets to defaults and is idempotent', async () => {
     const store = new FileConfigStore({ directory: await createTemporaryDirectory() });
-    await store.write({ watchAfterPlay: true, refreshIntervalMs: 10_000 });
+    await store.write({
+      spotifyClientId: null,
+      watchAfterPlay: true,
+      refreshIntervalMs: 10_000,
+    });
 
     await store.reset();
     await store.reset();
@@ -109,7 +127,8 @@ describe('FileConfigStore', () => {
 });
 
 describe('parseConfigValue', () => {
-  it('parses supported boolean and interval values', () => {
+  it('parses supported client ID, boolean, and interval values', () => {
+    expect(parseConfigValue('spotifyClientId', '  client123  ')).toBe('client123');
     expect(parseConfigValue('watchAfterPlay', 'true')).toBe(true);
     expect(parseConfigValue('watchAfterPlay', 'false')).toBe(false);
     expect(parseConfigValue('refreshIntervalMs', '1000')).toBe(1_000);
@@ -117,6 +136,8 @@ describe('parseConfigValue', () => {
   });
 
   it.each([
+    ['spotifyClientId', ''],
+    ['spotifyClientId', 'client id'],
     ['watchAfterPlay', 'yes'],
     ['watchAfterPlay', 'TRUE'],
     ['refreshIntervalMs', '999'],

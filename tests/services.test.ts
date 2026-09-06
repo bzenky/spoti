@@ -158,6 +158,36 @@ describe('PlayerService', () => {
       body: { uris: [track.uri] },
     });
   });
+
+  it('plays contexts and configures shuffle and repeat with documented parameters', async () => {
+    const api = createApi();
+    const player = new PlayerService(api);
+    await player.playContext('spotify:album:album-id');
+    await player.setShuffle(true);
+    await player.setRepeat('context');
+
+    expect(api.put).toHaveBeenNthCalledWith(1, '/me/player/play', {
+      body: { context_uri: 'spotify:album:album-id' },
+    });
+    expect(api.put).toHaveBeenNthCalledWith(2, '/me/player/shuffle', {
+      query: { state: true },
+    });
+    expect(api.put).toHaveBeenNthCalledWith(3, '/me/player/repeat', {
+      query: { state: 'context' },
+    });
+  });
+
+  it('returns no playback for episode or unknown playback items', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      is_playing: true,
+      progress_ms: 0,
+      item: { type: 'episode', uri: 'spotify:episode:id' },
+      device: { id: 'device', name: 'Laptop', is_active: true },
+    });
+
+    await expect(new PlayerService(api).getCurrentPlayback()).resolves.toBeNull();
+  });
 });
 
 describe('SearchService', () => {

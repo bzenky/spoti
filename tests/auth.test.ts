@@ -41,11 +41,12 @@ afterEach(async () => {
 });
 
 describe('authentication configuration', () => {
-  it('requires a client ID from the environment', () => {
-    expect(() => loadAuthConfig({})).toThrow('SPOTIFY_CLIENT_ID is required');
-    expect(loadAuthConfig({ SPOTIFY_CLIENT_ID: 'custom-client' }).clientId).toBe(
-      'custom-client',
-    );
+  it('uses the environment first, then the stored Spotify client ID', () => {
+    expect(() => loadAuthConfig({})).toThrow('spoti setup');
+    expect(loadAuthConfig({}, 'stored-client').clientId).toBe('stored-client');
+    expect(
+      loadAuthConfig({ SPOTIFY_CLIENT_ID: 'environment-client' }, 'stored-client').clientId,
+    ).toBe('environment-client');
   });
 });
 

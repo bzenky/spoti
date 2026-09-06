@@ -9,11 +9,12 @@ export interface AuthConfig {
 
 export function loadAuthConfig(
   environment: NodeJS.ProcessEnv = process.env,
+  storedClientId: string | null = null,
 ): AuthConfig {
-  const clientId = environment.SPOTIFY_CLIENT_ID?.trim();
+  const clientId = environment.SPOTIFY_CLIENT_ID?.trim() || storedClientId?.trim();
   if (!clientId) {
     throw new ConfigurationError(
-      'SPOTIFY_CLIENT_ID is required. Set it to your Spotify application client ID.',
+      'A Spotify client ID is required.\n\nRun: spoti setup\nOr set SPOTIFY_CLIENT_ID in your environment.',
     );
   }
 

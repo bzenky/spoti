@@ -24,20 +24,42 @@ export class PlayerService {
     };
   }
 
-  async playTrack(uri: string): Promise<void> {
-    await this.putWithDeviceFallback('/me/player/play', { body: { uris: [uri] } });
+  async playTrack(uri: string, signal?: AbortSignal): Promise<void> {
+    await this.putWithDeviceFallback('/me/player/play', {
+      body: { uris: [uri] },
+      ...(signal === undefined ? {} : { signal }),
+    });
   }
 
-  async playContext(contextUri: string): Promise<void> {
+  async playContext(contextUri: string, signal?: AbortSignal): Promise<void> {
     await this.putWithDeviceFallback('/me/player/play', {
       body: { context_uri: contextUri },
+      ...(signal === undefined ? {} : { signal }),
     });
+  }
+
+  async getShuffleState(): Promise<boolean> {
+    const playback = await this.spotify.get<SpotifyPlaybackState | undefined>('/me/player');
+    if (!playback) throw new NoActiveDeviceError();
+    if (typeof playback.shuffle_state !== 'boolean') {
+      throw new AppError('Spotify did not return the current shuffle state. Try again.');
+    }
+    return playback.shuffle_state;
   }
 
   async setShuffle(state: boolean): Promise<void> {
     await this.putWithDeviceFallback('/me/player/shuffle', {
       query: { state },
     });
+  }
+
+  async getRepeatState(): Promise<RepeatMode> {
+    const playback = await this.spotify.get<SpotifyPlaybackState | undefined>('/me/player');
+    if (!playback) throw new NoActiveDeviceError();
+    if (!isRepeatMode(playback.repeat_state)) {
+      throw new AppError('Spotify did not return a valid repeat state. Try again.');
+    }
+    return playback.repeat_state;
   }
 
   async setRepeat(state: RepeatMode): Promise<void> {
@@ -103,11 +125,18 @@ export class PlayerService {
       await this.spotify.put<void>(path, options);
       return;
     } catch (error) {
+      options?.signal?.throwIfAborted();
       if (!(error instanceof NoActiveDeviceError) || !this.deviceService) throw error;
     }
 
-    const devices = await this.deviceService.getControllableDevices();
-    const device = devices.length === 1 ? devices[0] : undefined;
+    const devices =
+      options?.signal === undefined
+        ? await this.deviceService.getControllableDevices()
+        : await this.deviceService.getControllableDevices(options.signal);
+    options?.signal?.throwIfAborted();
+    const activeDevices = devices.filter((device) => device.isActive);
+    const device =
+      activeDevices.length === 1 ? activeDevices[0] : devices.length === 1 ? devices[0] : undefined;
     if (!device?.id) {
       if (devices.length > 1) {
         throw new AppError(
@@ -122,6 +151,10 @@ export class PlayerService {
       query: { ...options?.query, device_id: device.id },
     });
   }
+}
+
+function isRepeatMode(value: string): value is RepeatMode {
+  return value === 'off' || value === 'track' || value === 'context';
 }
 
 function clampVolume(volume: number): number {

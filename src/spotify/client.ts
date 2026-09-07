@@ -7,10 +7,23 @@ import {
   SpotifyApiError,
   toError,
 } from '../utils/errors.js';
+import { sanitizeOneLineText } from '../utils/text.js';
 import type { SpotifyErrorBody } from './types.js';
 
 const API_BASE_URL = 'https://api.spotify.com/v1';
 const MAX_RATE_LIMIT_RETRIES = 3;
+const PLAYBACK_CONTROL_REQUESTS = new Set([
+  'PUT /me/player',
+  'PUT /me/player/play',
+  'PUT /me/player/pause',
+  'POST /me/player/next',
+  'POST /me/player/previous',
+  'PUT /me/player/seek',
+  'PUT /me/player/repeat',
+  'PUT /me/player/volume',
+  'PUT /me/player/shuffle',
+  'POST /me/player/queue',
+]);
 
 type Sleep = (milliseconds: number) => Promise<void>;
 
@@ -20,6 +33,7 @@ const sleep: Sleep = (milliseconds) =>
 export interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined>;
   body?: unknown;
+  signal?: AbortSignal;
 }
 
 export interface SpotifyApi {
@@ -74,79 +88,213 @@ export class SpotifyClient implements SpotifyApi {
       body = JSON.stringify(options.body);
     }
 
-    const execute = async (token: string): Promise<Response> => {
-      headers.set('Authorization', `Bearer ${token}`);
-      try {
-        return await this.fetcher(url, {
-          method,
-          headers,
-          signal: AbortSignal.timeout(15_000),
-          ...(body === undefined ? {} : { body }),
-        });
-      } catch (error) {
-        const normalizedError = toError(error);
-        if (normalizedError.name === 'TimeoutError') {
-          throw new AppError('Spotify did not respond within 15 seconds. Try again.');
-        }
-        throw new AppError(`Unable to reach Spotify: ${normalizedError.message}`);
-      }
-    };
-
+    throwIfExternallyAborted(options.signal);
     let accessToken = await this.authService.getAccessToken();
     let refreshedToken = false;
     let rateLimitRetries = 0;
-    let response: Response;
 
     while (true) {
-      response = await execute(accessToken);
-      if (response.status === 401 && !refreshedToken) {
+      throwIfExternallyAborted(options.signal);
+      headers.set('Authorization', `Bearer ${accessToken}`);
+      const attempt = createAttemptSignal(options.signal);
+      let shouldRefreshToken = false;
+      let retryDelayMs: number | undefined;
+
+      try {
+        const response = await this.fetcher(url, {
+          method,
+          headers,
+          signal: attempt.signal,
+          ...(body === undefined ? {} : { body }),
+        });
+
+        if (response.status === 401 && !refreshedToken) {
+          shouldRefreshToken = true;
+        } else if (
+          response.status === 429 &&
+          rateLimitRetries < MAX_RATE_LIMIT_RETRIES
+        ) {
+          const retryAfterSeconds = getRetryAfterSeconds(response);
+          const exponentialBackoffMs = 500 * 2 ** rateLimitRetries;
+          rateLimitRetries += 1;
+          retryDelayMs = Math.max(retryAfterSeconds * 1_000, exponentialBackoffMs);
+        } else {
+          if (!response.ok) {
+            const mappedError = await mapSpotifyError(response, method, path);
+            throwIfAttemptAborted(attempt.signal, options.signal);
+            throw mappedError;
+          }
+          if (response.status === 204) return undefined as T;
+
+          const text = await response.text();
+          throwIfAttemptAborted(attempt.signal, options.signal);
+          if (!text) return undefined as T;
+
+          const contentType = response.headers.get('content-type')?.toLocaleLowerCase() ?? '';
+          if (!contentType.includes('json')) {
+            if (method !== 'GET') return undefined as T;
+            throw new SpotifyApiError(
+              'Spotify returned an unexpected non-JSON response.',
+              response.status,
+            );
+          }
+
+          try {
+            return JSON.parse(text) as T;
+          } catch {
+            throw new SpotifyApiError('Spotify returned malformed JSON.', response.status);
+          }
+        }
+      } catch (error) {
+        throw normalizeAttemptError(error, attempt.signal, options.signal);
+      } finally {
+        attempt.cleanup();
+      }
+
+      if (shouldRefreshToken) {
+        throwIfExternallyAborted(options.signal);
         accessToken = await this.authService.forceRefreshAccessToken();
         refreshedToken = true;
         continue;
       }
-      if (response.status === 429 && rateLimitRetries < MAX_RATE_LIMIT_RETRIES) {
-        const retryAfterMs = getRetryAfterMilliseconds(response);
-        const exponentialBackoffMs = 500 * 2 ** rateLimitRetries;
-        rateLimitRetries += 1;
-        await this.sleeper(Math.max(retryAfterMs, exponentialBackoffMs));
+
+      if (retryDelayMs !== undefined) {
+        await this.waitForRetry(retryDelayMs, options.signal);
         continue;
       }
-      break;
+    }
+  }
+
+  private async waitForRetry(milliseconds: number, signal?: AbortSignal): Promise<void> {
+    throwIfExternallyAborted(signal);
+    if (!signal) {
+      await this.sleeper(milliseconds);
+      return;
     }
 
-    if (!response.ok) throw await mapSpotifyError(response);
-    if (response.status === 204) return undefined as T;
-
-    const text = await response.text();
-    if (!text) return undefined as T;
-
-    const contentType = response.headers.get('content-type')?.toLocaleLowerCase() ?? '';
-    if (!contentType.includes('json')) {
-      if (method !== 'GET') return undefined as T;
-      throw new SpotifyApiError(
-        'Spotify returned an unexpected non-JSON response.',
-        response.status,
-      );
+    if (this.sleeper === sleep) {
+      await abortableSleep(milliseconds, signal);
+      return;
     }
 
+    let abortListener: (() => void) | undefined;
+    const aborted = new Promise<never>((_resolve, reject) => {
+      abortListener = () => reject(getExternalAbortReason(signal));
+      signal.addEventListener('abort', abortListener, { once: true });
+      if (signal.aborted) abortListener();
+    });
     try {
-      return JSON.parse(text) as T;
-    } catch {
-      throw new SpotifyApiError('Spotify returned malformed JSON.', response.status);
+      await Promise.race([this.sleeper(milliseconds), aborted]);
+    } finally {
+      if (abortListener) signal.removeEventListener('abort', abortListener);
     }
   }
 }
 
-function getRetryAfterMilliseconds(response: Response): number {
-  const seconds = Number(response.headers.get('retry-after'));
-  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1_000 : 0;
+interface AttemptSignal {
+  signal: AbortSignal;
+  cleanup(): void;
 }
 
-async function mapSpotifyError(response: Response): Promise<Error> {
+function createAttemptSignal(externalSignal?: AbortSignal): AttemptSignal {
+  const controller = new AbortController();
+  const abortFromExternalSignal = () => {
+    if (externalSignal) controller.abort(getExternalAbortReason(externalSignal));
+  };
+  externalSignal?.addEventListener('abort', abortFromExternalSignal, { once: true });
+  if (externalSignal?.aborted) abortFromExternalSignal();
+
+  const timeout = setTimeout(
+    () => controller.abort(new DOMException('The operation timed out.', 'TimeoutError')),
+    15_000,
+  );
+  timeout.unref();
+
+  let cleanedUp = false;
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      clearTimeout(timeout);
+      externalSignal?.removeEventListener('abort', abortFromExternalSignal);
+    },
+  };
+}
+
+function normalizeAttemptError(
+  error: unknown,
+  attemptSignal: AbortSignal,
+  externalSignal?: AbortSignal,
+): Error {
+  if (externalSignal?.aborted) return getExternalAbortReason(externalSignal);
+
+  const normalizedError = toError(error);
+  if (
+    normalizedError.name === 'TimeoutError' ||
+    (attemptSignal.aborted && toError(attemptSignal.reason).name === 'TimeoutError')
+  ) {
+    return new AppError('Spotify did not respond within 15 seconds. Try again.');
+  }
+  if (normalizedError instanceof AppError) return normalizedError;
+  return new AppError(
+    `Unable to reach Spotify: ${sanitizeOneLineText(normalizedError.message)}`,
+  );
+}
+
+function throwIfAttemptAborted(
+  attemptSignal: AbortSignal,
+  externalSignal?: AbortSignal,
+): void {
+  throwIfExternallyAborted(externalSignal);
+  if (attemptSignal.aborted) throw attemptSignal.reason;
+}
+
+function throwIfExternallyAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw getExternalAbortReason(signal);
+}
+
+function getExternalAbortReason(signal: AbortSignal): Error {
+  const reason = signal.reason;
+  if (reason instanceof Error && reason.name === 'AbortError') return reason;
+  return new DOMException('The operation was aborted.', 'AbortError');
+}
+
+function abortableSleep(milliseconds: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abortListener);
+      resolve();
+    }, milliseconds);
+    const abortListener = () => {
+      clearTimeout(timer);
+      reject(getExternalAbortReason(signal));
+    };
+    signal.addEventListener('abort', abortListener, { once: true });
+    if (signal.aborted) abortListener();
+  });
+}
+
+function getRetryAfterSeconds(response: Response): number {
+  const header = response.headers.get('retry-after');
+  if (header === null) return 1;
+
+  const seconds = Number(header);
+  if (!Number.isFinite(seconds) || seconds < 0) return 1;
+  return Math.ceil(seconds);
+}
+
+async function mapSpotifyError(
+  response: Response,
+  method: string,
+  path: string,
+): Promise<Error> {
   const body = await readErrorBody(response);
   const spotifyMessage =
     typeof body.error === 'object' ? body.error?.message : body.error_description;
-  const message = spotifyMessage || `Spotify API request failed with HTTP ${response.status}.`;
+  const sanitizedMessage = spotifyMessage ? sanitizeOneLineText(spotifyMessage) : '';
+  const message =
+    sanitizedMessage || `Spotify API request failed with HTTP ${response.status}.`;
 
   if (response.status === 401) {
     return new AuthenticationRequiredError(
@@ -154,10 +302,15 @@ async function mapSpotifyError(response: Response): Promise<Error> {
     );
   }
   if (response.status === 403 && /premium/i.test(message)) return new PremiumRequiredError();
-  if (response.status === 404 && /device/i.test(message)) return new NoActiveDeviceError();
+  if (
+    response.status === 404 &&
+    PLAYBACK_CONTROL_REQUESTS.has(`${method} ${path}`) &&
+    /\b(?:no active device|device not found)\b/i.test(message)
+  ) {
+    return new NoActiveDeviceError();
+  }
   if (response.status === 429) {
-    const retryAfter = Number(response.headers.get('retry-after') ?? '1');
-    return new RateLimitedError(Number.isFinite(retryAfter) ? retryAfter : 1);
+    return new RateLimitedError(getRetryAfterSeconds(response));
   }
   return new SpotifyApiError(message, response.status);
 }

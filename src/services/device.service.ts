@@ -1,5 +1,6 @@
 import type { SpotifyApi } from '../spotify/client.js';
 import { AppError, NoActiveDeviceError } from '../utils/errors.js';
+import { sanitizeOneLineText } from '../utils/text.js';
 
 export interface Device {
   id: string | null;
@@ -30,25 +31,29 @@ interface DevicesResponse {
 export class DeviceService {
   constructor(private readonly spotify: SpotifyApi) {}
 
-  async getDevices(): Promise<Device[]> {
-    const response = await this.spotify.get<DevicesResponse>('/me/player/devices');
+  async getDevices(signal?: AbortSignal): Promise<Device[]> {
+    const response =
+      signal === undefined
+        ? await this.spotify.get<DevicesResponse>('/me/player/devices')
+        : await this.spotify.get<DevicesResponse>('/me/player/devices', { signal });
     return response.devices.map(mapDevice).sort(compareDevices);
   }
 
-  async getActiveDevice(): Promise<Device> {
-    const activeDevice = (await this.getDevices()).find((device) => device.isActive);
+  async getActiveDevice(signal?: AbortSignal): Promise<Device> {
+    const devices = signal === undefined ? await this.getDevices() : await this.getDevices(signal);
+    const activeDevice = devices.find((device) => device.isActive);
     if (!activeDevice) throw new NoActiveDeviceError();
     return activeDevice;
   }
 
-  async getControllableDevices(): Promise<Device[]> {
-    return (await this.getDevices()).filter(
-      (device) => device.id !== null && !device.isRestricted,
-    );
+  async getControllableDevices(signal?: AbortSignal): Promise<Device[]> {
+    const devices = signal === undefined ? await this.getDevices() : await this.getDevices(signal);
+    return devices.filter((device) => device.id !== null && !device.isRestricted);
   }
 
   async findDevice(nameOrId: string): Promise<Device> {
     const query = nameOrId.trim();
+    const displayQuery = sanitizeOneLineText(query);
     const normalizedQuery = query.toLocaleLowerCase();
     const availableDevices = await this.getDevices();
 
@@ -57,12 +62,12 @@ export class DeviceService {
       const selected = Number.isSafeInteger(index) ? availableDevices[index] : undefined;
       if (!selected) {
         throw new AppError(
-          `Device number ${query} is out of range. Run: spoti devices`,
+          `Device number ${displayQuery} is out of range. Run: spoti devices`,
         );
       }
       if (!selected.id || selected.isRestricted) {
         throw new AppError(
-          `Device ${query} ("${selected.name}") cannot be controlled through Spotify Connect.`,
+          `Device ${displayQuery} ("${sanitizeOneLineText(selected.name)}") cannot be controlled through Spotify Connect.`,
         );
       }
       return selected;
@@ -82,14 +87,16 @@ export class DeviceService {
     if (nameMatches.length === 1) return nameMatches[0]!;
 
     if (nameMatches.length > 1) {
-      const deviceIds = nameMatches.map((device) => device.id).join(', ');
+      const deviceIds = nameMatches
+        .map((device) => sanitizeOneLineText(device.id ?? ''))
+        .join(', ');
       throw new AppError(
-        `Multiple controllable Spotify devices are named "${query}". Use a device ID instead: ${deviceIds}.`,
+        `Multiple controllable Spotify devices are named "${displayQuery}". Use a device ID instead: ${deviceIds}.`,
       );
     }
 
     throw new AppError(
-      `No controllable Spotify device matches "${query}". Check the device name or ID and ensure Spotify is open on that device.`,
+      `No controllable Spotify device matches "${displayQuery}". Check the device name or ID and ensure Spotify is open on that device.`,
     );
   }
 

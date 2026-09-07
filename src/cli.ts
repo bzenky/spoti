@@ -18,7 +18,7 @@ import {
 import { FileConfigStore } from './storage/config.js';
 import { FileUpdateCacheStore, type UpdateCache } from './storage/update-cache.js';
 import { SpotifyClient } from './spotify/client.js';
-import { consoleOutput } from './ui/output.js';
+import { consoleOutput, createOutputStyles } from './ui/output.js';
 import { startUpdateWorker } from './update-worker.js';
 import { AppError, toError } from './utils/errors.js';
 import { VERSION } from './version.js';
@@ -41,6 +41,7 @@ const program = createProgram({
   update,
   config: new FileConfigStore(),
   output: consoleOutput,
+  styles: createOutputStyles(Boolean(process.stdout.isTTY), process.env),
 });
 
 const isUpdateCommand = process.argv[2] === 'update';

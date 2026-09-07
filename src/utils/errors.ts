@@ -34,7 +34,8 @@ export class PremiumRequiredError extends AppError {
 
 export class RateLimitedError extends AppError {
   constructor(public readonly retryAfterSeconds: number) {
-    super(`Spotify rate limit reached. Try again in ${retryAfterSeconds} seconds.`);
+    const unit = retryAfterSeconds === 1 ? 'second' : 'seconds';
+    super(`Spotify rate limit reached. Try again in ${retryAfterSeconds} ${unit}.`);
   }
 }
 

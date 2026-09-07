@@ -42,13 +42,20 @@ export class QueueService {
   async getQueue(): Promise<PlaybackQueue> {
     const response = await this.spotify.get<SpotifyQueueResponse>('/me/player/queue');
 
+    const currentlyPlaying = response.currently_playing
+      ? mapQueueItem(response.currently_playing)
+      : null;
+    const queue = response.queue
+      .map(mapQueueItem)
+      .filter((item): item is QueueItem => item !== null);
+    const onlyRepeatsCurrentTrack =
+      currentlyPlaying !== null &&
+      queue.length > 0 &&
+      queue.every((item) => item.uri === currentlyPlaying.uri);
+
     return {
-      currentlyPlaying: response.currently_playing
-        ? mapQueueItem(response.currently_playing)
-        : null,
-      queue: response.queue
-        .map(mapQueueItem)
-        .filter((item): item is QueueItem => item !== null),
+      currentlyPlaying,
+      queue: onlyRepeatsCurrentTrack ? [] : queue,
     };
   }
 

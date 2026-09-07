@@ -69,7 +69,9 @@ function dependencies() {
     player: {
       playTrack: vi.fn(),
       playContext: vi.fn(),
+      getShuffleState: vi.fn(),
       setShuffle: vi.fn(),
+      getRepeatState: vi.fn(),
       setRepeat: vi.fn(),
       resume: vi.fn(),
       pause: vi.fn(),
@@ -123,9 +125,12 @@ function dependencies() {
     chooseAlbum: vi.fn(),
     chooseArtist: vi.fn(),
     choosePlaylist: vi.fn(),
+    chooseListedPlaylist: vi.fn(),
     chooseAlbumAction: vi.fn(),
     chooseArtistAction: vi.fn(),
     choosePlaylistAction: vi.fn(),
+    chooseLikedTrack: vi.fn(),
+    chooseRecentTrack: vi.fn(),
     requestSpotifyClientId: vi.fn(),
     confirmUpdate: vi.fn(),
     interactiveSearch: vi.fn().mockResolvedValue({ status: 'cancelled' }),
@@ -151,6 +156,28 @@ describe('CLI application', () => {
 
     await run(['interactive'], deps);
     expect(deps.interactiveSearch).toHaveBeenCalledOnce();
+  });
+
+  it('reports unknown commands instead of excess root arguments', async () => {
+    const deps = dependencies();
+
+    await expect(run(['stop'], deps)).rejects.toThrow(
+      'Unknown command "stop".\n\nRun: spoti --help',
+    );
+  });
+
+  it('prints a durable confirmation after interactive playback', async () => {
+    const deps = dependencies();
+    deps.interactiveSearch.mockResolvedValue({
+      status: 'played',
+      category: 'track',
+      uri: track.uri,
+      label: 'Numb — Linkin Park',
+    });
+
+    await run(['interactive'], deps);
+
+    expect(deps.messages).toEqual(['▶ Playing Numb — Linkin Park']);
   });
 
   it('saves a provided or interactively entered Spotify client ID', async () => {
@@ -285,6 +312,22 @@ describe('CLI application', () => {
     vi.mocked(deps.search.searchTracks).mockResolvedValue([track]);
     await run(['queue', 'Numb', '--first'], deps);
     expect(deps.queue.addItem).toHaveBeenCalledWith(track.uri);
+  });
+
+  it('sanitizes Spotify metadata in action confirmations', async () => {
+    const deps = dependencies();
+    const unsafeTrack = {
+      ...track,
+      name: 'Numb\u001B[2J\nRemix',
+      artists: ['Linkin\u0007 Park'],
+    };
+    vi.mocked(deps.search.searchTracks).mockResolvedValue([unsafeTrack]);
+
+    await run(['queue', 'Numb', '--first'], deps);
+
+    expect(deps.messages).toContain('✓ Queued Numb Remix — Linkin Park');
+    expect(deps.messages.join('')).not.toContain('\u001B');
+    expect(deps.messages.join('')).not.toContain('\u0007');
   });
 
   it('sets and adjusts playback volume', async () => {
@@ -444,6 +487,18 @@ describe('CLI application', () => {
     expect(deps.messages.join('\n')).toContain('Workout — Bruno · 1 item');
   });
 
+  it('plays a playlist selected from the playlist list', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlist.listPlaylists).mockResolvedValue([playlist]);
+    deps.chooseListedPlaylist.mockResolvedValue(playlist);
+
+    await run(['playlists'], deps);
+
+    expect(deps.chooseListedPlaylist).toHaveBeenCalledWith([playlist]);
+    expect(deps.player.playContext).toHaveBeenCalledWith(playlist.uri);
+    expect(deps.messages).toContain('▶ Playing playlist Workout');
+  });
+
   it('rejects an out-of-range playlist number', async () => {
     const deps = dependencies();
     vi.mocked(deps.playlist.listPlaylists).mockResolvedValue([playlist]);
@@ -453,12 +508,20 @@ describe('CLI application', () => {
     );
   });
 
-  it('controls shuffle and repeat modes', async () => {
+  it('shows and controls shuffle and repeat modes', async () => {
     const deps = dependencies();
+    vi.mocked(deps.player.getShuffleState).mockResolvedValue(true);
+    vi.mocked(deps.player.getRepeatState).mockResolvedValue('track');
 
+    await run(['shuffle'], deps);
     await run(['shuffle', 'on'], deps);
+    await run(['repeat'], deps);
     await run(['repeat', 'context'], deps);
 
+    expect(deps.player.getShuffleState).toHaveBeenCalledOnce();
+    expect(deps.player.getRepeatState).toHaveBeenCalledOnce();
+    expect(deps.messages).toContain('🔀 Shuffle: on');
+    expect(deps.messages).toContain('🔁 Repeat: track');
     expect(deps.player.setShuffle).toHaveBeenCalledWith(true);
     expect(deps.player.setRepeat).toHaveBeenCalledWith('context');
   });
@@ -479,6 +542,19 @@ describe('CLI application', () => {
     expect(deps.messages.join('\n')).toContain('♡ Unliked Numb — Linkin Park');
   });
 
+  it('plays a selected liked track', async () => {
+    const deps = dependencies();
+    const likedTracks = [{ addedAt: '2026-09-05T00:00:00Z', track }];
+    vi.mocked(deps.library.getLikedTracks).mockResolvedValue(likedTracks);
+    deps.chooseLikedTrack.mockResolvedValue(track);
+
+    await run(['liked'], deps);
+
+    expect(deps.chooseLikedTrack).toHaveBeenCalledWith(likedTracks);
+    expect(deps.player.playTrack).toHaveBeenCalledWith(track.uri);
+    expect(deps.messages).toContain('▶ Playing Numb — Linkin Park');
+  });
+
   it('lists recently played tracks', async () => {
     const deps = dependencies();
     vi.mocked(deps.recent.getRecentlyPlayed).mockResolvedValue([
@@ -489,6 +565,19 @@ describe('CLI application', () => {
 
     expect(deps.recent.getRecentlyPlayed).toHaveBeenCalledWith(5);
     expect(deps.messages[0]).toContain('played 2026-09-05T00:00:00Z');
+  });
+
+  it('plays a selected recently played track', async () => {
+    const deps = dependencies();
+    const recentTracks = [{ playedAt: '2026-09-05T00:00:00Z', track }];
+    vi.mocked(deps.recent.getRecentlyPlayed).mockResolvedValue(recentTracks);
+    deps.chooseRecentTrack.mockResolvedValue(track);
+
+    await run(['recent'], deps);
+
+    expect(deps.chooseRecentTrack).toHaveBeenCalledWith(recentTracks);
+    expect(deps.player.playTrack).toHaveBeenCalledWith(track.uri);
+    expect(deps.messages).toContain('▶ Playing Numb — Linkin Park');
   });
 
   it('checks for updates without installing', async () => {

@@ -75,6 +75,59 @@ describe('QueueService', () => {
     expect(api.get).toHaveBeenCalledWith('/me/player/queue');
   });
 
+  it('treats Spotify repeating only the current track as an empty queue', async () => {
+    const api = createApi();
+    const currentTrack = {
+      type: 'track' as const,
+      name: 'After Midnight',
+      uri: 'spotify:track:current',
+      duration_ms: 206_000,
+      artists: [{ name: 'blink-182' }],
+    };
+    vi.mocked(api.get).mockResolvedValue({
+      currently_playing: currentTrack,
+      queue: Array.from({ length: 10 }, () => ({ ...currentTrack })),
+    });
+
+    await expect(new QueueService(api).getQueue()).resolves.toEqual({
+      currentlyPlaying: {
+        type: 'track',
+        name: 'After Midnight',
+        uri: 'spotify:track:current',
+        subtitle: 'blink-182',
+        durationMs: 206_000,
+      },
+      queue: [],
+    });
+  });
+
+  it('preserves repeated tracks when the queue also contains another item', async () => {
+    const api = createApi();
+    const currentTrack = {
+      type: 'track' as const,
+      name: 'Current',
+      uri: 'spotify:track:current',
+      duration_ms: 180_000,
+      artists: [{ name: 'Artist' }],
+    };
+    vi.mocked(api.get).mockResolvedValue({
+      currently_playing: currentTrack,
+      queue: [
+        { ...currentTrack },
+        { ...currentTrack, name: 'Next', uri: 'spotify:track:next' },
+        { ...currentTrack },
+      ],
+    });
+
+    const result = await new QueueService(api).getQueue();
+
+    expect(result.queue.map((item) => item.uri)).toEqual([
+      'spotify:track:current',
+      'spotify:track:next',
+      'spotify:track:current',
+    ]);
+  });
+
   it('adds an item using the required Spotify uri query parameter', async () => {
     const api = createApi();
     const uri = 'spotify:track:track-id';

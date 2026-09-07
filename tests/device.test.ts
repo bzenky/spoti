@@ -69,6 +69,23 @@ describe('DeviceService', () => {
     expect(api.get).toHaveBeenCalledWith('/me/player/devices');
   });
 
+  it('propagates cancellation through device lookup methods', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      devices: [spotifyDevice({ is_active: true })],
+    });
+    const service = new DeviceService(api);
+    const signal = new AbortController().signal;
+
+    await service.getDevices(signal);
+    await service.getActiveDevice(signal);
+    await service.getControllableDevices(signal);
+
+    expect(api.get).toHaveBeenNthCalledWith(1, '/me/player/devices', { signal });
+    expect(api.get).toHaveBeenNthCalledWith(2, '/me/player/devices', { signal });
+    expect(api.get).toHaveBeenNthCalledWith(3, '/me/player/devices', { signal });
+  });
+
   it('sorts devices deterministically so displayed numbers remain stable', async () => {
     const api = createApi();
     vi.mocked(api.get).mockResolvedValue({

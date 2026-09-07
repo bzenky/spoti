@@ -131,6 +131,8 @@ export interface SpotifyCursorPaging<T> {
 
 export interface SpotifyPlaybackState {
   is_playing: boolean;
+  repeat_state: string;
+  shuffle_state: boolean;
   progress_ms: number | null;
   item: SpotifyPlaybackItem | null;
   device: {

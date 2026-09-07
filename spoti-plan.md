@@ -599,7 +599,41 @@ Completion scripts are static and never invoke Spotify or contact the network.
 
 ---
 
-# 14. Version 1.0
+# 14. Version 0.5
+
+Focus on terminal presentation, interactive search usability, and playback reliability.
+
+## Terminal Presentation
+
+- Apply restrained semantic styling to names, metadata, headings, and progress in interactive terminals.
+- Keep redirected output plain and respect the standard `NO_COLOR` environment variable.
+- Normalize Spotify-provided text before writing it to the terminal.
+
+## Interactive Search Polish
+
+- Allow query editing after results are displayed.
+- Keep temporary search and playback errors inside the interface so users can retry.
+- Cache category results for the active query during the session.
+- Print a durable playback confirmation after restoring the terminal screen.
+- Let users select and play a numbered item after viewing playlists, liked songs, or recent history.
+- Preserve terminal state when setup, rendering, search, playback, or cleanup fails.
+
+## Reliability
+
+- Show the current shuffle or repeat state when its command is run without a value.
+- Normalize Spotify's repeated-current-track placeholder into an empty queue.
+- Prefer the one active controllable device during playback fallback, then the only controllable device.
+- Preserve request parameters when retrying playback against a selected device.
+- Restrict no-active-device error mapping to playback-control endpoints and matching Spotify errors.
+- Normalize rate-limit retry information and sanitize externally supplied error text.
+- Report unknown commands explicitly instead of treating them as excess arguments.
+- Expand formatter, interactive-search, player fallback, and Spotify client tests.
+
+The compact `now` output and `open` command are intentionally not part of this release.
+
+---
+
+# 15. Version 1.0
 
 Build a proper interactive TUI using Ink.
 
@@ -644,7 +678,7 @@ App
 
 ---
 
-# 15. Core Services
+# 16. Core Services
 
 ## AuthService
 
@@ -710,7 +744,7 @@ transferPlayback(deviceId)
 
 ---
 
-# 16. Spotify Client
+# 17. Spotify Client
 
 Create a single wrapper around Spotify HTTP requests.
 
@@ -736,7 +770,7 @@ Commands should never need to know how authentication works.
 
 ---
 
-# 17. Error Handling
+# 18. Error Handling
 
 Create friendly CLI errors.
 
@@ -773,7 +807,7 @@ Spotify Premium is required for playback control.
 
 ---
 
-# 18. Configuration
+# 19. Configuration
 
 Example:
 
@@ -804,7 +838,7 @@ spoti config set refreshIntervalMs 2000
 
 ---
 
-# 19. Developer Experience
+# 20. Developer Experience
 
 Useful scripts:
 
@@ -840,7 +874,7 @@ spoti play "Numb"
 
 ---
 
-# 20. Testing Strategy
+# 21. Testing Strategy
 
 Do not test Spotify itself.
 
@@ -886,7 +920,7 @@ Test command behavior without making real API calls.
 
 ---
 
-# 21. Nice-to-Have Features
+# 22. Nice-to-Have Features
 
 After the core project works:
 
@@ -922,7 +956,7 @@ Open the current track in the Spotify application.
 
 ---
 
-# 22. Potential Shell Integration
+# 23. Potential Shell Integration
 
 Example:
 
@@ -948,7 +982,7 @@ This could be used in a terminal prompt or status bar.
 
 ---
 
-# 23. Development Roadmap
+# 24. Development Roadmap
 
 ## Phase 1 — Bootstrap
 
@@ -1043,7 +1077,7 @@ At this point the MVP is complete.
 - [x] Explicit `spoti update --check` and confirmed `spoti update`
 - [x] Interactive multi-category search
 - [x] aliases
-- [ ] better terminal formatting
+
 - [x] TTY-only loading indicators
 - [ ] JSON output — deferred until a concrete scripting use case exists
 - [x] shell completions
@@ -1052,7 +1086,25 @@ At this point the MVP is complete.
 
 ---
 
-## Phase 9 — TUI
+## Phase 9 — CLI UX and Reliability
+
+- [x] TTY-aware semantic formatting with `NO_COLOR` support
+- [x] terminal-safe Spotify metadata
+- [x] editable and retryable interactive search
+- [x] per-session interactive search result caching
+- [x] durable interactive playback confirmation
+- [x] optional playback selection from playlists, liked songs, and recent history
+- [x] current shuffle and repeat state display
+- [x] empty-queue normalization for repeated current-track placeholders
+- [x] deterministic active-device fallback
+- [x] stricter Spotify error mapping and normalized rate-limit messages
+- [x] explicit unknown-command errors
+- [x] validated, retryable numbered prompts
+- [x] immediate interactive request cancellation
+
+---
+
+## Phase 10 — TUI
 
 - [ ] Add Ink
 - [ ] Current track screen
@@ -1065,7 +1117,7 @@ At this point the MVP is complete.
 
 ---
 
-# 24. MVP Definition
+# 25. MVP Definition
 
 Do not expand the scope until all of these work:
 
@@ -1093,7 +1145,7 @@ The MVP is complete when you can comfortably control Spotify during a normal wor
 
 ---
 
-# 25. First Development Session
+# 26. First Development Session
 
 When starting the project, focus only on:
 
@@ -1125,7 +1177,7 @@ Once authentication works, almost every other feature becomes a relatively strai
 
 ---
 
-# 26. Guiding Principle
+# 27. Guiding Principle
 
 Keep the first versions command-driven.
 

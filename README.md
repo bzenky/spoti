@@ -94,7 +94,7 @@ spoti interactive
 # alias: spoti i
 ```
 
-Type a query and press Enter. Use `Tab` or left/right to switch between tracks, albums, artists, and playlists; use up/down to select; press Enter to play; press Esc to exit. The terminal is restored even when a request fails.
+Type a query and press Enter. Use `Tab` or left/right to switch between tracks, albums, artists, and playlists; use up/down to select; press Enter to play; press Esc to exit. Type or backspace after a search to edit the query. Category results are cached while the query remains unchanged, and temporary search or playback failures can be retried without reopening the command. The terminal is always restored when the interaction ends.
 
 Authenticate once through Spotify's browser authorization page:
 
@@ -119,8 +119,10 @@ spoti previous
 spoti volume 50
 spoti volume +10
 spoti volume -10
+spoti shuffle
 spoti shuffle on
 spoti shuffle off
+spoti repeat
 spoti repeat off
 spoti repeat track
 spoti repeat context
@@ -136,7 +138,7 @@ spoti device "My Computer"
 
 Use the displayed one-based number, exact device name, or Spotify device ID.
 
-When playback has no active device, `spoti play` and `spoti resume` automatically target it if exactly one controllable device is available.
+When playback reports no active device, `spoti play` and `spoti resume` retry the one active controllable device if Spotify reports one, or the only controllable device when exactly one is available. If several inactive devices are available, `spoti` asks you to select one explicitly.
 
 Seek within the current track:
 
@@ -146,7 +148,7 @@ spoti seek +30
 spoti seek -10
 ```
 
-View the queue or search for a track to add:
+View the queue or search for a track to add. When Spotify represents an otherwise empty queue by repeating only the current track, `spoti` reports the queue as empty instead of printing duplicate entries:
 
 ```bash
 spoti queue
@@ -176,7 +178,7 @@ spoti play playlist "Workout"
 spoti play playlist 1
 ```
 
-User playlists are sorted consistently by name, so the displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`.
+User playlists are sorted consistently by name, so the displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`. In an interactive terminal, `spoti playlists` also lets you select a displayed playlist to play immediately; press Enter to leave playback unchanged.
 
 In an interactive terminal, `spoti album` can play the entire album or a selected track after showing its details. `spoti artist` can play the artist context or let you select one of the artist’s albums, and `spoti playlist` can start the selected playlist. Non-interactive runs remain display-only and never start playback implicitly.
 
@@ -193,7 +195,7 @@ spoti recent
 spoti recent --limit 10
 ```
 
-`spoti like` and `spoti unlike` operate on the currently playing track. Episodes, advertisements, local files, and unavailable items are ignored safely.
+`spoti like` and `spoti unlike` operate on the currently playing track. Episodes, advertisements, local files, and unavailable items are ignored safely. In an interactive terminal, both `spoti liked` and `spoti recent` show a numbered list and then let you select a track to play. Press Enter without a number to leave playback unchanged; non-interactive runs remain display-only.
 
 Check for updates or install the latest npm release:
 
@@ -212,7 +214,7 @@ spoti logout
 
 When attached to an interactive terminal, `spoti play <query>` asks you to select a result. In non-interactive usage it chooses the first result automatically; `--first` makes that behavior explicit.
 
-Watch mode continuously refreshes the current track and progress until `Ctrl+C` is pressed. `--watch` enables it for one command, while `--no-watch` overrides a saved preference.
+Watch mode continuously refreshes the current track and progress until `Ctrl+C` is pressed. `--watch` enables it for one command, while `--no-watch` overrides a saved preference. Run `spoti shuffle` or `spoti repeat` without a value to inspect the current state. Use `spoti shuffle on|off` or `spoti repeat off|track|context` to change it.
 
 
 ### Command aliases
@@ -246,6 +248,16 @@ spoti completion fish | source  # Fish
 ```
 
 Interactive network operations display a spinner on stderr. Indicators remain disabled outside a TTY.
+
+### Terminal formatting
+
+Interactive terminals use restrained styling for names, metadata, headings, and playback progress. Redirected output remains plain text. Set the standard `NO_COLOR` environment variable to disable decorative styling:
+
+```bash
+NO_COLOR=1 spoti now
+```
+
+Spotify-provided names and descriptions are normalized to safe single-line terminal text before display.
 
 ## Configuration
 
@@ -324,4 +336,4 @@ The release workflow attaches the npm package tarball and a `SHA256SUMS` file, a
 
 ## Current scope
 
-Version `0.3.0` supports authentication and persistent client-ID setup; track, album, artist, and playlist discovery and playback; guided playback actions; current playback and watch mode; player, queue, library, device, and update controls. The current development branch adds explicit interactive search, aliases, loading indicators, shell completions, configuration polish, and Node 24-based GitHub Actions. A full Ink-based TUI remains planned for `v1.0.0`.
+Version `0.5.0` improves TTY-aware terminal formatting, interactive-search editing, retries and cancellation, terminal-safe Spotify metadata, collection playback selection, player-state visibility, device fallback, and API error handling. A full Ink-based TUI remains planned for `v1.0.0`.

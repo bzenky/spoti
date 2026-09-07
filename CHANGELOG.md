@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-07
+
+### Added
+
+- TTY-aware semantic terminal styling with `NO_COLOR` support and safe normalization of Spotify-provided text.
+- Optional numbered playback selection after listing playlists, liked tracks, or recently played tracks.
+- Current-state output when `spoti shuffle` or `spoti repeat` is run without a value.
+
+### Changed
+
+- Make interactive search editable, cache results for the active query, and allow retries after temporary search or playback failures.
+- Cancel in-flight interactive requests immediately on `Esc` or `Ctrl+C`, including device discovery, rate-limit waits, and response parsing.
+- Prefer an active controllable device during playback fallback and preserve request parameters when retrying playback.
+- Report an empty queue when Spotify returns only repeated copies of the current track.
+
+### Fixed
+
+- Restore terminal state reliably after interactive completion, cancellation, setup errors, and cleanup failures.
+- Validate numbered prompts with a clear error and retry instead of silently accepting invalid input.
+- Report unknown commands explicitly and tighten Spotify API error, rate-limit, and external-text handling.
+
 ## [0.4.0] - 2026-09-06
 
 ### Added

@@ -2,7 +2,7 @@ import { stdin, stdout } from 'node:process';
 
 import type { PlayerService } from '../services/player.service.js';
 import { AppError } from '../utils/errors.js';
-import { formatPlayback } from './output.js';
+import { createOutputStyles, formatPlayback } from './output.js';
 
 export interface WatchPlaybackOptions {
   player: Pick<PlayerService, 'getCurrentPlayback'>;
@@ -16,6 +16,7 @@ export const watchPlayback: PlaybackWatcher = async ({ player, refreshIntervalMs
     throw new AppError('Watch mode requires an interactive terminal.');
   }
 
+  const styles = createOutputStyles(true, process.env);
   let stopped = false;
   let resolveStop: () => void = () => undefined;
   const stopPromise = new Promise<void>((resolve) => {
@@ -33,7 +34,7 @@ export const watchPlayback: PlaybackWatcher = async ({ player, refreshIntervalMs
     while (!stopped) {
       const playback = await player.getCurrentPlayback();
       const content = playback
-        ? formatPlayback(playback)
+        ? formatPlayback(playback, styles)
         : 'Nothing is currently playing.';
       stdout.write(`\u001B[2J\u001B[H${content}\n\nPress Ctrl+C to exit`);
       if (!stopped) await waitForRefresh(refreshIntervalMs, stopPromise);

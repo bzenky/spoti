@@ -1,3 +1,4 @@
+
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Album, Artist, Playlist, Track } from '../src/services/models.js';
@@ -67,7 +68,22 @@ class FakeTerminal implements InteractiveSearchTerminal {
     this.cleanupCalls += 1;
   }
 
-  async readKey(): Promise<InteractiveSearchKey> {
+  async readKey(signal?: AbortSignal): Promise<InteractiveSearchKey> {
+    if (signal) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const finish = (key: InteractiveSearchKey) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(delivery);
+          resolve(key);
+        };
+        const delivery = setTimeout(() => {
+          if (this.keys[0]?.type === 'escape') finish(this.keys.shift()!);
+        }, 0);
+        signal.addEventListener('abort', () => finish({ type: 'other' }), { once: true });
+      });
+    }
     const key = this.keys.shift();
     if (!key) throw new Error('Fake terminal ran out of keys');
     return key;
@@ -85,14 +101,38 @@ function characterKeys(value: string): InteractiveSearchKey[] {
 function createServices() {
   return {
     search: {
-      searchTracks: vi.fn(async () => [trackOne, trackTwo]),
-      searchAlbums: vi.fn(async () => [album]),
-      searchArtists: vi.fn(async () => [artist]),
-      searchPlaylists: vi.fn(async () => [playlist]),
+      searchTracks: vi.fn(
+        async (...args: [string, number?, AbortSignal?]): Promise<Track[]> => {
+          void args;
+          return [trackOne, trackTwo];
+        },
+      ),
+      searchAlbums: vi.fn(
+        async (...args: [string, number?, AbortSignal?]): Promise<Album[]> => {
+          void args;
+          return [album];
+        },
+      ),
+      searchArtists: vi.fn(
+        async (...args: [string, number?, AbortSignal?]): Promise<Artist[]> => {
+          void args;
+          return [artist];
+        },
+      ),
+      searchPlaylists: vi.fn(
+        async (...args: [string, number?, AbortSignal?]): Promise<Playlist[]> => {
+          void args;
+          return [playlist];
+        },
+      ),
     },
     player: {
-      playTrack: vi.fn(async () => undefined),
-      playContext: vi.fn(async () => undefined),
+      playTrack: vi.fn(async (...args: [string, AbortSignal?]): Promise<void> => {
+        void args;
+      }),
+      playContext: vi.fn(async (...args: [string, AbortSignal?]): Promise<void> => {
+        void args;
+      }),
     },
   };
 }
@@ -125,10 +165,18 @@ describe('runInteractiveSearch', () => {
       status: 'played',
       category: 'track',
       uri: trackTwo.uri,
+      label: 'Second Song — Second Artist',
     });
 
-    expect(services.search.searchTracks).toHaveBeenCalledWith('song', 7);
-    expect(services.player.playTrack).toHaveBeenCalledWith(trackTwo.uri);
+    expect(services.search.searchTracks).toHaveBeenCalledWith(
+      'song',
+      7,
+      expect.any(AbortSignal),
+    );
+    expect(services.player.playTrack).toHaveBeenCalledWith(
+      trackTwo.uri,
+      expect.any(AbortSignal),
+    );
     expect(services.player.playContext).not.toHaveBeenCalled();
     expect(terminal.writes.join('')).toContain('Second Song — Second Artist · Second Album');
     expect(terminal.setupCalls).toBe(1);
@@ -150,13 +198,33 @@ describe('runInteractiveSearch', () => {
       status: 'played',
       category: 'playlist',
       uri: playlist.uri,
+      label: 'A Playlist',
     });
 
-    expect(services.search.searchTracks).toHaveBeenCalledWith('mix', undefined);
-    expect(services.search.searchAlbums).toHaveBeenCalledWith('mix', undefined);
-    expect(services.search.searchArtists).toHaveBeenCalledWith('mix', undefined);
-    expect(services.search.searchPlaylists).toHaveBeenCalledWith('mix', undefined);
-    expect(services.player.playContext).toHaveBeenCalledWith(playlist.uri);
+    expect(services.search.searchTracks).toHaveBeenCalledWith(
+      'mix',
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(services.search.searchAlbums).toHaveBeenCalledWith(
+      'mix',
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(services.search.searchArtists).toHaveBeenCalledWith(
+      'mix',
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(services.search.searchPlaylists).toHaveBeenCalledWith(
+      'mix',
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(services.player.playContext).toHaveBeenCalledWith(
+      playlist.uri,
+      expect.any(AbortSignal),
+    );
     expect(terminal.writes.join('')).toContain('A Playlist — Listener · 12 items');
   });
 
@@ -177,17 +245,136 @@ describe('runInteractiveSearch', () => {
     expect(terminal.cleanupCalls).toBe(1);
   });
 
-  it('always restores the terminal when search fails', async () => {
+  it('shows search failures inline and allows retrying without restarting', async () => {
     const terminal = new FakeTerminal(true, [
       ...characterKeys('broken'),
       { type: 'enter' },
+      { type: 'enter' },
+      { type: 'enter' },
     ]);
     const services = createServices();
-    services.search.searchTracks.mockRejectedValue(new Error('search unavailable'));
+    services.search.searchTracks
+      .mockRejectedValueOnce(new Error('search unavailable'))
+      .mockResolvedValueOnce([trackOne]);
 
-    await expect(runInteractiveSearch({ ...services, terminal })).rejects.toThrow(
-      'search unavailable',
-    );
+    await expect(runInteractiveSearch({ ...services, terminal })).resolves.toMatchObject({
+      status: 'played',
+      uri: trackOne.uri,
+    });
+    expect(services.search.searchTracks).toHaveBeenCalledTimes(2);
+    expect(terminal.writes.join('')).toContain('Error: search unavailable');
     expect(terminal.cleanupCalls).toBe(1);
+  });
+
+  it('lets users edit a completed query and handles Unicode backspace safely', async () => {
+    const terminal = new FakeTerminal(true, [
+      { type: 'character', value: '🎵' },
+      { type: 'backspace' },
+      ...characterKeys('song'),
+      { type: 'enter' },
+      { type: 'character', value: 's' },
+      { type: 'enter' },
+      { type: 'enter' },
+    ]);
+    const services = createServices();
+
+    await runInteractiveSearch({ ...services, terminal });
+
+    expect(services.search.searchTracks).toHaveBeenNthCalledWith(
+      1,
+      'song',
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(services.search.searchTracks).toHaveBeenNthCalledWith(
+      2,
+      'songs',
+      undefined,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('reuses cached category results during one query', async () => {
+    const terminal = new FakeTerminal(true, [
+      ...characterKeys('mix'),
+      { type: 'enter' },
+      { type: 'tab' },
+      { type: 'left' },
+      { type: 'enter' },
+    ]);
+    const services = createServices();
+
+    await runInteractiveSearch({ ...services, terminal });
+
+    expect(services.search.searchTracks).toHaveBeenCalledOnce();
+    expect(services.search.searchAlbums).toHaveBeenCalledOnce();
+  });
+
+  it('cancels an in-flight search immediately with Escape', async () => {
+    const terminal = new FakeTerminal(true, [
+      ...characterKeys('slow'),
+      { type: 'enter' },
+      { type: 'escape' },
+    ]);
+    const services = createServices();
+    let requestSignal: AbortSignal | undefined;
+    services.search.searchTracks.mockImplementation(
+      async (_query, _limit, signal?: AbortSignal) => {
+        requestSignal = signal;
+        return new Promise<Track[]>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+        });
+      },
+    );
+
+    await expect(runInteractiveSearch({ ...services, terminal })).resolves.toEqual({
+      status: 'cancelled',
+    });
+    expect(requestSignal?.aborted).toBe(true);
+    expect(services.player.playTrack).not.toHaveBeenCalled();
+    expect(terminal.cleanupCalls).toBe(1);
+  });
+
+  it('cancels in-flight playback immediately with Escape', async () => {
+    const terminal = new FakeTerminal(true, [
+      ...characterKeys('song'),
+      { type: 'enter' },
+      { type: 'enter' },
+      { type: 'escape' },
+    ]);
+    const services = createServices();
+    let requestSignal: AbortSignal | undefined;
+    services.player.playTrack.mockImplementation(async (_uri, signal?: AbortSignal) => {
+      requestSignal = signal;
+      return new Promise<void>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    });
+
+    await expect(runInteractiveSearch({ ...services, terminal })).resolves.toEqual({
+      status: 'cancelled',
+    });
+    expect(requestSignal?.aborted).toBe(true);
+    expect(terminal.cleanupCalls).toBe(1);
+  });
+
+  it('keeps the selected result available when playback fails temporarily', async () => {
+    const terminal = new FakeTerminal(true, [
+      ...characterKeys('song'),
+      { type: 'enter' },
+      { type: 'enter' },
+      { type: 'enter' },
+    ]);
+    const services = createServices();
+    services.player.playTrack
+      .mockRejectedValueOnce(new Error('device disconnected'))
+      .mockResolvedValueOnce(undefined);
+
+    await expect(runInteractiveSearch({ ...services, terminal })).resolves.toMatchObject({
+      status: 'played',
+      uri: trackOne.uri,
+    });
+    expect(services.player.playTrack).toHaveBeenCalledTimes(2);
+    expect(terminal.writes.join('')).toContain('Error: device disconnected');
   });
 });

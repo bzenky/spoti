@@ -103,19 +103,21 @@ spoti login
 spoti status
 ```
 
-Control playback:
+Control playback. Quotes are optional for ordinary multi-word queries because `spoti` combines the remaining command arguments. Use quotes when a query contains shell-special characters such as `&`, `*`, `?`, or parentheses.
 
 ```bash
 spoti now
 spoti now --watch
-spoti play "Numb"
-spoti play "Numb" --first
-spoti play "Numb" --watch
-spoti play "Numb" --no-watch
+spoti play Numb
+spoti play Fear of the Dark
+spoti play Numb --first
+spoti play Numb --watch
+spoti play Numb --no-watch
 spoti pause
 spoti resume
 spoti next
 spoti previous
+spoti volume
 spoti volume 50
 spoti volume +10
 spoti volume -10
@@ -178,9 +180,9 @@ spoti play playlist "Workout"
 spoti play playlist 1
 ```
 
-User playlists are sorted consistently by name, so the displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`. In an interactive terminal, `spoti playlists` also lets you select a displayed playlist to play immediately; press Enter to leave playback unchanged.
+User playlists preserve Spotify’s order so their global displayed numbers remain stable across pages. A displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`, including numbers beyond the first page.
 
-In an interactive terminal, `spoti album` can play the entire album or a selected track after showing its details. `spoti artist` can play the artist context or let you select one of the artist’s albums, and `spoti playlist` can start the selected playlist. Non-interactive runs remain display-only and never start playback implicitly.
+In an interactive terminal, `spoti album` can play the entire album or a selected track after showing its details. `spoti artist` can play the artist context or let you browse the artist’s albums lazily, with each fetched page ordered from newest to oldest by release date. From an album selected through an artist, choose **Back to albums** to reuse that list and select another release; pressing Enter in the album browser returns to the artist actions. `spoti playlist` can start the selected playlist or browse its tracks across all available pages and play one directly. Non-interactive runs remain display-only and never start playback implicitly.
 
 `spoti play <query>` remains shorthand for track playback. The words `track`, `album`, `artist`, and `playlist` are treated as explicit types when followed by another argument. For a track query that starts with one of those reserved words, use `spoti play track <query>` (or quote the complete query as one shell argument). Context commands support `--first` to skip interactive selection.
 
@@ -195,7 +197,7 @@ spoti recent
 spoti recent --limit 10
 ```
 
-`spoti like` and `spoti unlike` operate on the currently playing track. Episodes, advertisements, local files, and unavailable items are ignored safely. In an interactive terminal, both `spoti liked` and `spoti recent` show a numbered list and then let you select a track to play. Press Enter without a number to leave playback unchanged; non-interactive runs remain display-only.
+`spoti like` and `spoti unlike` operate on the currently playing track. Episodes, advertisements, local files, and unavailable items are ignored safely. Artist albums, `spoti playlists`, `spoti liked`, and `spoti recent` use paginated browsers: enter a displayed number to select it, `n` for the next page, `p` for the previous page, or press Enter to go back or leave playback unchanged. Pages are requested only when needed, and previously visited pages are cached for the duration of the command. Short Spotify rate limits are retried automatically with bounded backoff; when `Retry-After` exceeds five seconds, `spoti` exits immediately with a human-readable retry time instead of holding the terminal on a spinner. For collection commands, `--limit` controls the page size from 1 to 50; artist album pages use Spotify’s maximum of 10. Non-interactive runs display only the first page and never start playback implicitly.
 
 Check for updates or install the latest npm release:
 
@@ -214,7 +216,7 @@ spoti logout
 
 When attached to an interactive terminal, `spoti play <query>` asks you to select a result. In non-interactive usage it chooses the first result automatically; `--first` makes that behavior explicit.
 
-Watch mode continuously refreshes the current track and progress until `Ctrl+C` is pressed. `--watch` enables it for one command, while `--no-watch` overrides a saved preference. Run `spoti shuffle` or `spoti repeat` without a value to inspect the current state. Use `spoti shuffle on|off` or `spoti repeat off|track|context` to change it.
+Watch mode continuously refreshes the current track and progress until `Ctrl+C` is pressed. `--watch` enables it for one command, while `--no-watch` overrides a saved preference. Run `spoti volume`, `spoti shuffle`, or `spoti repeat` without a value to inspect the current state. Pass a volume value or use `spoti shuffle on|off` or `spoti repeat off|track|context` to change it.
 
 
 ### Command aliases
@@ -224,9 +226,10 @@ Common aliases include:
 ```text
 i     interactive  p     play       pa    pause
 r     resume       np    now        q     queue      s     search
-vol   volume     dev   device     devs  devices
-pl    playlist   pls   playlists  rep   repeat
-rec   recent     n     next       prev  previous
+vol   volume       sk    seek        alb   album
+art   artist       dev   device      devs  devices
+pl    playlist     pls   playlists   rep   repeat
+rec   recent       n     next        prev  previous
 ```
 
 ### Shell completions
@@ -336,4 +339,4 @@ The release workflow attaches the npm package tarball and a `SHA256SUMS` file, a
 
 ## Current scope
 
-Version `0.5.0` improves TTY-aware terminal formatting, interactive-search editing, retries and cancellation, terminal-safe Spotify metadata, collection playback selection, player-state visibility, device fallback, and API error handling. A full Ink-based TUI remains planned for `v1.0.0`.
+Version `0.6.0` adds lazy collection pagination, nested Back navigation, playlist-track selection, current-volume output, new command aliases, visible play-search progress, and bounded rate-limit handling. A full Ink-based TUI remains planned for `v1.0.0`.

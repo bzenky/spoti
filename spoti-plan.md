@@ -486,7 +486,7 @@ spoti play playlist 1
 spoti play playlist "Workout"
 ```
 
-Playlists are sorted consistently by name so the displayed number works across `spoti playlists`, `spoti playlist <number>`, and `spoti play playlist <number>`. After selecting a playlist interactively, choose whether to start playlist playback or return without starting playback.
+Playlists preserve Spotify’s order so global displayed numbers work across paginated `spoti playlists`, `spoti playlist <number>`, and `spoti play playlist <number>`. After selecting a playlist interactively, choose whether to start playlist playback or return without starting playback.
 
 ## Shuffle and Repeat
 
@@ -633,7 +633,25 @@ The compact `now` output and `open` command are intentionally not part of this r
 
 ---
 
-# 15. Version 1.0
+# 15. Version 0.6
+
+Collect reliability and documentation improvements discovered during daily use.
+
+- Show visible progress while `spoti play <query>` searches Spotify.
+- Make network, timeout, malformed-response, and temporary Spotify server failures actionable with an explicit retry message.
+- Bound automatic rate-limit waits to five seconds and report longer `Retry-After` windows immediately in human-readable form.
+- Document that quotes are optional for ordinary multi-word queries and needed only when required by shell syntax.
+- Show the active device volume when `spoti volume` or `spoti vol` is run without a value.
+- Add `alb`, `art`, and `sk` aliases for album, artist, and seek.
+- Order each lazily loaded artist-album page by release date, newest first.
+- Support Back navigation from a selected artist album to the cached album list, and from the album picker to the artist actions.
+- Add lazy, cached `n`/`p` pagination with global numbering for artist albums, playlists, playlist tracks, liked tracks, and recently played tracks.
+- Use Spotify offset pagination for collections and cursor pagination for recent history without following API-provided URLs.
+- Keep search intentionally capped at 10 results and non-interactive collection output limited to the first page.
+
+---
+
+# 16. Version 1.0
 
 Build a proper interactive TUI using Ink.
 
@@ -678,7 +696,7 @@ App
 
 ---
 
-# 16. Core Services
+# 17. Core Services
 
 ## AuthService
 
@@ -744,7 +762,7 @@ transferPlayback(deviceId)
 
 ---
 
-# 17. Spotify Client
+# 18. Spotify Client
 
 Create a single wrapper around Spotify HTTP requests.
 
@@ -770,7 +788,7 @@ Commands should never need to know how authentication works.
 
 ---
 
-# 18. Error Handling
+# 19. Error Handling
 
 Create friendly CLI errors.
 
@@ -807,7 +825,7 @@ Spotify Premium is required for playback control.
 
 ---
 
-# 19. Configuration
+# 20. Configuration
 
 Example:
 
@@ -838,7 +856,7 @@ spoti config set refreshIntervalMs 2000
 
 ---
 
-# 20. Developer Experience
+# 21. Developer Experience
 
 Useful scripts:
 
@@ -874,7 +892,7 @@ spoti play "Numb"
 
 ---
 
-# 21. Testing Strategy
+# 22. Testing Strategy
 
 Do not test Spotify itself.
 
@@ -920,7 +938,7 @@ Test command behavior without making real API calls.
 
 ---
 
-# 22. Nice-to-Have Features
+# 23. Nice-to-Have Features
 
 After the core project works:
 
@@ -956,7 +974,7 @@ Open the current track in the Spotify application.
 
 ---
 
-# 23. Potential Shell Integration
+# 24. Potential Shell Integration
 
 Example:
 
@@ -982,7 +1000,7 @@ This could be used in a terminal prompt or status bar.
 
 ---
 
-# 24. Development Roadmap
+# 25. Development Roadmap
 
 ## Phase 1 — Bootstrap
 
@@ -1117,7 +1135,7 @@ At this point the MVP is complete.
 
 ---
 
-# 25. MVP Definition
+# 26. MVP Definition
 
 Do not expand the scope until all of these work:
 
@@ -1145,7 +1163,7 @@ The MVP is complete when you can comfortably control Spotify during a normal wor
 
 ---
 
-# 26. First Development Session
+# 27. First Development Session
 
 When starting the project, focus only on:
 
@@ -1177,7 +1195,7 @@ Once authentication works, almost every other feature becomes a relatively strai
 
 ---
 
-# 27. Guiding Principle
+# 28. Guiding Principle
 
 Keep the first versions command-driven.
 

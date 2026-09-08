@@ -84,6 +84,15 @@ export class PlayerService {
     await this.spotify.post<void>('/me/player/previous');
   }
 
+  async getVolume(): Promise<number> {
+    const playback = await this.spotify.get<SpotifyPlaybackState | undefined>('/me/player');
+    if (!playback) throw new NoActiveDeviceError();
+    if (!playback.device.supports_volume || playback.device.volume_percent === null) {
+      throw new AppError('The active Spotify device does not support volume control.');
+    }
+    return clampVolume(playback.device.volume_percent);
+  }
+
   async setVolume(volumePercent: number): Promise<number> {
     const volume = clampVolume(volumePercent);
     await this.spotify.put<void>('/me/player/volume', {
@@ -93,12 +102,7 @@ export class PlayerService {
   }
 
   async changeVolume(delta: number): Promise<number> {
-    const playback = await this.spotify.get<SpotifyPlaybackState | undefined>('/me/player');
-    if (!playback) throw new NoActiveDeviceError();
-    if (!playback.device.supports_volume || playback.device.volume_percent === null) {
-      throw new AppError('The active Spotify device does not support volume control.');
-    }
-    return this.setVolume(playback.device.volume_percent + delta);
+    return this.setVolume((await this.getVolume()) + delta);
   }
 
   async seek(positionMs: number): Promise<number> {

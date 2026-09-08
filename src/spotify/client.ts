@@ -12,6 +12,7 @@ import type { SpotifyErrorBody } from './types.js';
 
 const API_BASE_URL = 'https://api.spotify.com/v1';
 const MAX_RATE_LIMIT_RETRIES = 3;
+const MAX_AUTOMATIC_RATE_LIMIT_WAIT_SECONDS = 5;
 const PLAYBACK_CONTROL_REQUESTS = new Set([
   'PUT /me/player',
   'PUT /me/player/play',
@@ -112,7 +113,8 @@ export class SpotifyClient implements SpotifyApi {
           shouldRefreshToken = true;
         } else if (
           response.status === 429 &&
-          rateLimitRetries < MAX_RATE_LIMIT_RETRIES
+          rateLimitRetries < MAX_RATE_LIMIT_RETRIES &&
+          getRetryAfterSeconds(response) <= MAX_AUTOMATIC_RATE_LIMIT_WAIT_SECONDS
         ) {
           const retryAfterSeconds = getRetryAfterSeconds(response);
           const exponentialBackoffMs = 500 * 2 ** rateLimitRetries;
@@ -134,7 +136,7 @@ export class SpotifyClient implements SpotifyApi {
           if (!contentType.includes('json')) {
             if (method !== 'GET') return undefined as T;
             throw new SpotifyApiError(
-              'Spotify returned an unexpected non-JSON response.',
+              'Spotify returned an unexpected non-JSON response. Try again.',
               response.status,
             );
           }
@@ -142,7 +144,10 @@ export class SpotifyClient implements SpotifyApi {
           try {
             return JSON.parse(text) as T;
           } catch {
-            throw new SpotifyApiError('Spotify returned malformed JSON.', response.status);
+            throw new SpotifyApiError(
+              'Spotify returned malformed JSON. Try again.',
+              response.status,
+            );
           }
         }
       } catch (error) {
@@ -238,7 +243,7 @@ function normalizeAttemptError(
   }
   if (normalizedError instanceof AppError) return normalizedError;
   return new AppError(
-    `Unable to reach Spotify: ${sanitizeOneLineText(normalizedError.message)}`,
+    `Unable to reach Spotify: ${sanitizeOneLineText(normalizedError.message)}\n\nCheck your network connection and try again.`,
   );
 }
 
@@ -311,6 +316,12 @@ async function mapSpotifyError(
   }
   if (response.status === 429) {
     return new RateLimitedError(getRetryAfterSeconds(response));
+  }
+  if (response.status >= 500) {
+    return new SpotifyApiError(
+      `${message}\n\nSpotify may be temporarily unavailable. Try again.`,
+      response.status,
+    );
   }
   return new SpotifyApiError(message, response.status);
 }

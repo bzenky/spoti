@@ -165,6 +165,24 @@ describe('SpotifyClient', () => {
     );
   });
 
+  it('makes network and temporary Spotify failures actionable', async () => {
+    const auth = {
+      getAccessToken: async () => 'token',
+      forceRefreshAccessToken: async () => 'refreshed-token',
+    };
+    const networkFailure = vi.fn<typeof fetch>().mockRejectedValue(new Error('connection reset'));
+    await expect(new SpotifyClient(auth, networkFailure).get('/search')).rejects.toThrow(
+      'Check your network connection and try again.',
+    );
+
+    const serviceFailure = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({ error: { message: 'Service unavailable' } }, { status: 503 }),
+    );
+    await expect(new SpotifyClient(auth, serviceFailure).get('/search')).rejects.toThrow(
+      'Service unavailable\n\nSpotify may be temporarily unavailable. Try again.',
+    );
+  });
+
   it('maps authentication and playback-control device errors', async () => {
     const authFailure = vi.fn<typeof fetch>().mockResolvedValue(
       Response.json({ error: { message: 'Invalid access token' } }, { status: 401 }),
@@ -240,6 +258,30 @@ describe('SpotifyClient', () => {
     await expect(client.get('/search')).resolves.toEqual({ tracks: { items: [] } });
     expect(sleeper).toHaveBeenNthCalledWith(1, 2_000);
     expect(sleeper).toHaveBeenNthCalledWith(2, 1_000);
+  });
+
+  it('reports long rate limits immediately instead of blocking the CLI', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json(
+        { error: { message: 'Too many requests' } },
+        { status: 429, headers: { 'retry-after': '56321' } },
+      ),
+    );
+    const sleeper = vi.fn().mockResolvedValue(undefined);
+    const client = new SpotifyClient(
+      {
+        getAccessToken: async () => 'token',
+        forceRefreshAccessToken: async () => 'refreshed-token',
+      },
+      fetcher,
+      sleeper,
+    );
+
+    await expect(client.get('/search')).rejects.toThrow(
+      'Spotify rate limit reached. Try again in 15 hours 39 minutes.',
+    );
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(sleeper).not.toHaveBeenCalled();
   });
 
   it('normalizes Retry-After for waits and final rate-limit errors', async () => {

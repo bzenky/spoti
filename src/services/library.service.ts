@@ -6,6 +6,7 @@ import type {
 } from '../spotify/types.js';
 import { mapPlaybackItem, mapTrack, normalizeLimit } from './mappers.js';
 import type { SavedTrack, Track } from './models.js';
+import { nextOffsetToken, type OffsetToken, type Page } from './pagination.js';
 
 const DEFAULT_LIBRARY_LIMIT = 20;
 
@@ -13,13 +14,26 @@ export class LibraryService {
   constructor(private readonly spotify: SpotifyApi) {}
 
   async getLikedTracks(limit = DEFAULT_LIBRARY_LIMIT): Promise<SavedTrack[]> {
+    return (await this.getLikedTracksPage(undefined, limit)).items;
+  }
+
+  async getLikedTracksPage(
+    token?: OffsetToken,
+    limit = DEFAULT_LIBRARY_LIMIT,
+  ): Promise<Page<SavedTrack, OffsetToken>> {
+    const offset = normalizeOffset(token?.offset);
     const response = await this.spotify.get<SpotifyPaging<SpotifySavedTrack>>('/me/tracks', {
-      query: { limit: normalizeLimit(limit) },
+      query: { limit: normalizeLimit(limit), offset },
     });
-    return response.items.flatMap(({ added_at: addedAt, track }) => {
+    const items = response.items.flatMap(({ added_at: addedAt, track }) => {
       const mapped = mapTrack(track);
       return mapped ? [{ addedAt, track: mapped }] : [];
     });
+
+    return {
+      items,
+      nextToken: nextOffsetToken(response),
+    };
   }
 
   async likeTrack(uri: string): Promise<void> {
@@ -55,4 +69,9 @@ export class LibraryService {
       query: { uris: normalizedUri },
     });
   }
+}
+
+function normalizeOffset(offset: number | undefined): number {
+  if (offset === undefined || !Number.isFinite(offset)) return 0;
+  return Math.max(0, Math.trunc(offset));
 }

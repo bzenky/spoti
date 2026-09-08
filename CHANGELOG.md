@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-08
+
+### Added
+
+- Lazy, cached `n`/`p` pagination for artist albums, playlists, playlist tracks, liked tracks, and recently played tracks.
+- Direct track selection from playlist details and Back navigation throughout the nested artist-album flow.
+- Current-volume output when `spoti volume` or `spoti vol` is run without a value.
+- `alb`, `art`, and `sk` aliases for album, artist, and seek commands.
+
+### Changed
+
+- Show visible progress while `spoti play <query>` searches Spotify and document that ordinary multi-word queries do not require quotes.
+- Order each artist-album page newest-first and fetch additional pages only when requested.
+- Preserve Spotify playlist order so global displayed numbers can resolve playlists beyond the first page.
+- Treat collection `--limit` values as page sizes while keeping search capped at 10 results.
+
+### Fixed
+
+- Stop long Spotify `Retry-After` windows from holding the terminal on a spinner; waits over five seconds now produce an immediate human-readable rate-limit message.
+- Make network, timeout, malformed-response, and temporary Spotify server failures provide actionable retry guidance.
+- Enforce safe offset and mutually exclusive cursor pagination without following Spotify-provided continuation URLs.
+
 ## [0.5.0] - 2026-09-07
 
 ### Added

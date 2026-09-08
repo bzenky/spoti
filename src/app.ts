@@ -8,11 +8,14 @@ import type {
   Album,
   Artist,
   Playlist,
+  RecentlyPlayedTrack,
+  SavedTrack,
   SpotifyContextType,
   Track,
 } from './services/models.js';
 import type { PlayerService } from './services/player.service.js';
 import type { PlaylistService } from './services/playlist.service.js';
+import type { OffsetToken, Page, RecentCursorToken } from './services/pagination.js';
 import type { QueueService } from './services/queue.service.js';
 import type { RecentService } from './services/recent.service.js';
 import type { SearchService } from './services/search.service.js';
@@ -27,6 +30,7 @@ import {
   type ConfigStore,
 } from './storage/config.js';
 import {
+  formatAlbum,
   formatAlbumDetail,
   formatArtistDetail,
   formatPlayback,
@@ -47,11 +51,9 @@ import {
   selectAlbumAction,
   selectArtist,
   selectArtistAction,
-  selectLikedTrack,
-  selectListedPlaylist,
+  selectPageAction,
   selectPlaylist,
   selectPlaylistAction,
-  selectRecentTrack,
   selectTrack,
 } from './ui/prompts.js';
 import { generateCompletionScript, type CompletionShell } from './ui/completions.js';
@@ -60,6 +62,11 @@ import {
   runInteractiveSearch,
   type InteractiveSearchResult,
 } from './ui/interactive-search.js';
+import {
+  createPageBrowser,
+  type PageActionPrompt,
+  type PageView,
+} from './ui/pagination.js';
 import { watchPlayback, type PlaybackWatcher } from './ui/watch.js';
 import { ConfigurationError } from './utils/errors.js';
 import { formatDuration } from './utils/time.js';
@@ -82,12 +89,10 @@ export interface AppDependencies {
   chooseAlbum?: typeof selectAlbum;
   chooseArtist?: typeof selectArtist;
   choosePlaylist?: typeof selectPlaylist;
-  chooseListedPlaylist?: typeof selectListedPlaylist;
+  choosePageAction?: typeof selectPageAction;
   chooseAlbumAction?: typeof selectAlbumAction;
   chooseArtistAction?: typeof selectArtistAction;
   choosePlaylistAction?: typeof selectPlaylistAction;
-  chooseLikedTrack?: typeof selectLikedTrack;
-  chooseRecentTrack?: typeof selectRecentTrack;
   requestSpotifyClientId?: typeof promptSpotifyClientId;
   confirmUpdate?: typeof confirmUpdate;
   interactiveSearch?: () => Promise<InteractiveSearchResult>;
@@ -102,12 +107,10 @@ export function createProgram(dependencies: AppDependencies): Command {
   const chooseAlbum = dependencies.chooseAlbum ?? selectAlbum;
   const chooseArtist = dependencies.chooseArtist ?? selectArtist;
   const choosePlaylist = dependencies.choosePlaylist ?? selectPlaylist;
-  const chooseListedPlaylist = dependencies.chooseListedPlaylist ?? selectListedPlaylist;
+  const choosePageAction = dependencies.choosePageAction ?? selectPageAction;
   const chooseAlbumAction = dependencies.chooseAlbumAction ?? selectAlbumAction;
   const chooseArtistAction = dependencies.chooseArtistAction ?? selectArtistAction;
   const choosePlaylistAction = dependencies.choosePlaylistAction ?? selectPlaylistAction;
-  const chooseLikedTrack = dependencies.chooseLikedTrack ?? selectLikedTrack;
-  const chooseRecentTrack = dependencies.chooseRecentTrack ?? selectRecentTrack;
   const requestClientId = dependencies.requestSpotifyClientId ?? promptSpotifyClientId;
   const requestUpdateConfirmation = dependencies.confirmUpdate ?? confirmUpdate;
   const styles = dependencies.styles ?? plainOutputStyles;
@@ -125,24 +128,45 @@ export function createProgram(dependencies: AppDependencies): Command {
   const runTask = <Result>(label: string, task: () => Promise<Result>): Promise<Result> =>
     showProgress(label, task);
   const startWatching = dependencies.watchPlayback ?? watchPlayback;
+  const createCollectionBrowser = <Item, Token>(options: {
+    title: string;
+    loadPage(token?: Token): Promise<Page<Item, Token>>;
+    formatItem(item: Item, index: number): string;
+    emptyAction?: string;
+  }) =>
+    createPageBrowser({
+      loadPage: options.loadPage,
+      renderPage: (view) => {
+        dependencies.output.log(formatCollectionPage(options.title, view, options.formatItem, styles));
+      },
+      chooseAction: ((view) =>
+        choosePageAction(view, {
+          emptyAction: options.emptyAction ?? 'keep current playback',
+        })) as PageActionPrompt<Item>,
+    });
 
-  const runAlbumAction = async (album: Album): Promise<void> => {
+  const runAlbumAction = async (
+    album: Album,
+    options: { allowBack?: boolean } = {},
+  ): Promise<'back' | 'finished'> => {
     const detail = await runTask('Loading album…', () =>
       dependencies.catalog.getAlbum(album.id),
     );
     dependencies.output.log(formatAlbumDetail(detail, styles));
-    const action = await chooseAlbumAction();
+    const action = await chooseAlbumAction(options);
+    if (action === 'back') return 'back';
     if (action === 'play-album') {
       await dependencies.player.playContext(detail.uri);
       dependencies.output.log(`▶ Playing album ${safe(detail.name)}`);
-      return;
+      return 'finished';
     }
     if (action === 'play-track') {
       const track = await chooseTrack(detail.tracks);
-      if (!track) return;
+      if (!track) return 'finished';
       await dependencies.player.playTrack(track.uri);
       dependencies.output.log(`▶ Playing ${safe(track.name)} — ${safeArtists(track.artists)}`);
     }
+    return 'finished';
   };
 
   program
@@ -375,6 +399,7 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('seek')
+    .alias('sk')
     .description('Seek within the current track')
     .argument('<position>', 'absolute time such as 1:30, or a change such as +30 or -10')
     .allowUnknownOption()
@@ -389,14 +414,14 @@ export function createProgram(dependencies: AppDependencies): Command {
   program
     .command('volume')
     .alias('vol')
-    .description('Set or adjust the active device volume')
-    .argument('<value>', 'volume from 0-100, or a relative change such as +10 or -10')
+    .description('Show, set, or adjust the active device volume')
+    .argument('[value]', 'volume from 0-100, or a relative change such as +10 or -10')
     .allowUnknownOption()
-    .action(async (rawValue: string) => {
-      const input = parseVolumeInput(rawValue);
-      const volume = input.relative
-        ? await dependencies.player.changeVolume(input.value)
-        : await dependencies.player.setVolume(input.value);
+    .action(async (rawValue?: string) => {
+      const volume =
+        rawValue === undefined
+          ? await dependencies.player.getVolume()
+          : await applyVolumeInput(dependencies.player, parseVolumeInput(rawValue));
       dependencies.output.log(`${volume === 0 ? '🔇' : '🔊'} Volume: ${volume}%`);
     });
 
@@ -482,6 +507,7 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('album')
+    .alias('alb')
     .description('Search for and show an album')
     .argument('<query...>', 'album name')
     .option('--first', 'select the first result without prompting')
@@ -504,6 +530,7 @@ export function createProgram(dependencies: AppDependencies): Command {
 
   program
     .command('artist')
+    .alias('art')
     .description('Search for and show an artist')
     .argument('<query...>', 'artist name')
     .option('--first', 'select the first result without prompting')
@@ -525,44 +552,50 @@ export function createProgram(dependencies: AppDependencies): Command {
         dependencies.catalog.getArtist(artist.id),
       );
       dependencies.output.log(formatArtistDetail(detail, styles));
-      const action = await chooseArtistAction();
-      if (action === 'play-artist') {
-        await dependencies.player.playContext(detail.uri);
-        dependencies.output.log(`▶ Playing artist ${safe(detail.name)}`);
-        return;
-      }
-      if (action === 'select-album') {
-        const albums = await runTask('Loading artist albums…', () =>
-          dependencies.catalog.getArtistAlbums(detail.id),
-        );
-        if (albums.length === 0) {
-          dependencies.output.log(`No albums found for ${safe(detail.name)}.`);
+      let albumBrowser: { select(): Promise<Album | null> } | undefined;
+      while (true) {
+        const action = await chooseArtistAction();
+        if (!action) return;
+        if (action === 'play-artist') {
+          await dependencies.player.playContext(detail.uri);
+          dependencies.output.log(`▶ Playing artist ${safe(detail.name)}`);
           return;
         }
-        const album = await chooseAlbum(albums);
-        if (album) await runAlbumAction(album);
+
+        albumBrowser ??= createCollectionBrowser<Album, OffsetToken>({
+          title: `${safe(detail.name)} albums`,
+          loadPage: (token) =>
+            runTask('Loading artist albums…', () =>
+              dependencies.catalog.getArtistAlbumsPage(detail.id, token, 10),
+            ),
+          formatItem: (album, index) => formatAlbum(album, index, styles),
+          emptyAction: 'go back',
+        });
+
+        while (true) {
+          const album = await albumBrowser.select();
+          if (!album) break;
+          const result = await runAlbumAction(album, { allowBack: true });
+          if (result === 'finished') return;
+        }
       }
     });
 
   program
     .command('playlists')
     .alias('pls')
-    .description('List and optionally play your Spotify playlists')
-    .option('-l, --limit <number>', 'maximum number of playlists', parseCollectionLimit, 50)
+    .description('Browse and optionally play your Spotify playlists')
+    .option('-l, --limit <number>', 'number of playlists per page', parseCollectionLimit, 20)
     .action(async (options: { limit: number }) => {
-      const playlists = await runTask('Loading playlists…', () =>
-        dependencies.playlist.listPlaylists(options.limit),
-      );
-      if (playlists.length === 0) {
-        dependencies.output.log('No playlists found.');
-        return;
-      }
-      dependencies.output.log(
-        playlists
-          .map((playlist, index) => formatPlaylist(playlist, index, styles))
-          .join('\n'),
-      );
-      const selected = await chooseListedPlaylist(playlists);
+      const browser = createCollectionBrowser<Playlist, OffsetToken>({
+        title: 'Playlists',
+        loadPage: (token) =>
+          runTask('Loading playlists…', () =>
+            dependencies.playlist.listPlaylistsPage(token, options.limit),
+          ),
+        formatItem: (playlist, index) => formatPlaylist(playlist, index, styles),
+      });
+      const selected = await browser.select();
       if (!selected) return;
       await dependencies.player.playContext(selected.uri);
       dependencies.output.log(`▶ Playing playlist ${safe(selected.name)}`);
@@ -576,13 +609,16 @@ export function createProgram(dependencies: AppDependencies): Command {
     .option('--first', 'select the first match without prompting')
     .action(async (queryParts: string[], options: { first?: boolean }) => {
       const query = queryParts.join(' ').trim();
-      const allPlaylists = await runTask('Loading playlists…', () =>
-        dependencies.playlist.listPlaylists(50),
-      );
       let playlist: Playlist | null | undefined;
       if (/^\d+$/.test(query)) {
-        playlist = findNumberedPlaylist(allPlaylists, query);
+        playlist = await runTask('Loading playlist…', () =>
+          dependencies.playlist.getPlaylistByNumber(Number(query)),
+        );
+        if (!playlist) throw playlistNumberOutOfRange(query);
       } else {
+        const allPlaylists = await runTask('Loading playlists…', () =>
+          dependencies.playlist.listPlaylists(50),
+        );
         const matches = allPlaylists.filter((playlist) =>
           playlist.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
         );
@@ -597,32 +633,48 @@ export function createProgram(dependencies: AppDependencies): Command {
         return;
       }
       dependencies.output.log(formatPlaylistOverview(playlist, styles));
-      if ((await choosePlaylistAction()) === 'play-playlist') {
+      const action = await choosePlaylistAction();
+      if (action === 'play-playlist') {
         await dependencies.player.playContext(playlist.uri);
         dependencies.output.log(`▶ Playing playlist ${safe(playlist.name)}`);
+        return;
+      }
+      if (action === 'select-track') {
+        const browser = createCollectionBrowser<Track, OffsetToken>({
+          title: `${safe(playlist.name)} tracks`,
+          loadPage: (token) =>
+            runTask('Loading playlist tracks…', () =>
+              dependencies.playlist.getPlaylistItemsPage(playlist.id, token, 50),
+            ),
+          formatItem: (track, index) => formatTrack(track, index, styles),
+        });
+        const track = await browser.select();
+        if (!track) return;
+        await dependencies.player.playTrack(track.uri);
+        dependencies.output.log(
+          `▶ Playing ${safe(track.name)} — ${safeArtists(track.artists)}`,
+        );
       }
     });
 
   program
     .command('liked')
-    .description('List and optionally play your liked tracks')
-    .option('-l, --limit <number>', 'maximum number of tracks', parseCollectionLimit, 20)
+    .description('Browse and optionally play your liked tracks')
+    .option('-l, --limit <number>', 'number of tracks per page', parseCollectionLimit, 20)
     .action(async (options: { limit: number }) => {
-      const tracks = await runTask('Loading liked tracks…', () =>
-        dependencies.library.getLikedTracks(options.limit),
-      );
-      if (tracks.length === 0) {
-        dependencies.output.log('No liked tracks found.');
-        return;
-      }
-      dependencies.output.log(
-        tracks.map((item, index) => formatSavedTrack(item, index, styles)).join('\n'),
-      );
-      const selected = await chooseLikedTrack(tracks);
+      const browser = createCollectionBrowser<SavedTrack, OffsetToken>({
+        title: 'Liked tracks',
+        loadPage: (token) =>
+          runTask('Loading liked tracks…', () =>
+            dependencies.library.getLikedTracksPage(token, options.limit),
+          ),
+        formatItem: (item, index) => formatSavedTrack(item, index, styles),
+      });
+      const selected = await browser.select();
       if (!selected) return;
-      await dependencies.player.playTrack(selected.uri);
+      await dependencies.player.playTrack(selected.track.uri);
       dependencies.output.log(
-        `▶ Playing ${safe(selected.name)} — ${safeArtists(selected.artists)}`,
+        `▶ Playing ${safe(selected.track.name)} — ${safeArtists(selected.track.artists)}`,
       );
     });
 
@@ -653,24 +705,22 @@ export function createProgram(dependencies: AppDependencies): Command {
   program
     .command('recent')
     .alias('rec')
-    .description('Show and optionally play recently played tracks')
-    .option('-l, --limit <number>', 'maximum number of tracks', parseCollectionLimit, 20)
+    .description('Browse and optionally play recently played tracks')
+    .option('-l, --limit <number>', 'number of tracks per page', parseCollectionLimit, 20)
     .action(async (options: { limit: number }) => {
-      const tracks = await runTask('Loading recent tracks…', () =>
-        dependencies.recent.getRecentlyPlayed(options.limit),
-      );
-      if (tracks.length === 0) {
-        dependencies.output.log('No recently played tracks found.');
-        return;
-      }
-      dependencies.output.log(
-        tracks.map((item, index) => formatRecentlyPlayed(item, index, styles)).join('\n'),
-      );
-      const selected = await chooseRecentTrack(tracks);
+      const browser = createCollectionBrowser<RecentlyPlayedTrack, RecentCursorToken>({
+        title: 'Recently played',
+        loadPage: (token) =>
+          runTask('Loading recent tracks…', () =>
+            dependencies.recent.getRecentlyPlayedPage(token, options.limit),
+          ),
+        formatItem: (item, index) => formatRecentlyPlayed(item, index, styles),
+      });
+      const selected = await browser.select();
       if (!selected) return;
-      await dependencies.player.playTrack(selected.uri);
+      await dependencies.player.playTrack(selected.track.uri);
       dependencies.output.log(
-        `▶ Playing ${safe(selected.name)} — ${safeArtists(selected.artists)}`,
+        `▶ Playing ${safe(selected.track.name)} — ${safeArtists(selected.track.artists)}`,
       );
     });
 
@@ -770,6 +820,7 @@ export function createProgram(dependencies: AppDependencies): Command {
         chooseAlbum,
         chooseArtist,
         choosePlaylist,
+        runTask,
       });
       if (!selection) return;
 
@@ -789,6 +840,26 @@ export function createProgram(dependencies: AppDependencies): Command {
   return program;
 }
 
+function formatCollectionPage<Item>(
+  title: string,
+  view: PageView<Item>,
+  formatItem: (item: Item, index: number) => string,
+  styles: OutputStyles,
+): string {
+  const range =
+    view.items.length === 0
+      ? ''
+      : ` · ${view.startIndex + 1}-${view.startIndex + view.items.length}${view.total === undefined ? '' : ` of ${view.total}`}`;
+  const items =
+    view.items.length === 0
+      ? ['No playable items on this page.']
+      : view.items.map((item, index) => formatItem(item, view.startIndex + index));
+  return [styles.heading(`${title} — page ${view.pageNumber}${range}`), '', ...items, ''].join(
+    '\n',
+  );
+}
+
+
 interface PlaybackSelection {
   type: 'track' | SpotifyContextType;
   uri: string;
@@ -804,6 +875,7 @@ interface SelectPlaybackItemOptions {
   chooseAlbum: typeof selectAlbum;
   chooseArtist: typeof selectArtist;
   choosePlaylist: typeof selectPlaylist;
+  runTask: <Result>(label: string, task: () => Promise<Result>) => Promise<Result>;
 }
 
 async function selectPlaybackItem(
@@ -813,31 +885,39 @@ async function selectPlaybackItem(
   let selected: TrackSelection | null | undefined;
 
   if (options.type === 'track') {
-    const items = await dependencies.search.searchTracks(query);
+    const items = await options.runTask('Searching tracks…', () =>
+      dependencies.search.searchTracks(query),
+    );
     if (items.length === 0) {
       return reportNoResults(dependencies.output, 'tracks', query);
     }
     selected = first ? items[0] : await options.chooseTrack(items);
   } else if (options.type === 'album') {
-    const items = await dependencies.search.searchAlbums(query);
+    const items = await options.runTask('Searching albums…', () =>
+      dependencies.search.searchAlbums(query),
+    );
     if (items.length === 0) {
       return reportNoResults(dependencies.output, 'albums', query);
     }
     selected = first ? items[0] : await options.chooseAlbum(items);
   } else if (options.type === 'artist') {
-    const items = await dependencies.search.searchArtists(query);
+    const items = await options.runTask('Searching artists…', () =>
+      dependencies.search.searchArtists(query),
+    );
     if (items.length === 0) {
       return reportNoResults(dependencies.output, 'artists', query);
     }
     selected = first ? items[0] : await options.chooseArtist(items);
   } else {
     if (/^\d+$/.test(query)) {
-      selected = findNumberedPlaylist(
-        await dependencies.playlist.listPlaylists(50),
-        query,
+      selected = await options.runTask('Loading playlist…', () =>
+        dependencies.playlist.getPlaylistByNumber(Number(query)),
       );
+      if (!selected) throw playlistNumberOutOfRange(query);
     } else {
-      const items = await dependencies.search.searchPlaylists(query);
+      const items = await options.runTask('Searching playlists…', () =>
+        dependencies.search.searchPlaylists(query),
+      );
       if (items.length === 0) {
         return reportNoResults(dependencies.output, 'playlists', query);
       }
@@ -866,15 +946,10 @@ async function selectPlaybackItem(
 
 type TrackSelection = Track | Album | Artist | Playlist;
 
-function findNumberedPlaylist(playlists: Playlist[], number: string): Playlist {
-  const index = Number(number) - 1;
-  const playlist = Number.isSafeInteger(index) ? playlists[index] : undefined;
-  if (!playlist) {
-    throw new ConfigurationError(
-      `Playlist number ${number} is out of range. Run: spoti playlists`,
-    );
-  }
-  return playlist;
+function playlistNumberOutOfRange(number: string): ConfigurationError {
+  return new ConfigurationError(
+    `Playlist number ${number} is out of range. Run: spoti playlists`,
+  );
 }
 
 function reportNoResults(
@@ -890,6 +965,13 @@ function isSpotifyPlayableType(
   value: string | undefined,
 ): value is 'track' | SpotifyContextType {
   return value === 'track' || value === 'album' || value === 'artist' || value === 'playlist';
+}
+
+async function applyVolumeInput(
+  player: Pick<PlayerService, 'changeVolume' | 'setVolume'>,
+  input: VolumeInput,
+): Promise<number> {
+  return input.relative ? player.changeVolume(input.value) : player.setVolume(input.value);
 }
 
 interface SeekInput {

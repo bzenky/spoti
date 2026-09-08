@@ -55,6 +55,9 @@ const aliases = [
   'rec',
   'n',
   'prev',
+  'sk',
+  'alb',
+  'art',
 ] as const;
 
 const configSubcommands = ['get', 'set', 'reset', 'path', 'unset'] as const;

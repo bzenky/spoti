@@ -264,6 +264,22 @@ describe('PlayerService', () => {
     );
   });
 
+  it('reads the active device volume from the current playback state', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      device: {
+        id: 'device',
+        name: 'Laptop',
+        is_active: true,
+        volume_percent: 65,
+        supports_volume: true,
+      },
+    });
+
+    await expect(new PlayerService(api).getVolume()).resolves.toBe(65);
+    expect(api.get).toHaveBeenCalledWith('/me/player');
+  });
+
   it('sets an absolute volume through the documented query parameter', async () => {
     const api = createApi();
     await expect(new PlayerService(api).setVolume(50)).resolves.toBe(50);

@@ -17,16 +17,64 @@ const track = {
 };
 
 describe('LibraryService', () => {
-  it('lists liked tracks from the current GET /me/tracks operation', async () => {
+  it('keeps getLikedTracks compatible by returning first-page items', async () => {
     const api = createApi();
     vi.mocked(api.get).mockResolvedValue({
       items: [{ added_at: '2026-01-01T00:00:00Z', track }],
+      limit: 5,
+      offset: 0,
+      total: 1,
+      next: null,
+      previous: null,
     });
 
     await expect(new LibraryService(api).getLikedTracks(5)).resolves.toMatchObject([
       { addedAt: '2026-01-01T00:00:00Z', track: { name: 'Numb' } },
     ]);
-    expect(api.get).toHaveBeenCalledWith('/me/tracks', { query: { limit: 5 } });
+    expect(api.get).toHaveBeenCalledWith('/me/tracks', {
+      query: { limit: 5, offset: 0 },
+    });
+  });
+
+  it('continues an offset page even when invalid items are filtered out', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      items: [
+        { added_at: '2026-01-01T00:00:00Z', track },
+        { added_at: '2026-01-01T00:01:00Z', track: { type: 'episode' } },
+      ],
+      limit: 2,
+      offset: 40,
+      total: 100,
+      next: 'https://api.spotify.com/v1/me/tracks?offset=42&limit=2',
+      previous: 'https://api.spotify.com/v1/me/tracks?offset=38&limit=2',
+    });
+
+    await expect(
+      new LibraryService(api).getLikedTracksPage({ offset: 40 }, 500),
+    ).resolves.toMatchObject({
+      items: [{ track: { name: 'Numb' } }],
+      nextToken: { offset: 42 },
+    });
+    expect(api.get).toHaveBeenCalledWith('/me/tracks', {
+      query: { limit: 50, offset: 40 },
+    });
+  });
+
+  it('returns no continuation for a terminal liked-tracks page', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      items: [],
+      limit: 20,
+      offset: 100,
+      total: 100,
+      next: null,
+      previous: 'https://api.spotify.com/v1/me/tracks?offset=80&limit=20',
+    });
+
+    await expect(
+      new LibraryService(api).getLikedTracksPage({ offset: 100 }),
+    ).resolves.toEqual({ items: [], nextToken: null });
   });
 
   it('likes and unlikes with URI query parameters on /me/library', async () => {

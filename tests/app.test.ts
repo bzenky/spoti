@@ -65,6 +65,7 @@ function dependencies() {
       getAlbum: vi.fn(),
       getArtist: vi.fn(),
       getArtistAlbums: vi.fn(),
+      getArtistAlbumsPage: vi.fn(),
     } as unknown as CatalogService,
     player: {
       playTrack: vi.fn(),
@@ -77,6 +78,7 @@ function dependencies() {
       pause: vi.fn(),
       next: vi.fn(),
       previous: vi.fn(),
+      getVolume: vi.fn(),
       setVolume: vi.fn(),
       changeVolume: vi.fn(),
       seek: vi.fn(),
@@ -91,14 +93,21 @@ function dependencies() {
     } as unknown as SearchService,
     playlist: {
       listPlaylists: vi.fn(),
+      listPlaylistsPage: vi.fn(),
+      getPlaylistByNumber: vi.fn(),
       getPlaylist: vi.fn(),
+      getPlaylistItemsPage: vi.fn(),
     } as unknown as PlaylistService,
     library: {
       getLikedTracks: vi.fn(),
+      getLikedTracksPage: vi.fn(),
       likeCurrentTrack: vi.fn(),
       unlikeCurrentTrack: vi.fn(),
     } as unknown as LibraryService,
-    recent: { getRecentlyPlayed: vi.fn() } as unknown as RecentService,
+    recent: {
+      getRecentlyPlayed: vi.fn(),
+      getRecentlyPlayedPage: vi.fn(),
+    } as unknown as RecentService,
     update: {
       checkForeground: vi.fn(),
       installLatest: vi.fn(),
@@ -125,12 +134,10 @@ function dependencies() {
     chooseAlbum: vi.fn(),
     chooseArtist: vi.fn(),
     choosePlaylist: vi.fn(),
-    chooseListedPlaylist: vi.fn(),
+    choosePageAction: vi.fn().mockResolvedValue({ type: 'cancel' }),
     chooseAlbumAction: vi.fn(),
     chooseArtistAction: vi.fn(),
     choosePlaylistAction: vi.fn(),
-    chooseLikedTrack: vi.fn(),
-    chooseRecentTrack: vi.fn(),
     requestSpotifyClientId: vi.fn(),
     confirmUpdate: vi.fn(),
     interactiveSearch: vi.fn().mockResolvedValue({ status: 'cancelled' }),
@@ -330,10 +337,15 @@ describe('CLI application', () => {
     expect(deps.messages.join('')).not.toContain('\u0007');
   });
 
-  it('sets and adjusts playback volume', async () => {
+  it('shows, sets, and adjusts playback volume', async () => {
     const deps = dependencies();
+    vi.mocked(deps.player.getVolume).mockResolvedValue(65);
     vi.mocked(deps.player.setVolume).mockResolvedValue(50);
     vi.mocked(deps.player.changeVolume).mockResolvedValue(40);
+
+    await run(['volume'], deps);
+    expect(deps.player.getVolume).toHaveBeenCalledOnce();
+    expect(deps.messages).toContain('🔊 Volume: 65%');
 
     await run(['volume', '50'], deps);
     expect(deps.player.setVolume).toHaveBeenCalledWith(50);
@@ -344,13 +356,14 @@ describe('CLI application', () => {
     expect(deps.messages).toContain('🔊 Volume: 40%');
   });
 
-  it('plays the interactively selected result', async () => {
+  it('shows progress while searching and plays the interactively selected result', async () => {
     const deps = dependencies();
     vi.mocked(deps.search.searchTracks).mockResolvedValue([track]);
     deps.chooseTrack.mockResolvedValue(track);
 
     await run(['play', 'Numb'], deps);
 
+    expect(deps.progress).toHaveBeenCalledWith('Searching tracks…', expect.any(Function));
     expect(deps.player.playTrack).toHaveBeenCalledWith(track.uri);
     expect(deps.messages).toContain('▶ Playing Numb — Linkin Park');
   });
@@ -374,6 +387,23 @@ describe('CLI application', () => {
     expect(deps.player.resume).toHaveBeenCalledOnce();
   });
 
+  it('supports seek, album, and artist aliases', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.seek).mockResolvedValue(90_000);
+    vi.mocked(deps.search.searchAlbums).mockResolvedValue([album]);
+    vi.mocked(deps.search.searchArtists).mockResolvedValue([artist]);
+    vi.mocked(deps.catalog.getAlbum).mockResolvedValue({ ...album, tracks: [track] });
+    vi.mocked(deps.catalog.getArtist).mockResolvedValue(artist);
+
+    await run(['sk', '1:30'], deps);
+    await run(['alb', 'Meteora', '--first'], deps);
+    await run(['art', 'Linkin Park', '--first'], deps);
+
+    expect(deps.player.seek).toHaveBeenCalledWith(90_000);
+    expect(deps.search.searchAlbums).toHaveBeenCalledWith('Meteora');
+    expect(deps.search.searchArtists).toHaveBeenCalledWith('Linkin Park');
+  });
+
 
   it('generates shell completions', async () => {
     const deps = dependencies();
@@ -395,6 +425,7 @@ describe('CLI application', () => {
     const deps = dependencies();
     vi.mocked(deps.search.searchTracks).mockResolvedValue([]);
     await run(['play', 'missing'], deps);
+    expect(deps.progress).toHaveBeenCalledWith('Searching tracks…', expect.any(Function));
     expect(deps.player.playTrack).not.toHaveBeenCalled();
     expect(deps.messages).toEqual(['No tracks found for "missing".']);
   });
@@ -460,21 +491,65 @@ describe('CLI application', () => {
     const deps = dependencies();
     vi.mocked(deps.search.searchArtists).mockResolvedValue([artist]);
     vi.mocked(deps.catalog.getArtist).mockResolvedValue(artist);
-    vi.mocked(deps.catalog.getArtistAlbums).mockResolvedValue([album]);
+    vi.mocked(deps.catalog.getArtistAlbumsPage).mockResolvedValue({
+      items: [album],
+      nextToken: { offset: 10 },
+      total: 20,
+    });
     vi.mocked(deps.catalog.getAlbum).mockResolvedValue({ ...album, tracks: [track] });
     deps.chooseArtistAction.mockResolvedValue('select-album');
-    deps.chooseAlbum.mockResolvedValue(album);
+    deps.choosePageAction.mockResolvedValue({ type: 'select', index: 0 });
     deps.chooseAlbumAction.mockResolvedValue('play-album');
 
     await run(['artist', 'Linkin Park', '--first'], deps);
 
-    expect(deps.catalog.getArtistAlbums).toHaveBeenCalledWith(artist.id);
+    expect(deps.catalog.getArtistAlbumsPage).toHaveBeenCalledWith(artist.id, undefined, 10);
+    expect(deps.catalog.getArtistAlbumsPage).toHaveBeenCalledOnce();
     expect(deps.player.playContext).toHaveBeenCalledWith(album.uri);
+  });
+
+  it('returns to the cached artist album list after choosing Back to albums', async () => {
+    const deps = dependencies();
+    const secondAlbum = {
+      ...album,
+      id: 'album-2',
+      uri: 'spotify:album:album-2',
+      name: 'Minutes to Midnight',
+    };
+    const albums = [album, secondAlbum];
+    vi.mocked(deps.search.searchArtists).mockResolvedValue([artist]);
+    vi.mocked(deps.catalog.getArtist).mockResolvedValue(artist);
+    vi.mocked(deps.catalog.getArtistAlbumsPage).mockResolvedValue({
+      items: albums,
+      nextToken: null,
+      total: albums.length,
+    });
+    vi.mocked(deps.catalog.getAlbum)
+      .mockResolvedValueOnce({ ...album, tracks: [track] })
+      .mockResolvedValueOnce({ ...secondAlbum, tracks: [track] });
+    deps.chooseArtistAction.mockResolvedValue('select-album');
+    deps.choosePageAction
+      .mockResolvedValueOnce({ type: 'select', index: 0 })
+      .mockResolvedValueOnce({ type: 'select', index: 1 });
+    deps.chooseAlbumAction.mockResolvedValueOnce('back').mockResolvedValueOnce('play-album');
+
+    await run(['artist', 'Linkin Park', '--first'], deps);
+
+    expect(deps.catalog.getArtistAlbumsPage).toHaveBeenCalledOnce();
+    expect(deps.choosePageAction).toHaveBeenCalledTimes(2);
+    expect(deps.chooseAlbumAction).toHaveBeenNthCalledWith(1, { allowBack: true });
+    expect(deps.player.playContext).toHaveBeenCalledWith(secondAlbum.uri);
   });
 
   it('lists and displays the user playlists', async () => {
     const deps = dependencies();
     vi.mocked(deps.playlist.listPlaylists).mockResolvedValue([playlist]);
+    vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue(playlist);
+    vi.mocked(deps.playlist.listPlaylistsPage).mockResolvedValue({
+      items: [playlist],
+      nextToken: null,
+      total: 1,
+    });
     deps.choosePlaylistAction.mockResolvedValue('play-playlist');
     await run(['playlists'], deps);
     await run(['playlist', 'work', '--first'], deps);
@@ -487,21 +562,67 @@ describe('CLI application', () => {
     expect(deps.messages.join('\n')).toContain('Workout — Bruno · 1 item');
   });
 
-  it('plays a playlist selected from the playlist list', async () => {
+  it('plays a playlist selected from the paginated playlist list', async () => {
     const deps = dependencies();
-    vi.mocked(deps.playlist.listPlaylists).mockResolvedValue([playlist]);
-    deps.chooseListedPlaylist.mockResolvedValue(playlist);
+    vi.mocked(deps.playlist.listPlaylistsPage).mockResolvedValue({
+      items: [playlist],
+      nextToken: null,
+      total: 1,
+    });
+    deps.choosePageAction.mockResolvedValue({ type: 'select', index: 0 });
 
     await run(['playlists'], deps);
 
-    expect(deps.chooseListedPlaylist).toHaveBeenCalledWith([playlist]);
+    expect(deps.playlist.listPlaylistsPage).toHaveBeenCalledWith(undefined, 20);
     expect(deps.player.playContext).toHaveBeenCalledWith(playlist.uri);
     expect(deps.messages).toContain('▶ Playing playlist Workout');
   });
 
+  it('browses playlist tracks and plays a selection from a later page', async () => {
+    const deps = dependencies();
+    const secondTrack = {
+      ...track,
+      id: '2',
+      uri: 'spotify:track:2',
+      name: 'Faint',
+    };
+    vi.mocked(deps.playlist.listPlaylists).mockResolvedValue([playlist]);
+    vi.mocked(deps.playlist.getPlaylistItemsPage)
+      .mockResolvedValueOnce({
+        items: [track],
+        nextToken: { offset: 50 },
+        total: 51,
+      })
+      .mockResolvedValueOnce({
+        items: [secondTrack],
+        nextToken: null,
+        total: 51,
+      });
+    deps.choosePlaylistAction.mockResolvedValue('select-track');
+    deps.choosePageAction
+      .mockResolvedValueOnce({ type: 'next' })
+      .mockResolvedValueOnce({ type: 'select', index: 0 });
+
+    await run(['playlist', 'work', '--first'], deps);
+
+    expect(deps.playlist.getPlaylistItemsPage).toHaveBeenNthCalledWith(
+      1,
+      playlist.id,
+      undefined,
+      50,
+    );
+    expect(deps.playlist.getPlaylistItemsPage).toHaveBeenNthCalledWith(
+      2,
+      playlist.id,
+      { offset: 50 },
+      50,
+    );
+    expect(deps.player.playTrack).toHaveBeenCalledWith(secondTrack.uri);
+  });
+
   it('rejects an out-of-range playlist number', async () => {
     const deps = dependencies();
-    vi.mocked(deps.playlist.listPlaylists).mockResolvedValue([playlist]);
+    vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue(null);
 
     await expect(run(['playlist', '2'], deps)).rejects.toThrow(
       'Playlist number 2 is out of range',
@@ -528,9 +649,11 @@ describe('CLI application', () => {
 
   it('lists, likes, and unlikes library tracks', async () => {
     const deps = dependencies();
-    vi.mocked(deps.library.getLikedTracks).mockResolvedValue([
-      { addedAt: '2026-09-05T00:00:00Z', track },
-    ]);
+    vi.mocked(deps.library.getLikedTracksPage).mockResolvedValue({
+      items: [{ addedAt: '2026-09-05T00:00:00Z', track }],
+      nextToken: null,
+      total: 1,
+    });
     vi.mocked(deps.library.likeCurrentTrack).mockResolvedValue(track);
     vi.mocked(deps.library.unlikeCurrentTrack).mockResolvedValue(track);
 
@@ -545,37 +668,76 @@ describe('CLI application', () => {
   it('plays a selected liked track', async () => {
     const deps = dependencies();
     const likedTracks = [{ addedAt: '2026-09-05T00:00:00Z', track }];
-    vi.mocked(deps.library.getLikedTracks).mockResolvedValue(likedTracks);
-    deps.chooseLikedTrack.mockResolvedValue(track);
+    vi.mocked(deps.library.getLikedTracksPage).mockResolvedValue({
+      items: likedTracks,
+      nextToken: null,
+      total: 1,
+    });
+    deps.choosePageAction.mockResolvedValue({ type: 'select', index: 0 });
 
     await run(['liked'], deps);
 
-    expect(deps.chooseLikedTrack).toHaveBeenCalledWith(likedTracks);
+    expect(deps.library.getLikedTracksPage).toHaveBeenCalledWith(undefined, 20);
     expect(deps.player.playTrack).toHaveBeenCalledWith(track.uri);
     expect(deps.messages).toContain('▶ Playing Numb — Linkin Park');
   });
 
+  it('loads and selects a later liked-tracks page', async () => {
+    const deps = dependencies();
+    const secondTrack = {
+      ...track,
+      id: '2',
+      uri: 'spotify:track:2',
+      name: 'Faint',
+    };
+    vi.mocked(deps.library.getLikedTracksPage)
+      .mockResolvedValueOnce({
+        items: [{ addedAt: '2026-09-05T00:00:00Z', track }],
+        nextToken: { offset: 1 },
+        total: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [{ addedAt: '2026-09-04T00:00:00Z', track: secondTrack }],
+        nextToken: null,
+        total: 2,
+      });
+    deps.choosePageAction
+      .mockResolvedValueOnce({ type: 'next' })
+      .mockResolvedValueOnce({ type: 'select', index: 0 });
+
+    await run(['liked', '--limit', '1'], deps);
+
+    expect(deps.library.getLikedTracksPage).toHaveBeenNthCalledWith(1, undefined, 1);
+    expect(deps.library.getLikedTracksPage).toHaveBeenNthCalledWith(2, { offset: 1 }, 1);
+    expect(deps.player.playTrack).toHaveBeenCalledWith(secondTrack.uri);
+    expect(deps.messages.join('\n')).toContain('Liked tracks — page 2 · 2-2 of 2');
+  });
+
   it('lists recently played tracks', async () => {
     const deps = dependencies();
-    vi.mocked(deps.recent.getRecentlyPlayed).mockResolvedValue([
-      { playedAt: '2026-09-05T00:00:00Z', track },
-    ]);
+    vi.mocked(deps.recent.getRecentlyPlayedPage).mockResolvedValue({
+      items: [{ playedAt: '2026-09-05T00:00:00Z', track }],
+      nextToken: null,
+    });
 
     await run(['recent', '--limit', '5'], deps);
 
-    expect(deps.recent.getRecentlyPlayed).toHaveBeenCalledWith(5);
+    expect(deps.recent.getRecentlyPlayedPage).toHaveBeenCalledWith(undefined, 5);
     expect(deps.messages[0]).toContain('played 2026-09-05T00:00:00Z');
   });
 
   it('plays a selected recently played track', async () => {
     const deps = dependencies();
     const recentTracks = [{ playedAt: '2026-09-05T00:00:00Z', track }];
-    vi.mocked(deps.recent.getRecentlyPlayed).mockResolvedValue(recentTracks);
-    deps.chooseRecentTrack.mockResolvedValue(track);
+    vi.mocked(deps.recent.getRecentlyPlayedPage).mockResolvedValue({
+      items: recentTracks,
+      nextToken: null,
+    });
+    deps.choosePageAction.mockResolvedValue({ type: 'select', index: 0 });
 
     await run(['recent'], deps);
 
-    expect(deps.chooseRecentTrack).toHaveBeenCalledWith(recentTracks);
+    expect(deps.recent.getRecentlyPlayedPage).toHaveBeenCalledWith(undefined, 20);
     expect(deps.player.playTrack).toHaveBeenCalledWith(track.uri);
     expect(deps.messages).toContain('▶ Playing Numb — Linkin Park');
   });

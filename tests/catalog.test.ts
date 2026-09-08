@@ -78,15 +78,86 @@ describe('catalog services', () => {
     expect(api.get).toHaveBeenNthCalledWith(2, '/artists/artist-id');
   });
 
-  it('lists an artist’s albums through the current discography endpoint', async () => {
+  it('gets an artist album page with a capped limit and the requested offset', async () => {
     const api = createApi();
-    vi.mocked(api.get).mockResolvedValue({ items: [album] });
+    vi.mocked(api.get).mockResolvedValue({
+      items: [album],
+      limit: 10,
+      offset: 20,
+      total: 35,
+      next: 'https://api.spotify.com/v1/artists/artist-id/albums?offset=30&limit=10',
+      previous: 'https://api.spotify.com/v1/artists/artist-id/albums?offset=10&limit=10',
+    });
 
-    await expect(new CatalogService(api).getArtistAlbums('artist/id')).resolves.toMatchObject([
-      { name: 'Meteora' },
-    ]);
+    await expect(
+      new CatalogService(api).getArtistAlbumsPage('artist/id', { offset: 20 }, 500),
+    ).resolves.toMatchObject({
+      items: [{ name: 'Meteora' }],
+      nextToken: { offset: 30 },
+      total: 35,
+    });
     expect(api.get).toHaveBeenCalledWith('/artists/artist%2Fid/albums', {
-      query: { limit: 10 },
+      query: { limit: 10, offset: 20 },
     });
   });
+
+  it('returns no token for a terminal artist album page', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      items: [album],
+      limit: 5,
+      offset: 10,
+      total: 11,
+      next: null,
+      previous: 'https://api.spotify.com/v1/artists/artist-id/albums?offset=5&limit=5',
+    });
+
+    await expect(
+      new CatalogService(api).getArtistAlbumsPage('artist-id', { offset: 10 }, 5),
+    ).resolves.toMatchObject({ nextToken: null, total: 11 });
+  });
+
+  it('advances artist album pages from raw paging metadata when mapped items are invalid', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({
+      items: [album, { ...album, id: '', uri: '' }],
+      limit: 2,
+      offset: 0,
+      total: 4,
+      next: 'https://api.spotify.com/v1/artists/artist-id/albums?offset=2&limit=2',
+      previous: null,
+    });
+
+    await expect(new CatalogService(api).getArtistAlbumsPage('artist-id', undefined, 2)).resolves.toMatchObject({
+      items: [{ id: 'album-id' }],
+      nextToken: { offset: 2 },
+    });
+  });
+
+  it('sorts each artist album page newest-first without eagerly loading the next page', async () => {
+    const api = createApi();
+    const newest = {
+      ...album,
+      id: 'newest-id',
+      uri: 'spotify:album:newest-id',
+      name: 'Newest Album',
+      release_date: '2025-02',
+    };
+    vi.mocked(api.get).mockResolvedValue({
+      items: [album, newest],
+      limit: 2,
+      offset: 0,
+      total: 4,
+      next: 'https://api.spotify.com/v1/artists/artist-id/albums?offset=2&limit=2',
+      previous: null,
+    });
+
+    await expect(new CatalogService(api).getArtistAlbums('artist/id', 2)).resolves.toMatchObject([
+      { name: 'Newest Album', releaseDate: '2025-02' },
+      { name: 'Meteora', releaseDate: '2003-03-25' },
+    ]);
+    expect(api.get).toHaveBeenCalledOnce();
+  });
+
+
 });

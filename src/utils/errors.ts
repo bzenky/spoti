@@ -34,9 +34,24 @@ export class PremiumRequiredError extends AppError {
 
 export class RateLimitedError extends AppError {
   constructor(public readonly retryAfterSeconds: number) {
-    const unit = retryAfterSeconds === 1 ? 'second' : 'seconds';
-    super(`Spotify rate limit reached. Try again in ${retryAfterSeconds} ${unit}.`);
+    super(`Spotify rate limit reached. Try again in ${formatRetryDuration(retryAfterSeconds)}.`);
   }
+}
+
+function formatRetryDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+
+  const totalMinutes = Math.ceil(seconds / 60);
+  if (totalMinutes < 60) {
+    return `${totalMinutes} ${totalMinutes === 1 ? 'minute' : 'minutes'}`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const hoursText = `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+  return minutes === 0
+    ? hoursText
+    : `${hoursText} ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
 }
 
 export class SpotifyApiError extends AppError {

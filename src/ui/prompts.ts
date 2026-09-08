@@ -5,10 +5,9 @@ import type {
   Album,
   Artist,
   Playlist,
-  RecentlyPlayedTrack,
-  SavedTrack,
   Track,
 } from '../services/models.js';
+import type { PageAction, PageView } from './pagination.js';
 import {
   createOutputStyles,
   formatAlbum,
@@ -22,9 +21,16 @@ export async function selectTrack(tracks: Track[]): Promise<Track | null> {
   return selectItem(tracks, (track, index) => formatTrack(track, index, styles));
 }
 
-export async function selectAlbum(albums: Album[]): Promise<Album | null> {
+export async function selectAlbum(
+  albums: Album[],
+  options: { emptyAction?: 'cancel' | 'go back' } = {},
+): Promise<Album | null> {
   const styles = createOutputStyles(Boolean(stdout.isTTY), process.env);
-  return selectItem(albums, (album, index) => formatAlbum(album, index, styles));
+  return selectItem(
+    albums,
+    (album, index) => formatAlbum(album, index, styles),
+    options.emptyAction,
+  );
 }
 
 export async function selectArtist(artists: Artist[]): Promise<Artist | null> {
@@ -37,47 +43,20 @@ export async function selectPlaylist(playlists: Playlist[]): Promise<Playlist | 
   return selectItem(playlists, (playlist, index) => formatPlaylist(playlist, index, styles));
 }
 
-export async function selectRecentTrack(
-  items: RecentlyPlayedTrack[],
-): Promise<Track | null> {
-  return selectDisplayedTrack(
-    items.map((item) => item.track),
-    'recent',
-  );
-}
 
-export async function selectLikedTrack(items: SavedTrack[]): Promise<Track | null> {
-  return selectDisplayedTrack(
-    items.map((item) => item.track),
-    'liked',
-  );
-}
-
-export async function selectListedPlaylist(playlists: Playlist[]): Promise<Playlist | null> {
-  if (playlists.length === 0 || !stdin.isTTY || !stdout.isTTY) return null;
-
-  const prompt = createInterface({ input: stdin, output: stdout });
-  try {
-    const index = await promptForSelection(
-      prompt,
-      `\nPlay a playlist [1-${playlists.length}] (Enter to keep current playback): `,
-      playlists.length,
-    );
-    return index === null ? null : (playlists[index] ?? null);
-  } finally {
-    prompt.close();
-  }
-}
-
-export type AlbumAction = 'play-album' | 'play-track';
+export type AlbumAction = 'play-album' | 'play-track' | 'back';
 export type ArtistAction = 'play-artist' | 'select-album';
-export type PlaylistAction = 'play-playlist';
+export type PlaylistAction = 'play-playlist' | 'select-track';
 
-export async function selectAlbumAction(): Promise<AlbumAction | null> {
-  return selectAction([
+export async function selectAlbumAction(
+  options: { allowBack?: boolean } = {},
+): Promise<AlbumAction | null> {
+  const actions: Array<{ value: AlbumAction; label: string }> = [
     { value: 'play-album', label: 'Play the entire album' },
     { value: 'play-track', label: 'Select a track' },
-  ]);
+  ];
+  if (options.allowBack) actions.push({ value: 'back', label: 'Back to albums' });
+  return selectAction(actions);
 }
 
 export async function selectArtistAction(): Promise<ArtistAction | null> {
@@ -88,7 +67,10 @@ export async function selectArtistAction(): Promise<ArtistAction | null> {
 }
 
 export async function selectPlaylistAction(): Promise<PlaylistAction | null> {
-  return selectAction([{ value: 'play-playlist', label: 'Play the playlist' }]);
+  return selectAction([
+    { value: 'play-playlist', label: 'Play the playlist' },
+    { value: 'select-track', label: 'Select a track' },
+  ]);
 }
 
 export async function promptSpotifyClientId(): Promise<string | null> {
@@ -137,28 +119,11 @@ async function selectAction<Action extends string>(
   }
 }
 
-async function selectDisplayedTrack(
-  tracks: Track[],
-  source: 'recent' | 'liked',
-): Promise<Track | null> {
-  if (tracks.length === 0 || !stdin.isTTY || !stdout.isTTY) return null;
-
-  const prompt = createInterface({ input: stdin, output: stdout });
-  try {
-    const index = await promptForSelection(
-      prompt,
-      `\nPlay a ${source} track [1-${tracks.length}] (Enter to keep current playback): `,
-      tracks.length,
-    );
-    return index === null ? null : (tracks[index] ?? null);
-  } finally {
-    prompt.close();
-  }
-}
 
 async function selectItem<Item>(
   items: Item[],
   format: (item: Item, index?: number) => string,
+  emptyAction: 'cancel' | 'go back' = 'cancel',
 ): Promise<Item | null> {
   if (items.length === 0) return null;
   if (!stdin.isTTY || !stdout.isTTY) return items[0] ?? null;
@@ -168,7 +133,7 @@ async function selectItem<Item>(
   try {
     const index = await promptForSelection(
       prompt,
-      `Select [1-${items.length}] (Enter to cancel): `,
+      `Select [1-${items.length}] (Enter to ${emptyAction}): `,
       items.length,
     );
     return index === null ? null : (items[index] ?? null);
@@ -180,6 +145,61 @@ async function selectItem<Item>(
 export type SelectionInput =
   | { status: 'cancelled' | 'invalid' }
   | { status: 'selected'; index: number };
+
+export type PageSelectionInput = PageAction | { type: 'invalid' };
+
+export function parsePageSelectionInput(
+  value: string,
+  view: Pick<PageView<unknown>, 'hasNext' | 'hasPrevious' | 'items' | 'startIndex'>,
+): PageSelectionInput {
+  const normalized = value.trim().toLocaleLowerCase();
+  if (!normalized) return { type: 'cancel' };
+  if (normalized === 'n') return view.hasNext ? { type: 'next' } : { type: 'invalid' };
+  if (normalized === 'p') {
+    return view.hasPrevious ? { type: 'previous' } : { type: 'invalid' };
+  }
+  if (!/^\d+$/.test(normalized)) return { type: 'invalid' };
+
+  const index = Number(normalized) - view.startIndex - 1;
+  if (!Number.isSafeInteger(index) || index < 0 || index >= view.items.length) {
+    return { type: 'invalid' };
+  }
+  return { type: 'select', index };
+}
+
+export async function selectPageAction<Item>(
+  view: PageView<Item>,
+  options: { emptyAction?: string } = {},
+): Promise<PageAction> {
+  if (!stdin.isTTY || !stdout.isTTY) return { type: 'cancel' };
+
+  const prompt = createInterface({ input: stdin, output: stdout });
+  const choices = pageChoices(view);
+  try {
+    while (true) {
+      const answer = await prompt.question(
+        `Select ${choices} (Enter to ${options.emptyAction ?? 'cancel'}): `,
+      );
+      const selection = parsePageSelectionInput(answer, view);
+      if (selection.type !== 'invalid') return selection;
+      stdout.write(`Choose ${choices}, or press Enter to ${options.emptyAction ?? 'cancel'}.\n`);
+    }
+  } finally {
+    prompt.close();
+  }
+}
+
+function pageChoices<Item>(view: PageView<Item>): string {
+  const choices: string[] = [];
+  if (view.items.length > 0) {
+    choices.push(
+      `[${view.startIndex + 1}-${view.startIndex + view.items.length}]`,
+    );
+  }
+  if (view.hasNext) choices.push('n for next');
+  if (view.hasPrevious) choices.push('p for previous');
+  return choices.join(', ') || 'an available action';
+}
 
 export function parseSelectionInput(value: string, itemCount: number): SelectionInput {
   const normalized = value.trim();

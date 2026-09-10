@@ -50,14 +50,16 @@ describe('LibraryService', () => {
       previous: 'https://api.spotify.com/v1/me/tracks?offset=38&limit=2',
     });
 
+    const signal = new AbortController().signal;
     await expect(
-      new LibraryService(api).getLikedTracksPage({ offset: 40 }, 500),
+      new LibraryService(api).getLikedTracksPage({ offset: 40 }, 500, signal),
     ).resolves.toMatchObject({
       items: [{ track: { name: 'Numb' } }],
       nextToken: { offset: 42 },
     });
     expect(api.get).toHaveBeenCalledWith('/me/tracks', {
       query: { limit: 50, offset: 40 },
+      signal,
     });
   });
 

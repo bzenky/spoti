@@ -243,10 +243,27 @@ export class UpdateService implements UpdateChecker {
   }
 }
 
+export interface NodeUpdateCommandRunnerDependencies {
+  platform?: NodeJS.Platform;
+  spawn?: typeof spawn;
+}
+
 export class NodeUpdateCommandRunner implements UpdateCommandRunner {
+  private readonly platform: NodeJS.Platform;
+  private readonly spawnImplementation: typeof spawn;
+
+  constructor(dependencies: NodeUpdateCommandRunnerDependencies = {}) {
+    this.platform = dependencies.platform ?? process.platform;
+    this.spawnImplementation = dependencies.spawn ?? spawn;
+  }
+
   run(command: string, args: readonly string[]): Promise<void> {
     return new Promise((resolve, reject) => {
-      const child = spawn(command, [...args], { stdio: 'inherit', shell: false });
+      const executable = this.platform === 'win32' && command === 'npm' ? 'npm.cmd' : command;
+      const child = this.spawnImplementation(executable, [...args], {
+        stdio: 'inherit',
+        shell: false,
+      });
       child.once('error', reject);
       child.once('exit', (code, signal) => {
         if (code === 0) {

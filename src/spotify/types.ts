@@ -163,6 +163,7 @@ export interface SpotifyErrorBody {
   error?: {
     status?: number;
     message?: string;
+    reason?: string;
   } | string;
   error_description?: string;
 }

@@ -59,10 +59,6 @@ import {
 import { generateCompletionScript, type CompletionShell } from './ui/completions.js';
 import { withProgress, type ProgressRunner } from './ui/progress.js';
 import {
-  runInteractiveSearch,
-  type InteractiveSearchResult,
-} from './ui/interactive-search.js';
-import {
   createPageBrowser,
   type PageActionPrompt,
   type PageView,
@@ -95,10 +91,11 @@ export interface AppDependencies {
   choosePlaylistAction?: typeof selectPlaylistAction;
   requestSpotifyClientId?: typeof promptSpotifyClientId;
   confirmUpdate?: typeof confirmUpdate;
-  interactiveSearch?: () => Promise<InteractiveSearchResult>;
   progress?: ProgressRunner;
   styles?: OutputStyles;
   watchPlayback?: PlaybackWatcher;
+  startTui?: () => Promise<void>;
+  isInteractive?: boolean;
 }
 
 export function createProgram(dependencies: AppDependencies): Command {
@@ -116,18 +113,12 @@ export function createProgram(dependencies: AppDependencies): Command {
   const styles = dependencies.styles ?? plainOutputStyles;
   const safe = sanitizeOneLineText;
   const safeArtists = (artists: string[]): string => artists.map(safe).join(', ');
-  const startInteractiveSearch =
-    dependencies.interactiveSearch ??
-    (() =>
-      runInteractiveSearch({
-        search: dependencies.search,
-        player: dependencies.player,
-        styles,
-      }));
   const showProgress = dependencies.progress ?? withProgress;
   const runTask = <Result>(label: string, task: () => Promise<Result>): Promise<Result> =>
     showProgress(label, task);
   const startWatching = dependencies.watchPlayback ?? watchPlayback;
+  const isInteractive =
+    dependencies.isInteractive ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
   const createCollectionBrowser = <Item, Token>(options: {
     title: string;
     loadPage(token?: Token): Promise<Page<Item, Token>>;
@@ -187,13 +178,13 @@ export function createProgram(dependencies: AppDependencies): Command {
   const interactiveCommand = program
     .command('interactive')
     .alias('i')
-    .description('Open the keyboard-driven Spotify search')
+    .description('Open the interactive spoti TUI')
     .action(async () => {
-      const result = await startInteractiveSearch();
-      if (result.status === 'not-interactive') interactiveCommand.outputHelp();
-      else if (result.status === 'played') {
-        dependencies.output.log(`▶ Playing ${styles.name(safe(result.label))}`);
+      if (!isInteractive || !dependencies.startTui) {
+        interactiveCommand.outputHelp();
+        return;
       }
+      await dependencies.startTui();
     });
 
   program

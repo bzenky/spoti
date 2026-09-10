@@ -1,12 +1,16 @@
+import { EventEmitter } from 'node:events';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   compareSemanticVersions,
+  NodeUpdateCommandRunner,
   NPM_REGISTRY_URL,
   UPDATE_CHECK_INTERVAL_MS,
   UpdateCheckError,
   UpdateInstallError,
   UpdateService,
+  type NodeUpdateCommandRunnerDependencies,
   type UpdateCommandRunner,
 } from '../src/services/update.service.js';
 import type { UpdateCache, UpdateCacheStore } from '../src/storage/update-cache.js';
@@ -234,6 +238,32 @@ describe('UpdateService checks', () => {
     };
 
     await expect(runBackgroundUpdateCheck(checker)).resolves.toBeNull();
+  });
+});
+
+describe('NodeUpdateCommandRunner', () => {
+  it.each([
+    ['win32', 'npm.cmd'],
+    ['linux', 'npm'],
+  ] as const)('spawns %s npm commands as %s without a shell', async (platform, executable) => {
+    const child = new EventEmitter();
+    const spawnImplementation = vi.fn(() => child);
+    const runner = new NodeUpdateCommandRunner({
+      platform,
+      spawn: spawnImplementation as unknown as NonNullable<
+        NodeUpdateCommandRunnerDependencies['spawn']
+      >,
+    });
+
+    const result = runner.run('npm', ['install', '--global', '@bzenky/spoti@0.3.0']);
+    child.emit('exit', 0, null);
+
+    await expect(result).resolves.toBeUndefined();
+    expect(spawnImplementation).toHaveBeenCalledWith(
+      executable,
+      ['install', '--global', '@bzenky/spoti@0.3.0'],
+      { stdio: 'inherit', shell: false },
+    );
   });
 });
 

@@ -66,14 +66,16 @@ describe('RecentService', () => {
       cursors: { after: '999' },
     });
 
+    const signal = new AbortController().signal;
     await expect(
-      new RecentService(api).getRecentlyPlayedPage({ before: 123 }),
+      new RecentService(api).getRecentlyPlayedPage({ before: 123 }, 20, signal),
     ).resolves.toMatchObject({
       items: [{ track: { name: 'Numb' } }],
       nextToken: { after: 456 },
     });
     expect(api.get).toHaveBeenCalledWith('/me/player/recently-played', {
       query: { limit: 20, before: 123 },
+      signal,
     });
   });
 

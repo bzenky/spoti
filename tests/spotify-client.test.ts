@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SpotifyClient } from '../src/spotify/client.js';
 import {
   AuthenticationRequiredError,
+  DevelopmentQuotaExceededError,
   NoActiveDeviceError,
   RateLimitedError,
   SpotifyApiError,
@@ -260,6 +261,40 @@ describe('SpotifyClient', () => {
     expect(sleeper).toHaveBeenNthCalledWith(2, 1_000);
   });
 
+  it('shares a short rate-limit cooldown with concurrent requests', async () => {
+    let releaseCooldown: (() => void) | undefined;
+    const cooldown = new Promise<void>((resolve) => { releaseCooldown = resolve; });
+    const sleeper = vi.fn(() => cooldown);
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          { error: { message: 'Rate limited' } },
+          { status: 429, headers: { 'retry-after': '2' } },
+        ),
+      )
+      .mockImplementation(async () => Response.json({ ok: true }));
+    const client = new SpotifyClient(
+      {
+        getAccessToken: async () => 'token',
+        forceRefreshAccessToken: async () => 'refreshed-token',
+      },
+      fetcher,
+      sleeper,
+      () => 0,
+    );
+
+    const first = client.get('/search');
+    await vi.waitFor(() => expect(sleeper).toHaveBeenCalledOnce());
+    const second = client.get('/me');
+    await vi.waitFor(() => expect(sleeper).toHaveBeenCalledTimes(2));
+    expect(fetcher).toHaveBeenCalledOnce();
+
+    releaseCooldown?.();
+    await expect(Promise.all([first, second])).resolves.toEqual([{ ok: true }, { ok: true }]);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
   it('reports long rate limits immediately instead of blocking the CLI', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       Response.json(
@@ -279,6 +314,39 @@ describe('SpotifyClient', () => {
 
     await expect(client.get('/search')).rejects.toThrow(
       'Spotify rate limit reached. Try again in 15 hours 39 minutes.',
+    );
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(sleeper).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes Spotify development quota exhaustion from ordinary rate limiting', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json(
+        {
+          error: {
+            status: 429,
+            message: 'Too many requests',
+            reason: 'QUOTA_EXCEEDED',
+          },
+        },
+        { status: 429, headers: { 'retry-after': '2' } },
+      ),
+    );
+    const sleeper = vi.fn().mockResolvedValue(undefined);
+    const client = new SpotifyClient(
+      {
+        getAccessToken: async () => 'token',
+        forceRefreshAccessToken: async () => 'refreshed-token',
+      },
+      fetcher,
+      sleeper,
+    );
+
+    const error = await client.get('/search').catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(DevelopmentQuotaExceededError);
+    expect(error).toMatchObject({ reason: 'QUOTA_EXCEEDED', retryAfterSeconds: 2 });
+    expect((error as Error).message).toBe(
+      'Spotify development quota exceeded. Try again in 2 seconds.',
     );
     expect(fetcher).toHaveBeenCalledOnce();
     expect(sleeper).not.toHaveBeenCalled();
@@ -363,7 +431,7 @@ describe('SpotifyClient', () => {
     );
 
     await expect(client.get('/me')).resolves.toEqual({ id: 'user' });
-    expect(forceRefreshAccessToken).toHaveBeenCalledOnce();
+    expect(forceRefreshAccessToken).toHaveBeenCalledWith('stale-token');
     expect(new Headers(fetcher.mock.calls[1]?.[1]?.headers).get('authorization')).toBe(
       'Bearer fresh-token',
     );

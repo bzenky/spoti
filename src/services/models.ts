@@ -19,6 +19,9 @@ export interface CurrentPlayback {
   track: Track;
   progressMs: number;
   deviceName?: string;
+  volumePercent?: number;
+  shuffleState?: boolean;
+  repeatMode?: RepeatMode;
 }
 
 export interface Album {

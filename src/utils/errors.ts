@@ -38,6 +38,15 @@ export class RateLimitedError extends AppError {
   }
 }
 
+export class DevelopmentQuotaExceededError extends RateLimitedError {
+  readonly reason = 'QUOTA_EXCEEDED';
+
+  constructor(retryAfterSeconds: number) {
+    super(retryAfterSeconds);
+    this.message = `Spotify development quota exceeded. Try again in ${formatRetryDuration(retryAfterSeconds)}.`;
+  }
+}
+
 function formatRetryDuration(seconds: number): string {
   if (seconds < 60) return `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
 

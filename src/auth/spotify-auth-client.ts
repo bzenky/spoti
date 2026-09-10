@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
 import type { UserProfile } from '../services/models.js';
-import { AppError, toError } from '../utils/errors.js';
+import { AppError, RateLimitedError, toError } from '../utils/errors.js';
 
 const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
 const CURRENT_USER_ENDPOINT = 'https://api.spotify.com/v1/me';
 const MAX_RATE_LIMIT_RETRIES = 3;
+const MAX_AUTOMATIC_RATE_LIMIT_WAIT_SECONDS = 5;
 
 type Sleep = (milliseconds: number) => Promise<void>;
 
@@ -157,13 +158,19 @@ export class SpotifyAuthClient implements SpotifyAuthApi {
         throw new AppError(`Unable to reach Spotify: ${normalizedError.message}`);
       }
 
-      if (response.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) return response;
-      const retryAfterSeconds = Number(response.headers.get('retry-after'));
-      const retryAfterMs =
-        Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0
-          ? retryAfterSeconds * 1_000
-          : 0;
-      await this.sleeper(Math.max(retryAfterMs, 500 * 2 ** attempt));
+      if (response.status !== 429) return response;
+      const retryAfterValue = Number(response.headers.get('retry-after'));
+      const retryAfterSeconds =
+        Number.isFinite(retryAfterValue) && retryAfterValue >= 0
+          ? Math.ceil(retryAfterValue)
+          : 1;
+      if (
+        attempt >= MAX_RATE_LIMIT_RETRIES ||
+        retryAfterSeconds > MAX_AUTOMATIC_RATE_LIMIT_WAIT_SECONDS
+      ) {
+        throw new RateLimitedError(retryAfterSeconds);
+      }
+      await this.sleeper(Math.max(retryAfterSeconds * 1_000, 500 * 2 ** attempt));
     }
   }
 }

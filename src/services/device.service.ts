@@ -100,7 +100,11 @@ export class DeviceService {
     );
   }
 
-  async transferPlayback(deviceId: string, play?: boolean): Promise<void> {
+  async transferPlayback(
+    deviceId: string,
+    play?: boolean,
+    signal?: AbortSignal,
+  ): Promise<void> {
     const normalizedDeviceId = deviceId.trim();
     if (!normalizedDeviceId) {
       throw new AppError('A Spotify device ID is required to transfer playback.');
@@ -111,6 +115,7 @@ export class DeviceService {
         device_ids: [normalizedDeviceId],
         ...(play === undefined ? {} : { play }),
       },
+      ...(signal === undefined ? {} : { signal }),
     });
   }
 }

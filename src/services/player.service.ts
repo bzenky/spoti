@@ -11,8 +11,11 @@ export class PlayerService {
     private readonly deviceService?: Pick<DeviceService, 'getControllableDevices'>,
   ) {}
 
-  async getCurrentPlayback(): Promise<CurrentPlayback | null> {
-    const playback = await this.spotify.get<SpotifyPlaybackState | undefined>('/me/player');
+  async getCurrentPlayback(signal?: AbortSignal): Promise<CurrentPlayback | null> {
+    const playback =
+      signal === undefined
+        ? await this.spotify.get<SpotifyPlaybackState | undefined>('/me/player')
+        : await this.spotify.get<SpotifyPlaybackState | undefined>('/me/player', { signal });
     if (!playback?.item) return null;
     const track = mapPlaybackItem(playback.item);
     if (!track) return null;
@@ -21,6 +24,11 @@ export class PlayerService {
       track,
       progressMs: playback.progress_ms ?? 0,
       deviceName: playback.device.name,
+      shuffleState: playback.shuffle_state,
+      ...(isRepeatMode(playback.repeat_state) ? { repeatMode: playback.repeat_state } : {}),
+      ...(playback.device.supports_volume && playback.device.volume_percent !== null
+        ? { volumePercent: clampVolume(playback.device.volume_percent) }
+        : {}),
     };
   }
 

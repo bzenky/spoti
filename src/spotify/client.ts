@@ -1,6 +1,7 @@
 import {
   AppError,
   AuthenticationRequiredError,
+  DevelopmentQuotaExceededError,
   NoActiveDeviceError,
   PremiumRequiredError,
   RateLimitedError,
@@ -46,14 +47,17 @@ export interface SpotifyApi {
 
 export interface AccessTokenProvider {
   getAccessToken(): Promise<string>;
-  forceRefreshAccessToken(): Promise<string>;
+  forceRefreshAccessToken(staleAccessToken?: string): Promise<string>;
 }
 
 export class SpotifyClient implements SpotifyApi {
+  private rateLimitUntil = 0;
+
   constructor(
     private readonly authService: AccessTokenProvider,
     private readonly fetcher: typeof fetch = fetch,
     private readonly sleeper: Sleep = sleep,
+    private readonly clock: () => number = Date.now,
   ) {}
 
   get<T>(path: string, options?: RequestOptions): Promise<T> {
@@ -96,6 +100,7 @@ export class SpotifyClient implements SpotifyApi {
 
     while (true) {
       throwIfExternallyAborted(options.signal);
+      await this.waitForSharedRateLimit(options.signal);
       headers.set('Authorization', `Bearer ${accessToken}`);
       const attempt = createAttemptSignal(options.signal);
       let shouldRefreshToken = false;
@@ -111,15 +116,22 @@ export class SpotifyClient implements SpotifyApi {
 
         if (response.status === 401 && !refreshedToken) {
           shouldRefreshToken = true;
-        } else if (
-          response.status === 429 &&
-          rateLimitRetries < MAX_RATE_LIMIT_RETRIES &&
-          getRetryAfterSeconds(response) <= MAX_AUTOMATIC_RATE_LIMIT_WAIT_SECONDS
-        ) {
+        } else if (response.status === 429) {
           const retryAfterSeconds = getRetryAfterSeconds(response);
-          const exponentialBackoffMs = 500 * 2 ** rateLimitRetries;
-          rateLimitRetries += 1;
-          retryDelayMs = Math.max(retryAfterSeconds * 1_000, exponentialBackoffMs);
+          const mappedError = await mapSpotifyError(response, method, path);
+          throwIfAttemptAborted(attempt.signal, options.signal);
+          if (
+            !(mappedError instanceof DevelopmentQuotaExceededError) &&
+            rateLimitRetries < MAX_RATE_LIMIT_RETRIES &&
+            retryAfterSeconds <= MAX_AUTOMATIC_RATE_LIMIT_WAIT_SECONDS
+          ) {
+            const exponentialBackoffMs = 500 * 2 ** rateLimitRetries;
+            rateLimitRetries += 1;
+            retryDelayMs = Math.max(retryAfterSeconds * 1_000, exponentialBackoffMs);
+            this.rateLimitUntil = Math.max(this.rateLimitUntil, this.clock() + retryDelayMs);
+          } else {
+            throw mappedError;
+          }
         } else {
           if (!response.ok) {
             const mappedError = await mapSpotifyError(response, method, path);
@@ -158,16 +170,21 @@ export class SpotifyClient implements SpotifyApi {
 
       if (shouldRefreshToken) {
         throwIfExternallyAborted(options.signal);
-        accessToken = await this.authService.forceRefreshAccessToken();
+        accessToken = await this.authService.forceRefreshAccessToken(accessToken);
         refreshedToken = true;
         continue;
       }
 
-      if (retryDelayMs !== undefined) {
-        await this.waitForRetry(retryDelayMs, options.signal);
-        continue;
-      }
+      if (retryDelayMs !== undefined) continue;
     }
+  }
+
+  private async waitForSharedRateLimit(signal?: AbortSignal): Promise<void> {
+    const cooldownUntil = this.rateLimitUntil;
+    const delay = cooldownUntil - this.clock();
+    if (delay <= 0) return;
+    await this.waitForRetry(delay, signal);
+    if (this.rateLimitUntil === cooldownUntil) this.rateLimitUntil = 0;
   }
 
   private async waitForRetry(milliseconds: number, signal?: AbortSignal): Promise<void> {
@@ -295,8 +312,8 @@ async function mapSpotifyError(
   path: string,
 ): Promise<Error> {
   const body = await readErrorBody(response);
-  const spotifyMessage =
-    typeof body.error === 'object' ? body.error?.message : body.error_description;
+  const spotifyError = typeof body.error === 'object' ? body.error : undefined;
+  const spotifyMessage = spotifyError?.message ?? body.error_description;
   const sanitizedMessage = spotifyMessage ? sanitizeOneLineText(spotifyMessage) : '';
   const message =
     sanitizedMessage || `Spotify API request failed with HTTP ${response.status}.`;
@@ -315,7 +332,11 @@ async function mapSpotifyError(
     return new NoActiveDeviceError();
   }
   if (response.status === 429) {
-    return new RateLimitedError(getRetryAfterSeconds(response));
+    const retryAfterSeconds = getRetryAfterSeconds(response);
+    if (spotifyError?.reason === 'QUOTA_EXCEEDED') {
+      return new DevelopmentQuotaExceededError(retryAfterSeconds);
+    }
+    return new RateLimitedError(retryAfterSeconds);
   }
   if (response.status >= 500) {
     return new SpotifyApiError(

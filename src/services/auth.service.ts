@@ -55,6 +55,8 @@ export class AuthService {
   private readonly stateFactory: () => string;
   private readonly clock: () => number;
   private refreshPromise: Promise<string> | undefined;
+  private credentialsCache: Credentials | null | undefined;
+  private credentialsReadPromise: Promise<Credentials | null> | undefined;
 
   constructor(dependencies: AuthServiceDependencies = {}) {
     this.credentialStore = dependencies.credentialStore ?? new FileCredentialStore();
@@ -101,15 +103,18 @@ export class AuthService {
     };
     const user = await this.spotifyAuthApi.getCurrentUser(credentials.accessToken);
     await this.credentialStore.write(credentials);
+    this.credentialsCache = credentials;
     return user;
   }
 
   async logout(): Promise<void> {
     await this.credentialStore.delete();
+    this.credentialsCache = null;
+    this.credentialsReadPromise = undefined;
   }
 
   async getAccessToken(): Promise<string> {
-    const credentials = await this.credentialStore.read();
+    const credentials = await this.getStoredCredentials();
     if (!credentials) throw new AuthenticationRequiredError();
     const grantedScopes = credentials.scopes ?? [...LEGACY_SPOTIFY_SCOPES];
     const missingScopes = SPOTIFY_SCOPES.filter(
@@ -125,9 +130,16 @@ export class AuthService {
     return this.startTokenRefresh(credentials);
   }
 
-  async forceRefreshAccessToken(): Promise<string> {
-    const credentials = await this.credentialStore.read();
+  async forceRefreshAccessToken(staleAccessToken?: string): Promise<string> {
+    const credentials = await this.getStoredCredentials();
     if (!credentials) throw new AuthenticationRequiredError();
+    if (
+      staleAccessToken !== undefined &&
+      credentials.accessToken !== staleAccessToken &&
+      !isTokenExpired(credentials, this.clock())
+    ) {
+      return credentials.accessToken;
+    }
     return this.startTokenRefresh(credentials);
   }
 
@@ -137,7 +149,22 @@ export class AuthService {
   }
 
   async isAuthenticated(): Promise<boolean> {
-    return (await this.credentialStore.read()) !== null;
+    return (await this.getStoredCredentials()) !== null;
+  }
+
+  private async getStoredCredentials(): Promise<Credentials | null> {
+    if (this.credentialsCache !== undefined) return this.credentialsCache;
+    if (!this.credentialsReadPromise) {
+      this.credentialsReadPromise = this.credentialStore.read().then((credentials) => {
+        this.credentialsCache = credentials;
+        return credentials;
+      });
+    }
+    try {
+      return await this.credentialsReadPromise;
+    } finally {
+      this.credentialsReadPromise = undefined;
+    }
   }
 
   private startTokenRefresh(credentials: Credentials): Promise<string> {
@@ -164,6 +191,7 @@ export class AuthService {
     } catch (error) {
       if (error instanceof OAuthTokenError && error.code === 'invalid_grant') {
         await this.credentialStore.delete();
+        this.credentialsCache = null;
         throw new AuthenticationRequiredError(
           'Your Spotify session has expired or was revoked.\n\nRun: spoti login',
         );
@@ -178,6 +206,7 @@ export class AuthService {
         token.scopes ?? credentials.scopes ?? [...LEGACY_SPOTIFY_SCOPES],
     };
     await this.credentialStore.write(updatedCredentials);
+    this.credentialsCache = updatedCredentials;
     return updatedCredentials.accessToken;
   }
 }

@@ -96,8 +96,9 @@ describe('PlaylistService', () => {
       ),
     );
 
+    const signal = new AbortController().signal;
     await expect(
-      new PlaylistService(api).listPlaylistsPage({ offset: 40 }, 100),
+      new PlaylistService(api).listPlaylistsPage({ offset: 40 }, 100, signal),
     ).resolves.toMatchObject({
       items: [
         { id: 'playlist/id', name: 'Workout' },
@@ -108,6 +109,7 @@ describe('PlaylistService', () => {
     });
     expect(api.get).toHaveBeenCalledWith('/me/playlists', {
       query: { limit: 50, offset: 40 },
+      signal,
     });
   });
 
@@ -184,14 +186,16 @@ describe('PlaylistService', () => {
       ),
     );
 
+    const signal = new AbortController().signal;
     await expect(
-      new PlaylistService(api).getPlaylistItemsPage('playlist/id', { offset: 100 }, 75),
+      new PlaylistService(api).getPlaylistItemsPage('playlist/id', { offset: 100 }, 75, signal),
     ).resolves.toMatchObject({
       items: [{ id: 'track-id', name: 'Numb' }],
       nextToken: { offset: 150 },
     });
     expect(api.get).toHaveBeenCalledWith('/playlists/playlist%2Fid/items', {
       query: { limit: 50, offset: 100 },
+      signal,
     });
   });
 

@@ -88,6 +88,23 @@ describe('Spotify authentication API', () => {
         });
     expect(sleeper).toHaveBeenCalledWith(1_000);
   });
+
+  it('reports long token rate limits without blocking', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json(
+        { error: 'rate_limited' },
+        { status: 429, headers: { 'retry-after': '3600' } },
+      ),
+    );
+    const sleeper = vi.fn().mockResolvedValue(undefined);
+    const client = new SpotifyAuthClient(fetcher, sleeper);
+
+    await expect(
+      client.refreshAccessToken({ clientId: 'client', refreshToken: 'refresh' }),
+    ).rejects.toThrow('Spotify rate limit reached. Try again in 1 hour.');
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(sleeper).not.toHaveBeenCalled();
+  });
 });
 
 describe('OAuth callback', () => {
@@ -207,6 +224,50 @@ describe('AuthService login', () => {
 });
 
 describe('AuthService refresh', () => {
+  it('caches credentials in memory for repeated requests in one process', async () => {
+    const credentials: Credentials = {
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      expiresAt: 999_999,
+      scopes: [...SPOTIFY_SCOPES],
+    };
+    const store: CredentialStore = {
+      read: vi.fn().mockResolvedValue(credentials),
+      write: vi.fn(),
+      delete: vi.fn(),
+    };
+    const service = new AuthService({ credentialStore: store, now: () => 100_000 });
+
+    await expect(Promise.all([service.getAccessToken(), service.getAccessToken()])).resolves.toEqual([
+      'access',
+      'access',
+    ]);
+    await expect(service.isAuthenticated()).resolves.toBe(true);
+    expect(store.read).toHaveBeenCalledOnce();
+  });
+
+  it('reuses a token refreshed by another request instead of refreshing it again', async () => {
+    const store = new MemoryCredentialStore({
+      accessToken: 'fresh',
+      refreshToken: 'refresh',
+      expiresAt: 999_999,
+      scopes: [...SPOTIFY_SCOPES],
+    });
+    const refreshAccessToken = vi.fn();
+    const service = new AuthService({
+      credentialStore: store,
+      spotifyAuthApi: {
+        exchangeCode: vi.fn(),
+        refreshAccessToken,
+        getCurrentUser: vi.fn(),
+      },
+      now: () => 100_000,
+    });
+
+    await expect(service.forceRefreshAccessToken('stale')).resolves.toBe('fresh');
+    expect(refreshAccessToken).not.toHaveBeenCalled();
+  });
+
   it('requires login again when stored credentials lack a newly required scope', async () => {
     const store = new MemoryCredentialStore({
       accessToken: 'access',

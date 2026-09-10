@@ -216,9 +216,11 @@ describe('DeviceService', () => {
     const api = createApi();
     const service = new DeviceService(api);
 
-    await service.transferPlayback('speaker-id', true);
+    const signal = new AbortController().signal;
+    await service.transferPlayback('speaker-id', true, signal);
     expect(api.put).toHaveBeenNthCalledWith(1, '/me/player', {
       body: { device_ids: ['speaker-id'], play: true },
+      signal,
     });
 
     await service.transferPlayback('laptop-id');

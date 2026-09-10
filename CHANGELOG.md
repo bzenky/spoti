@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-10
+
+### Added
+
+- A full Ink-based terminal UI through `spoti interactive` and `spoti i`, with dedicated Player, Search, Queue, Devices, Library, and Help screens.
+- Keyboard playback controls for play/pause, track navigation, seeking, volume, shuffle, repeat, and manual refresh.
+- Responsive list viewports, compact narrow-terminal layouts, grapheme-safe query editing, and scrollable shortcut help.
+- Cross-platform CI coverage for Node.js 22 on Linux, macOS, and Windows, plus Node.js 24 compatibility coverage on Linux.
+
+### Changed
+
+- Replace the previous interactive-search-only mode with the complete TUI while preserving every command-driven CLI workflow.
+- Require Node.js 22 or newer and update Ink, React, Commander, TypeScript, Vitest, ESLint, and related tooling.
+- Keep Search and Library pages cached while navigating between TUI screens.
+- Update queue additions, device transfers, and deterministic Player controls optimistically to avoid unnecessary Spotify state requests.
+- Cache credentials in memory during a running process and coordinate short rate-limit cooldowns across concurrent API requests.
+- Use `npm.cmd` for self-updates on Windows and document PowerShell environment configuration.
+
+### Fixed
+
+- Cancel stale playback, search, queue, device, library, and watch-mode requests when changing screens or exiting.
+- Prevent overlapping Player polls and repeated manual refresh requests, and stop automatic polling after Spotify development quota exhaustion until a manual retry.
+- Avoid redundant token refreshes when a delayed `401` response arrives after another request already refreshed the access token.
+- Restore alternate-screen and cursor state after TUI or watch-mode termination signals.
+- Keep long Spotify metadata within terminal bounds and provide a minimum-size fallback for very small terminals.
+
 ## [0.6.0] - 2026-09-08
 
 ### Added

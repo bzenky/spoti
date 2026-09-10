@@ -39,8 +39,11 @@ interface SpotifyQueueResponse {
 export class QueueService {
   constructor(private readonly spotify: SpotifyApi) {}
 
-  async getQueue(): Promise<PlaybackQueue> {
-    const response = await this.spotify.get<SpotifyQueueResponse>('/me/player/queue');
+  async getQueue(signal?: AbortSignal): Promise<PlaybackQueue> {
+    const response =
+      signal === undefined
+        ? await this.spotify.get<SpotifyQueueResponse>('/me/player/queue')
+        : await this.spotify.get<SpotifyQueueResponse>('/me/player/queue', { signal });
 
     const currentlyPlaying = response.currently_playing
       ? mapQueueItem(response.currently_playing)
@@ -59,8 +62,11 @@ export class QueueService {
     };
   }
 
-  async addItem(uri: string): Promise<void> {
-    await this.spotify.post<void>('/me/player/queue', { query: { uri } });
+  async addItem(uri: string, signal?: AbortSignal): Promise<void> {
+    await this.spotify.post<void>('/me/player/queue', {
+      query: { uri },
+      ...(signal === undefined ? {} : { signal }),
+    });
   }
 }
 

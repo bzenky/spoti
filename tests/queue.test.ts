@@ -139,4 +139,20 @@ describe('QueueService', () => {
       query: { uri },
     });
   });
+
+  it('passes cancellation signals through queue reads and writes', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({ currently_playing: null, queue: [] });
+    const service = new QueueService(api);
+    const signal = new AbortController().signal;
+
+    await service.getQueue(signal);
+    await service.addItem('spotify:track:track-id', signal);
+
+    expect(api.get).toHaveBeenCalledWith('/me/player/queue', { signal });
+    expect(api.post).toHaveBeenCalledWith('/me/player/queue', {
+      query: { uri: 'spotify:track:track-id' },
+      signal,
+    });
+  });
 });

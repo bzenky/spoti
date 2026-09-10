@@ -10,12 +10,20 @@ permissions:
 
 jobs:
   verify:
-    name: Node.js ${{ matrix.node-version }}
-    runs-on: ubuntu-latest
+    name: Node.js ${{ matrix.node-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22]
+        include:
+          - os: ubuntu-latest
+            node-version: 22
+          - os: macos-latest
+            node-version: 22
+          - os: windows-latest
+            node-version: 22
+          - os: ubuntu-latest
+            node-version: 24
 
     steps:
       - name: Checkout

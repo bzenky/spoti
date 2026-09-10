@@ -20,10 +20,12 @@ export class LibraryService {
   async getLikedTracksPage(
     token?: OffsetToken,
     limit = DEFAULT_LIBRARY_LIMIT,
+    signal?: AbortSignal,
   ): Promise<Page<SavedTrack, OffsetToken>> {
     const offset = normalizeOffset(token?.offset);
     const response = await this.spotify.get<SpotifyPaging<SpotifySavedTrack>>('/me/tracks', {
       query: { limit: normalizeLimit(limit), offset },
+      ...(signal === undefined ? {} : { signal }),
     });
     const items = response.items.flatMap(({ added_at: addedAt, track }) => {
       const mapped = mapTrack(track);

@@ -26,22 +26,33 @@ import { VERSION } from './version.js';
 const auth = new AuthService();
 const spotify = new SpotifyClient(auth);
 const device = new DeviceService(spotify);
+const player = new PlayerService(spotify, device);
+const search = new SearchService(spotify);
+const playlist = new PlaylistService(spotify);
+const library = new LibraryService(spotify);
+const queue = new QueueService(spotify);
+const recent = new RecentService(spotify);
 const updateCache = new FileUpdateCacheStore();
 const update = new UpdateService(VERSION, { cache: updateCache });
 const program = createProgram({
   auth,
   catalog: new CatalogService(spotify),
   device,
-  library: new LibraryService(spotify),
-  player: new PlayerService(spotify, device),
-  playlist: new PlaylistService(spotify),
-  queue: new QueueService(spotify),
-  recent: new RecentService(spotify),
-  search: new SearchService(spotify),
+  library,
+  player,
+  playlist,
+  queue,
+  recent,
+  search,
   update,
   config: new FileConfigStore(),
   output: consoleOutput,
   styles: createOutputStyles(Boolean(process.stdout.isTTY), process.env),
+  startTui: async () => {
+    if ('NO_COLOR' in process.env) process.env.FORCE_COLOR = '0';
+    const { startTui } = await import('./tui/index.js');
+    await startTui({ player, search, queue, device, playlists: playlist, library, recent });
+  },
 });
 
 const isUpdateCommand = process.argv[2] === 'update';

@@ -653,9 +653,19 @@ Collect reliability and documentation improvements discovered during daily use.
 
 # 16. Version 1.0
 
-Build a proper interactive TUI using Ink.
+Version `1.0.0` will add a proper interactive TUI using Ink while preserving the existing command-driven CLI.
 
-Example:
+```text
+spoti <command>      → run a quick command and exit
+spoti                → show the command overview
+spoti --help         → show the command overview
+spoti interactive    → open the TUI in an interactive terminal
+spoti i              → open the TUI using its short alias
+```
+
+The `interactive` command replaces the pre-v1 standalone interactive search. Search is available inside the TUI with `/`. When stdin or stdout is not interactive, `spoti interactive` must print command help rather than attempting to start Ink.
+
+## TUI experience
 
 ```text
 ┌──────────────── Spotify ────────────────┐
@@ -676,23 +686,63 @@ Example:
 └────────────────────────────────────────┘
 ```
 
-Potential component structure:
+Initial component structure:
 
 ```text
-App
-├── Player
+TuiApp
+├── PlayerScreen
 │   ├── TrackInfo
 │   ├── ProgressBar
-│   └── Controls
-│
-├── Search
+│   └── PlaybackControls
+├── SearchScreen
 │   ├── SearchInput
 │   └── SearchResults
-│
-├── Queue
-│
-└── Devices
+├── QueueScreen
+├── LibraryScreen
+└── DeviceScreen
 ```
+
+The TUI scope includes:
+
+- current playback and progress
+- play/pause, next, previous, seek, volume, shuffle, and repeat controls
+- multi-category search and playback
+- queue display and queue additions
+- device listing and transfer
+- playlist, liked-track, and recent-history browsing
+- lazy pagination and cached pages
+- documented keyboard shortcuts and visible loading/error states
+- bounded automatic playback refresh
+- cancellation and reliable terminal cleanup on success, failure, and signals
+- graceful behavior in narrow terminals and with `NO_COLOR`
+
+## Quota and reliability readiness
+
+Before release:
+
+- distinguish a normal HTTP `429` from Spotify development `QUOTA_EXCEEDED`
+- retain and safely parse Spotify error reasons and messages
+- audit every TUI screen for duplicate or eager requests
+- pause or reduce polling when the TUI is hidden, idle, or receiving rate-limit responses
+- keep collection loading lazy and cache data only for the active session
+- document development-mode quota behavior and why each user supplies a client ID
+- validate authentication, refresh, installation, update, and terminal cleanup flows
+- preserve the behavior and tests of all existing CLI commands
+
+## Companion website
+
+A small static website is useful for discovery and onboarding, but is not a blocker for `1.0.0`. It should be built after the TUI is visually stable so it can include accurate screenshots or a short recording.
+
+The first website should remain intentionally small:
+
+- landing page and concise product explanation
+- npm installation and Spotify application setup
+- command and keyboard-shortcut examples
+- TUI screenshot or recording
+- Spotify Connect, Premium, and quota limitations
+- links to npm, GitHub, issues, releases, privacy information, and the Spotify attribution notice
+
+Prefer a static GitHub Pages deployment with no backend, accounts, analytics, Spotify tokens, or duplicated full documentation. The repository README remains the detailed source of truth.
 
 ---
 
@@ -1004,61 +1054,61 @@ This could be used in a terminal prompt or status bar.
 
 ## Phase 1 — Bootstrap
 
-- [ ] Create repository
-- [ ] Initialize Node.js project
-- [ ] Configure TypeScript
-- [ ] Configure ESLint
-- [ ] Configure Vitest
-- [ ] Add Commander
-- [ ] Create CLI executable
-- [ ] Implement `spoti --help`
+- [x] Create repository
+- [x] Initialize Node.js project
+- [x] Configure TypeScript
+- [x] Configure ESLint
+- [x] Configure Vitest
+- [x] Add Commander
+- [x] Create CLI executable
+- [x] Implement `spoti --help`
 
 ---
 
 ## Phase 2 — Authentication
 
-- [ ] Create Spotify developer application
-- [ ] Configure redirect URI
-- [ ] Implement PKCE
-- [ ] Start local callback server
-- [ ] Open browser automatically
-- [ ] Exchange authorization code
-- [ ] Save tokens
-- [ ] Implement token refresh
-- [ ] Implement `spoti login`
-- [ ] Implement `spoti logout`
-- [ ] Implement `spoti status`
+- [x] Create Spotify developer application
+- [x] Configure redirect URI
+- [x] Implement PKCE
+- [x] Start local callback server
+- [x] Open browser automatically
+- [x] Exchange authorization code
+- [x] Save tokens
+- [x] Implement token refresh
+- [x] Implement `spoti login`
+- [x] Implement `spoti logout`
+- [x] Implement `spoti status`
 
 ---
 
 ## Phase 3 — Spotify Client
 
-- [ ] Create HTTP client
-- [ ] Add Bearer authentication
-- [ ] Add automatic token refresh
-- [ ] Add Spotify API error mapping
-- [ ] Add rate limit handling
+- [x] Create HTTP client
+- [x] Add Bearer authentication
+- [x] Add automatic token refresh
+- [x] Add Spotify API error mapping
+- [x] Add bounded rate-limit handling
 
 ---
 
 ## Phase 4 — Playback
 
-- [ ] Get current playback state
-- [ ] Implement `spoti now`
-- [ ] Implement pause
-- [ ] Implement resume
-- [ ] Implement next
-- [ ] Implement previous
+- [x] Get current playback state
+- [x] Implement `spoti now`
+- [x] Implement pause
+- [x] Implement resume
+- [x] Implement next
+- [x] Implement previous
 
 ---
 
 ## Phase 5 — Search
 
-- [ ] Search tracks
-- [ ] Format search results
-- [ ] Add interactive selection
-- [ ] Implement `spoti search`
-- [ ] Implement `spoti play <query>`
+- [x] Search tracks
+- [x] Format search results
+- [x] Add interactive selection
+- [x] Implement `spoti search`
+- [x] Implement `spoti play <query>`
 
 At this point the MVP is complete.
 
@@ -1093,7 +1143,7 @@ At this point the MVP is complete.
 
 - [x] Cached, non-blocking npm update notifications
 - [x] Explicit `spoti update --check` and confirmed `spoti update`
-- [x] Interactive multi-category search
+- [x] Interactive multi-category search — replaced by the full TUI in v1
 - [x] aliases
 
 - [x] TTY-only loading indicators
@@ -1122,16 +1172,45 @@ At this point the MVP is complete.
 
 ---
 
-## Phase 10 — TUI
+## Phase 10 — v1 TUI foundation
 
-- [ ] Add Ink
-- [ ] Current track screen
-- [ ] Playback controls
-- [ ] Search screen
-- [ ] Queue screen
-- [ ] Device selector
-- [ ] Keyboard shortcuts
-- [ ] Automatic playback refresh
+- [x] Add Ink and React with a Node.js 22 baseline
+- [x] Keep services independent from Ink and reusable by both interfaces
+- [x] Open the TUI from `spoti interactive`/`spoti i` and preserve bare `spoti` help
+- [x] Add screen navigation, keyboard Help, and a shared shortcut model
+- [x] Add current playback screen and bounded automatic refresh
+- [x] Add playback state plus play/pause, track, seek, volume, shuffle, repeat, and refresh controls
+- [x] Add cancellation-aware multi-category search and playback screen
+- [x] Add queue display and track-add screen
+- [x] Add Spotify Connect device selector
+- [x] Add playlist, liked-track, and recent-history browsing with lazy cached pagination
+- [x] Add initial playback loading, empty, and recoverable error states
+- [ ] Restore terminal state after normal exit, errors, and signals
+- [ ] Test narrow-terminal and `NO_COLOR` behavior
+
+---
+
+## Phase 11 — v1 quota and release readiness
+
+- [x] Parse and retain Spotify API error reasons such as `QUOTA_EXCEEDED`
+- [x] Distinguish development quota exhaustion from ordinary rate limiting
+- [ ] Audit requests, polling, lazy loading, and session caching
+- [x] Add dedicated quota documentation
+- [ ] Validate authentication and token refresh
+- [ ] Validate npm installation and self-update behavior
+- [ ] Run the full CLI regression suite
+- [ ] Test supported terminal behavior on Linux, macOS, and Windows where possible
+- [ ] Audit user-facing errors, Spotify attribution, and policy documentation
+
+---
+
+## Phase 12 — Companion website
+
+- [ ] Create a static landing and setup site after the TUI design stabilizes
+- [ ] Add installation, setup, command, shortcut, and limitations sections
+- [ ] Add an accurate TUI screenshot or recording
+- [ ] Link npm, GitHub, issues, releases, privacy information, and attribution
+- [ ] Deploy with GitHub Pages without a backend or user tracking
 
 ---
 

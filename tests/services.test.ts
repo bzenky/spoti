@@ -53,15 +53,36 @@ describe('PlayerService', () => {
     vi.mocked(api.get).mockResolvedValue({
       is_playing: true,
       progress_ms: 10_000,
+      repeat_state: 'context',
+      shuffle_state: true,
       item: track,
-      device: { id: 'device', name: 'Laptop', is_active: true },
+      device: {
+        id: 'device',
+        name: 'Laptop',
+        is_active: true,
+        supports_volume: true,
+        volume_percent: 67,
+      },
     });
 
     await expect(new PlayerService(api).getCurrentPlayback()).resolves.toMatchObject({
       isPlaying: true,
       progressMs: 10_000,
+      volumePercent: 67,
+      shuffleState: true,
+      repeatMode: 'context',
       track: { name: 'Numb', artists: ['Linkin Park'], album: 'Meteora' },
     });
+  });
+
+  it('passes cancellation to the current playback request', async () => {
+    const api = createApi();
+    const signal = new AbortController().signal;
+    vi.mocked(api.get).mockResolvedValue(undefined);
+
+    await new PlayerService(api).getCurrentPlayback(signal);
+
+    expect(api.get).toHaveBeenCalledWith('/me/player', { signal });
   });
 
   it('automatically retries track playback on the only controllable device', async () => {

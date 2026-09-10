@@ -22,10 +22,14 @@ export class PlaylistService {
   async listPlaylistsPage(
     token?: OffsetToken,
     limit = DEFAULT_PLAYLIST_LIMIT,
+    signal?: AbortSignal,
   ): Promise<Page<Playlist, OffsetToken>> {
     const response = await this.spotify.get<SpotifyPaging<SpotifySimplifiedPlaylist>>(
       '/me/playlists',
-      { query: { limit: normalizeLimit(limit), offset: token?.offset ?? 0 } },
+      {
+        query: { limit: normalizeLimit(limit), offset: token?.offset ?? 0 },
+        ...(signal === undefined ? {} : { signal }),
+      },
     );
     return {
       items: response.items.map(mapPlaylist),
@@ -56,10 +60,14 @@ export class PlaylistService {
     id: string,
     token?: OffsetToken,
     limit = DEFAULT_ITEM_LIMIT,
+    signal?: AbortSignal,
   ): Promise<Page<Track, OffsetToken>> {
     const response = await this.spotify.get<SpotifyPaging<SpotifyPlaylistItem>>(
       `/playlists/${encodeURIComponent(id)}/items`,
-      { query: { limit: normalizeLimit(limit), offset: token?.offset ?? 0 } },
+      {
+        query: { limit: normalizeLimit(limit), offset: token?.offset ?? 0 },
+        ...(signal === undefined ? {} : { signal }),
+      },
     );
     return {
       items: response.items

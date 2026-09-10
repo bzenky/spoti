@@ -140,9 +140,10 @@ function dependencies() {
     choosePlaylistAction: vi.fn(),
     requestSpotifyClientId: vi.fn(),
     confirmUpdate: vi.fn(),
-    interactiveSearch: vi.fn().mockResolvedValue({ status: 'cancelled' }),
     progress: vi.fn(async (_label: string, task: () => Promise<unknown>) => task()) as ProgressRunner,
     watchPlayback: vi.fn() as PlaybackWatcher,
+    startTui: vi.fn().mockResolvedValue(undefined),
+    isInteractive: false,
   };
 }
 
@@ -155,14 +156,24 @@ describe('CLI application', () => {
     expect(createProgram(dependencies()).version()).toBe(VERSION);
   });
 
-  it('shows command help with no command and opens search explicitly', async () => {
+  it('prints help for a bare command without opening the TUI', async () => {
     const deps = dependencies();
+    deps.isInteractive = true;
 
     await run([], deps);
-    expect(deps.interactiveSearch).not.toHaveBeenCalled();
+
+    expect(deps.startTui).not.toHaveBeenCalled();
+  });
+
+  it('opens the TUI only through the interactive command in a TTY', async () => {
+    const deps = dependencies();
 
     await run(['interactive'], deps);
-    expect(deps.interactiveSearch).toHaveBeenCalledOnce();
+    expect(deps.startTui).not.toHaveBeenCalled();
+
+    deps.isInteractive = true;
+    await run(['i'], deps);
+    expect(deps.startTui).toHaveBeenCalledOnce();
   });
 
   it('reports unknown commands instead of excess root arguments', async () => {
@@ -173,19 +184,6 @@ describe('CLI application', () => {
     );
   });
 
-  it('prints a durable confirmation after interactive playback', async () => {
-    const deps = dependencies();
-    deps.interactiveSearch.mockResolvedValue({
-      status: 'played',
-      category: 'track',
-      uri: track.uri,
-      label: 'Numb — Linkin Park',
-    });
-
-    await run(['interactive'], deps);
-
-    expect(deps.messages).toEqual(['▶ Playing Numb — Linkin Park']);
-  });
 
   it('saves a provided or interactively entered Spotify client ID', async () => {
     const deps = dependencies();

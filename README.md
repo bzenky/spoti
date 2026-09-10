@@ -8,7 +8,7 @@ A local-first command-line client for controlling Spotify through Spotify Connec
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 or newer
 - A Spotify developer application and client ID
 - Spotify Premium for playback-control commands
 - A Spotify client or Connect device available for playback
@@ -41,10 +41,22 @@ The setup command stores the public client ID in your local `spoti` configuratio
 export SPOTIFY_CLIENT_ID="your-client-id"
 ```
 
+PowerShell:
+
+```powershell
+$env:SPOTIFY_CLIENT_ID = "your-client-id"
+```
+
 The environment variable takes precedence over the stored value. To use a different local callback, register it in the same Spotify application and set:
 
 ```bash
 export SPOTIFY_REDIRECT_URI="http://127.0.0.1:5000/callback"
+```
+
+PowerShell:
+
+```powershell
+$env:SPOTIFY_REDIRECT_URI = "http://127.0.0.1:5000/callback"
 ```
 
 The redirect URI must use HTTPS except for local development, where an explicit `http://127.0.0.1` URI is allowed. Do not use `localhost` or wildcard redirect URIs. No client secret is needed or accepted by `spoti`; authentication uses Authorization Code with PKCE.
@@ -81,20 +93,53 @@ npm run dev -- status
 
 ## Usage
 
-Run `spoti` with no command to see the complete command overview:
+Run `spoti` with no command, or use `spoti --help`, to see the complete command overview:
 
 ```bash
 spoti
+spoti --help
 ```
 
-Open the interactive multi-category search explicitly:
+Open the full interactive TUI explicitly:
 
 ```bash
 spoti interactive
 # alias: spoti i
 ```
 
-Type a query and press Enter. Use `Tab` or left/right to switch between tracks, albums, artists, and playlists; use up/down to select; press Enter to play; press Esc to exit. Type or backspace after a search to edit the query. Category results are cached while the query remains unchanged, and temporary search or playback failures can be retried without reopening the command. The terminal is always restored when the interaction ends.
+The TUI opens on current playback, updates progress locally every second, and refreshes Spotify state every ten seconds only while the Player screen is active. Use:
+
+```text
+1       Player
+/       Search
+q       Queue
+d       Devices
+l       Library
+?       Help
+
+Space   play or pause (Player)
+n       next track (Player)
+p       previous track (Player)
+← / →   seek backward or forward 10 seconds (Player)
+- / +   lower or raise volume by 5% (Player)
+s       toggle shuffle (Player)
+r       cycle repeat off, track, and context (Player)
+Ctrl+R  refresh now (Player)
+
+Esc     back one level, or exit from Player
+x       exit from Player or Help
+Ctrl+X  exit from Search, Queue, Devices, or Library
+```
+
+On Search, type a query and press Enter. Use up/down to select a result, then Enter to play it. Tab or left/right switches between tracks, albums, artists, and playlists. Search results are cached for the active TUI session, stale requests are cancelled when the query changes, and leaving Search cancels an in-flight search or playback request.
+
+Queue displays the current item and Spotify's upcoming items. Press `a` to search for a track, use up/down to select it, and press Enter to add it. Press `r` to refresh. Spotify does not expose arbitrary queue removal or position jumping, so the TUI does not offer those actions.
+
+Devices lists controllable Spotify Connect devices with active status, type, and volume. Use up/down and Enter to transfer playback, or `r` to refresh.
+
+Library uses Tab or left/right to switch among Playlists, Liked, and Recent. Use up/down and Enter to open a playlist or play a track; `n` and `p` navigate lazily loaded pages. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
+
+All command-driven usage remains available. The `interactive` command requires an interactive stdin and stdout; outside a TTY it prints its command help instead of starting Ink.
 
 Authenticate once through Spotify's browser authorization page:
 
@@ -260,6 +305,13 @@ Interactive terminals use restrained styling for names, metadata, headings, and 
 NO_COLOR=1 spoti now
 ```
 
+PowerShell:
+
+```powershell
+$env:NO_COLOR = "1"
+spoti now
+```
+
 Spotify-provided names and descriptions are normalized to safe single-line terminal text before display.
 
 ## Configuration
@@ -291,7 +343,7 @@ Available settings:
 | `watchAfterPlay` | `false` | Keep `spoti play` open in watch mode after playback starts. |
 | `refreshIntervalMs` | `1000` | Watch refresh interval from `1000` to `30000` milliseconds. |
 
-Command flags take precedence over saved configuration. Application preferences are stored in `$XDG_CONFIG_HOME/spoti/config.json`, or `~/.config/spoti/config.json` when `XDG_CONFIG_HOME` is not set.
+Command flags take precedence over saved configuration. Application preferences are stored in `$XDG_CONFIG_HOME/spoti/config.json`, or `~/.config/spoti/config.json` when `XDG_CONFIG_HOME` is not set. This path convention is currently used on Linux, macOS, and Windows; run `spoti config path` to print the exact path for the current system.
 
 ## Credentials
 
@@ -307,13 +359,38 @@ or, when `XDG_CONFIG_HOME` is not set:
 ~/.config/spoti/credentials.json
 ```
 
-The credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically using the environment client ID when present, otherwise the client ID saved by `spoti setup`. Version `0.3.0` adds minimum permissions for private playlist listing, liked-track access, library modification, and recently played tracks. Existing installations will be asked to run `spoti login` once after upgrading. Never provide or store a Spotify client secret in `spoti`.
+On POSIX systems, the credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically using the environment client ID when present, otherwise the client ID saved by `spoti setup`. Version `0.3.0` adds minimum permissions for private playlist listing, liked-track access, library modification, and recently played tracks. Existing installations will be asked to run `spoti login` once after upgrading. Never provide or store a Spotify client secret in `spoti`.
 
 ## Spotify API policy
 
 `spoti` uses Spotify data only for immediate command output and playback control. It does not persist Spotify catalog content, use Spotify data for machine-learning training, or download audio. Spotify content and links remain attributed to Spotify.
 
 Endpoint work must be checked against Spotify's [official OpenAPI specification](https://developer.spotify.com/reference/web-api/open-api-schema.yaml) and [Developer Terms](https://developer.spotify.com/terms).
+
+### Spotify quota and rate limits
+
+Spotify can return HTTP `429` for two related situations:
+
+- a normal short-term rate limit, which can usually be retried after the response's `Retry-After` delay
+- development quota exhaustion, reported by Spotify as `QUOTA_EXCEEDED`, which may have a much longer delay
+
+`spoti` automatically retries only bounded waits of five seconds or less. Longer waits exit immediately and show when to try again. Development quota cannot be manually cleared from `spoti`.
+
+Spotify development mode currently supports a small allowlist of users and requires the app owner to have Premium. Quota may be shared by development-mode applications owned by the same Spotify developer account, so creating another application under that account is not a reliable way to obtain fresh quota. Extended quota access is subject to Spotify's eligibility and application requirements.
+
+Each user should create their own Spotify developer application and save its public client ID:
+
+```bash
+spoti setup
+spoti login
+```
+
+This avoids putting all public `spoti` users on one developer application's quota. A client ID is public configuration; never provide a client secret to `spoti`.
+
+See Spotify's official documentation for current details:
+
+- [Rate limits](https://developer.spotify.com/documentation/web-api/concepts/rate-limits)
+- [Quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)
 
 ## Development
 
@@ -339,4 +416,4 @@ The release workflow attaches the npm package tarball and a `SHA256SUMS` file, a
 
 ## Current scope
 
-Version `0.6.0` adds lazy collection pagination, nested Back navigation, playlist-track selection, current-volume output, new command aliases, visible play-search progress, and bounded rate-limit handling. A full Ink-based TUI remains planned for `v1.0.0`.
+Version `0.6.0` adds lazy collection pagination, nested Back navigation, playlist-track selection, current-volume output, new command aliases, visible play-search progress, and bounded rate-limit handling. Development toward `v1.0.0` now includes functional Player, Search, Queue, Devices, and Library TUI screens, shared navigation and keyboard Help, lazy session-cached collection pagination, cancellation-aware requests, and quota-aware error handling.

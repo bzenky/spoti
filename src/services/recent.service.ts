@@ -17,6 +17,7 @@ export class RecentService {
   async getRecentlyPlayedPage(
     token?: RecentCursorToken,
     limit = DEFAULT_RECENT_LIMIT,
+    signal?: AbortSignal,
   ): Promise<Page<RecentlyPlayedTrack, RecentCursorToken>> {
     const after = normalizeCursor(token?.after);
     const before = normalizeCursor(token?.before);
@@ -31,6 +32,7 @@ export class RecentService {
           ...(after === undefined ? {} : { after }),
           ...(before === undefined ? {} : { before }),
         },
+        ...(signal === undefined ? {} : { signal }),
       },
     );
     const items = response.items.flatMap(({ track, played_at: playedAt, context }) => {

@@ -70,6 +70,9 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
     recent: {
       getRecentlyPlayedPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
     },
+    lyrics: {
+      getLyrics: vi.fn().mockResolvedValue(null),
+    },
     terminalSize: { columns: 100, rows: 30 },
   };
 }
@@ -92,6 +95,7 @@ describe('TuiApp', () => {
     expect(frame).toContain('Repeat: Track');
     expect(frame).toContain('Device: Notebook');
     expect(frame).toContain('[space] Play/Pause');
+    expect(frame).toContain('[y] Lyrics');
     expect(frame).toContain('[/] Search');
     expect(frame).toContain('[?] Help');
     view.unmount();
@@ -167,6 +171,88 @@ describe('TuiApp', () => {
 
     await vi.waitFor(() => expect(view.lastFrame()).toContain(expectedContent));
     expect(view.lastFrame()).toContain('[Esc] Back');
+    view.unmount();
+  });
+
+  it('opens Lyrics for the current track and fetches it once with an AbortSignal', async () => {
+    const player = createPlayer();
+    const props = createTuiProps(player, createSearch());
+    vi.mocked(props.lyrics.getLyrics).mockResolvedValue({
+      id: 1,
+      trackName: playback.track.name,
+      artistName: playback.track.artists[0] ?? '',
+      albumName: playback.track.album,
+      durationSeconds: 196,
+      instrumental: false,
+      plainLyrics: 'Memories consume',
+      syncedLyrics: null,
+    });
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('y');
+
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Memories consume'));
+    expect(props.lyrics.getLyrics).toHaveBeenCalledOnce();
+    expect(props.lyrics.getLyrics).toHaveBeenCalledWith(playback.track, expect.any(AbortSignal));
+    expect(view.lastFrame()).toContain('Lyrics from LRCLIB: https://lrclib.net');
+    view.unmount();
+  });
+
+  it('does not call LRCLIB when there is no current playback', async () => {
+    const player = createPlayer();
+    vi.mocked(player.getCurrentPlayback).mockResolvedValue(null);
+    const props = createTuiProps(player, createSearch());
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Nothing is currently playing.'));
+
+    view.stdin.write('y');
+
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Start playback in Spotify'));
+    expect(props.lyrics.getLyrics).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('stops Spotify polling on Lyrics while the local progress clock keeps advancing', async () => {
+    const player = createPlayer();
+    const props = createTuiProps(player, createSearch());
+    vi.mocked(props.lyrics.getLyrics).mockResolvedValue({
+      id: 1,
+      trackName: playback.track.name,
+      artistName: playback.track.artists[0] ?? '',
+      albumName: playback.track.album,
+      durationSeconds: 196,
+      instrumental: false,
+      plainLyrics: null,
+      syncedLyrics: '[01:14.00]First line\n[01:15.00]Second line',
+    });
+    const view = render(<TuiApp {...props} refreshIntervalMs={50} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('y');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('▶ First line'));
+    const readsOnEntry = vi.mocked(player.getCurrentPlayback).mock.calls.length;
+
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+
+    expect(player.getCurrentPlayback).toHaveBeenCalledTimes(readsOnEntry);
+    expect(view.lastFrame()).toContain('▶ Second line');
+    view.unmount();
+  });
+
+  it('lists Lyrics navigation and shortcuts in Help', async () => {
+    const player = createPlayer();
+    const view = render(
+      <TuiApp {...createTuiProps(player, createSearch())} refreshIntervalMs={60_000} />,
+    );
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('?');
+
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Keyboard shortcuts'));
+    expect(view.lastFrame()).toContain('Open Lyrics');
+    view.stdin.write('\u001B[B');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Resume following synced lyrics'));
     view.unmount();
   });
 
@@ -399,7 +485,7 @@ describe('TuiApp', () => {
     await vi.waitFor(() => expect(compact.lastFrame()).toContain('Breaking the Habit'));
     const frame = compact.lastFrame() ?? '';
     expect(frame.split('\n')).toHaveLength(12);
-    expect(frame).toContain('[1]  [/]  [q]  [d]  [l]  [?]');
+    expect(frame).toContain('[1]  [y]  [/]  [q]  [d]  [l]  [?]');
     expect(frame).not.toContain('[1] Player');
     compact.unmount();
   });

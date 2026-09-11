@@ -14,6 +14,7 @@ import {
   type TuiPlaylistLibrary,
   type TuiRecentLibrary,
 } from './library-screen.js';
+import { LyricsScreen, type TuiLyrics } from './lyrics-screen.js';
 import { getNavigationScreen, type TuiScreen } from './navigation.js';
 import { QueueScreen, type TuiQueue } from './queue-screen.js';
 import { HelpScreen, NavigationBar } from './screens.js';
@@ -48,6 +49,7 @@ export interface TuiAppProps {
   playlists: TuiPlaylistLibrary;
   library: TuiLikedLibrary;
   recent: TuiRecentLibrary;
+  lyrics: TuiLyrics;
   refreshIntervalMs?: number;
   terminalSize?: { columns: number; rows: number };
 }
@@ -62,6 +64,7 @@ export function TuiApp({
   playlists,
   library,
   recent,
+  lyrics,
   refreshIntervalMs = TUI_PLAYBACK_REFRESH_MS,
   terminalSize,
 }: TuiAppProps) {
@@ -132,14 +135,19 @@ export function TuiApp({
       }
     };
     void poll();
-    const clockTimer = setInterval(() => setClock(Date.now()), 1_000);
     return () => {
       active = false;
       if (playbackTimer) clearTimeout(playbackTimer);
-      clearInterval(clockTimer);
       cancelRefresh();
     };
   }, [activeScreen, cancelRefresh, refresh, refreshIntervalMs]);
+
+  useEffect(() => {
+    if (activeScreen !== 'player' && activeScreen !== 'lyrics') return;
+    setClock(Date.now());
+    const clockTimer = setInterval(() => setClock(Date.now()), 1_000);
+    return () => clearInterval(clockTimer);
+  }, [activeScreen]);
 
   const runPlayerAction = useCallback(
     async (
@@ -324,6 +332,15 @@ export function TuiApp({
               </Box>
             ) : null}
           </>
+        ) : activeScreen === 'lyrics' ? (
+          <LyricsScreen
+            lyrics={lyrics}
+            track={playback?.track ?? null}
+            progressMs={progressMs}
+            availableRows={Math.max(1, rows - 8)}
+            onBack={() => setActiveScreen('player')}
+            onExit={exit}
+          />
         ) : activeScreen === 'help' ? (
           <HelpScreen availableRows={Math.max(1, rows - 8)} />
         ) : activeScreen === 'search' ? (
@@ -367,11 +384,13 @@ export function TuiApp({
         <Text dimColor>
           {activeScreen === 'player'
             ? rows < 16
-              ? '[space] Toggle  [?] Help  [x] Exit'
-              : '[space] Play/Pause  [n/p] Track  [←/→] Seek  [-/+] Volume  [s] Shuffle  [r] Repeat  [Ctrl+R] Refresh  [?] Help  [x/Esc] Exit'
+              ? '[space] [y] Lyrics [?] Help [x] Exit'
+              : '[space] Play/Pause  [n/p] Track  [←/→] Seek  [-/+] Volume  [s] Shuffle  [r] Repeat  [Ctrl+R] Refresh  [y] Lyrics  [?] Help  [x/Esc] Exit'
             : activeScreen === 'help'
               ? '[Esc] Back to Player  [x] Exit'
-              : '[Esc] Back  [Ctrl+X] Exit'}
+              : activeScreen === 'lyrics'
+                ? '[↑/↓] Scroll  [f] Follow  [Esc] Back  [Ctrl+X] Exit'
+                : '[Esc] Back  [Ctrl+X] Exit'}
         </Text>
       </Box>
     </Box>

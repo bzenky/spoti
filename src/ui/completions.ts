@@ -6,7 +6,7 @@ _spoti_completion() {
   cur="\${COMP_WORDS[COMP_CWORD]}"
   command="\${COMP_WORDS[1]}"
 
-  local commands="setup login logout status config interactive now pause resume next previous devices device seek volume queue shuffle repeat album artist playlists playlist liked like unlike recent update search play completion i p pa r np q s vol dev devs pl pls rep rec n prev sk alb art"
+  local commands="setup login logout status config interactive now lyrics pause resume next previous devices device seek volume queue shuffle repeat album artist playlists playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art"
   local global_options="-h --help -V --version"
 
   if (( COMP_CWORD == 1 )); then
@@ -30,7 +30,7 @@ _spoti_completion() {
     now|np)
       COMPREPLY=( $(compgen -W "-w --watch -h --help" -- "$cur") )
       ;;
-    queue|q|album|alb|artist|art|playlist|pl)
+    queue|q|album|alb|artist|art|playlist|pl|lyrics|ly)
       COMPREPLY=( $(compgen -W "--first -h --help" -- "$cur") )
       ;;
     playlists|pls|liked|recent|rec|search|s)
@@ -71,6 +71,7 @@ _spoti() {
     'config:view and update spoti configuration'
     'interactive:open the interactive spoti TUI'
     'now:show the current Spotify playback'
+    'lyrics:show lyrics for the current track or a searched track'
     'pause:pause playback'
     'resume:resume playback'
     'next:skip to the next track'
@@ -102,6 +103,7 @@ _spoti() {
     'pa:alias for pause'
     'r:alias for resume'
     'np:alias for now'
+    'ly:alias for lyrics'
     'q:alias for queue'
     's:alias for search'
     'vol:alias for volume'
@@ -148,7 +150,7 @@ _spoti() {
         now|np)
           _arguments '(-w --watch)'{-w,--watch}'[continuously refresh playback information]'
           ;;
-        queue|q|album|alb|artist|art|playlist|pl)
+        queue|q|album|alb|artist|art|playlist|pl|lyrics|ly)
           _arguments '--first[select the first result without prompting]' '*:query:'
           ;;
         playlists|pls|liked|recent|rec)
@@ -183,7 +185,7 @@ complete -c spoti -s h -l help -d 'Display help'
 complete -c spoti -s V -l version -d 'Display version'
 
 function __spoti_needs_command
-  not __fish_seen_subcommand_from setup login logout status config interactive now pause resume next previous devices device seek volume queue shuffle repeat album artist playlists playlist liked like unlike recent update search play completion i p pa r np q s vol dev devs pl pls rep rec n prev sk alb art
+  not __fish_seen_subcommand_from setup login logout status config interactive now lyrics pause resume next previous devices device seek volume queue shuffle repeat album artist playlists playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art
 end
 complete -c spoti -n __spoti_needs_command -a setup -d 'Save your Spotify application client ID'
 complete -c spoti -n __spoti_needs_command -a login -d 'Log in to Spotify'
@@ -192,6 +194,7 @@ complete -c spoti -n __spoti_needs_command -a status -d 'Show authentication sta
 complete -c spoti -n __spoti_needs_command -a config -d 'View and update configuration'
 complete -c spoti -n __spoti_needs_command -a interactive -d 'Open the interactive spoti TUI'
 complete -c spoti -n __spoti_needs_command -a now -d 'Show current playback'
+complete -c spoti -n __spoti_needs_command -a lyrics -d 'Show lyrics for the current or a searched track'
 complete -c spoti -n __spoti_needs_command -a pause -d 'Pause playback'
 complete -c spoti -n __spoti_needs_command -a resume -d 'Resume playback'
 complete -c spoti -n __spoti_needs_command -a next -d 'Skip to the next track'
@@ -215,7 +218,7 @@ complete -c spoti -n __spoti_needs_command -a update -d 'Check for or install up
 complete -c spoti -n __spoti_needs_command -a search -d 'Search Spotify tracks'
 complete -c spoti -n __spoti_needs_command -a play -d 'Play a track, album, artist, or playlist'
 complete -c spoti -n __spoti_needs_command -a completion -d 'Print a shell completion script'
-complete -c spoti -n __spoti_needs_command -a 'i p pa r np q s vol dev devs pl pls rep rec n prev sk alb art' -d 'Command alias'
+complete -c spoti -n __spoti_needs_command -a 'i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art' -d 'Command alias'
 
 complete -c spoti -n '__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from get set reset path unset' -a 'get set reset path unset'
 complete -c spoti -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set unset' -a 'spotifyClientId watchAfterPlay refreshIntervalMs'

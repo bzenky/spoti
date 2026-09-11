@@ -50,8 +50,10 @@ describe('FileUpdateCacheStore', () => {
     await store.write(successfulCache);
 
     await expect(store.read()).resolves.toEqual(successfulCache);
-    expect((await stat(directory)).mode & 0o777).toBe(0o700);
-    expect((await stat(store.path)).mode & 0o777).toBe(0o600);
+    if (process.platform !== 'win32') {
+      expect((await stat(directory)).mode & 0o777).toBe(0o700);
+      expect((await stat(store.path)).mode & 0o777).toBe(0o600);
+    }
     expect(JSON.parse(await readFile(store.path, 'utf8'))).toEqual(successfulCache);
     expect((await readdir(directory)).filter((name) => name.endsWith('.tmp'))).toEqual([]);
   });

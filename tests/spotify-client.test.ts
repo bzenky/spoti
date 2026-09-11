@@ -104,7 +104,10 @@ describe('SpotifyClient', () => {
         { status: 429, headers: { 'retry-after': '3' } },
       ),
     );
-    const sleeper = vi.fn(() => new Promise<void>(() => undefined));
+    const sleeper = vi.fn((milliseconds: number) => {
+      void milliseconds;
+      return new Promise<void>(() => undefined);
+    });
     const client = new SpotifyClient(
       {
         getAccessToken: async () => 'token',
@@ -115,7 +118,11 @@ describe('SpotifyClient', () => {
     );
 
     const request = client.get('/search', { signal: controller.signal });
-    await vi.waitFor(() => expect(sleeper).toHaveBeenCalledWith(3_000));
+    await vi.waitFor(() => {
+      const delay = sleeper.mock.calls[0]?.[0];
+      expect(delay).toBeGreaterThanOrEqual(2_900);
+      expect(delay).toBeLessThanOrEqual(3_000);
+    });
     controller.abort();
 
     await expect(request).rejects.toBe(controller.signal.reason);

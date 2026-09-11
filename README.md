@@ -115,6 +115,7 @@ The TUI opens on current playback, updates progress locally every second, and re
 q       Queue
 d       Devices
 l       Library
+y       Lyrics
 ?       Help
 
 Space   play or pause (Player)
@@ -138,6 +139,8 @@ Queue displays the current item and Spotify's upcoming items. Press `a` to searc
 Devices lists controllable Spotify Connect devices with active status, type, and volume. Use up/down and Enter to transfer playback, or `r` to refresh.
 
 Library uses Tab or left/right to switch among Playlists, Liked, and Recent. Use up/down and Enter to open a playlist or play a track; `n` and `p` navigate lazily loaded pages. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
+
+Press `y` from Player to open lyrics for the current track. When synchronized lyrics are available, the TUI follows and highlights the current line; use up/down to scroll manually and `f` to resume following. Lyrics are loaded live from LRCLIB and are not stored persistently.
 
 All command-driven usage remains available. The `interactive` command requires an interactive stdin and stdout; outside a TTY it prints its command help instead of starting Ink.
 
@@ -173,6 +176,9 @@ spoti repeat
 spoti repeat off
 spoti repeat track
 spoti repeat context
+spoti lyrics
+spoti lyrics Numb Linkin Park
+spoti lyrics Numb --first
 ```
 
 Manage playback devices:
@@ -270,7 +276,7 @@ Common aliases include:
 
 ```text
 i     interactive  p     play       pa    pause
-r     resume       np    now        q     queue      s     search
+ly    lyrics       r     resume       np    now        q     queue      s     search
 vol   volume       sk    seek        alb   album
 art   artist       dev   device      devs  devices
 pl    playlist     pls   playlists   rep   repeat
@@ -313,6 +319,12 @@ spoti now
 ```
 
 Spotify-provided names and descriptions are normalized to safe single-line terminal text before display.
+
+### Lyrics and LRCLIB
+
+Spotify's Web API does not provide lyrics. `spoti lyrics` and the TUI Lyrics screen therefore query the community-operated [LRCLIB](https://lrclib.net) service using the selected track's title, artists, album, and duration. This metadata is sent to LRCLIB only when lyrics are requested. `spoti` identifies itself through the required `User-Agent`, performs bounded retries for short `429` and `503` responses, and does not persist lyrics locally.
+
+Lyrics are displayed for personal, immediate use with visible LRCLIB attribution. LRCLIB's software license does not grant redistribution rights to copyrighted song lyrics; do not treat displayed lyrics as freely licensed content. Availability and synchronization depend on LRCLIB's community data, and some tracks may be missing, instrumental, or incorrectly matched.
 
 ## Configuration
 

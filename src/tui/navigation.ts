@@ -1,4 +1,4 @@
-export type TuiScreen = 'player' | 'search' | 'queue' | 'devices' | 'library' | 'help';
+export type TuiScreen = 'player' | 'lyrics' | 'search' | 'queue' | 'devices' | 'library' | 'help';
 
 export interface NavigationItem {
   screen: TuiScreen;
@@ -13,6 +13,7 @@ export interface ShortcutHelp {
 
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   { screen: 'player', key: '1', label: 'Player' },
+  { screen: 'lyrics', key: 'y', label: 'Lyrics' },
   { screen: 'search', key: '/', label: 'Search' },
   { screen: 'queue', key: 'q', label: 'Queue' },
   { screen: 'devices', key: 'd', label: 'Devices' },
@@ -28,6 +29,14 @@ export const PLAYER_SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: 's', description: 'Toggle shuffle' },
   { keys: 'r', description: 'Cycle repeat off, track, and context' },
   { keys: 'Ctrl+R', description: 'Refresh playback' },
+];
+
+export const LYRICS_SHORTCUTS: readonly ShortcutHelp[] = [
+  { keys: '↑ / ↓', description: 'Scroll lyrics manually' },
+  { keys: 'f', description: 'Resume following synced lyrics' },
+  { keys: 'Enter / r', description: 'Retry after an LRCLIB error' },
+  { keys: 'Esc', description: 'Return to Player' },
+  { keys: 'Ctrl+X', description: 'Exit spoti from Lyrics' },
 ];
 
 export const SEARCH_SHORTCUTS: readonly ShortcutHelp[] = [

@@ -164,7 +164,9 @@ describe('FileCredentialStore', () => {
     await store.write(credentials);
 
     expect(await store.read()).toEqual(credentials);
-    expect((await stat(store.path)).mode & 0o777).toBe(0o600);
+    if (process.platform !== 'win32') {
+      expect((await stat(store.path)).mode & 0o777).toBe(0o600);
+    }
   });
 
   it('rejects malformed stored credentials', async () => {

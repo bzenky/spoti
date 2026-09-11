@@ -5,6 +5,7 @@ import type { AuthService } from '../src/services/auth.service.js';
 import type { CatalogService } from '../src/services/catalog.service.js';
 import type { DeviceService } from '../src/services/device.service.js';
 import type { LibraryService } from '../src/services/library.service.js';
+import type { LyricsService } from '../src/services/lyrics.service.js';
 import type { Album, Artist, Playlist, Track } from '../src/services/models.js';
 import type { PlayerService } from '../src/services/player.service.js';
 import type { PlaylistService } from '../src/services/playlist.service.js';
@@ -104,6 +105,9 @@ function dependencies() {
       likeCurrentTrack: vi.fn(),
       unlikeCurrentTrack: vi.fn(),
     } as unknown as LibraryService,
+    lyrics: {
+      getLyrics: vi.fn(),
+    } as unknown as LyricsService,
     recent: {
       getRecentlyPlayed: vi.fn(),
       getRecentlyPlayedPage: vi.fn(),
@@ -259,6 +263,43 @@ describe('CLI application', () => {
       player: deps.player,
       refreshIntervalMs: 3_000,
     });
+  });
+
+  it('shows LRCLIB lyrics for the current track', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue({
+      isPlaying: true,
+      progressMs: 1_000,
+      track,
+    });
+    vi.mocked(deps.lyrics.getLyrics).mockResolvedValue({
+      id: 123,
+      trackName: 'Numb',
+      artistName: 'Linkin Park',
+      albumName: 'Meteora',
+      durationSeconds: 185,
+      instrumental: false,
+      plainLyrics: 'I have become so numb',
+      syncedLyrics: '[00:01.00]I have become so numb',
+    });
+
+    await run(['lyrics'], deps);
+
+    expect(deps.lyrics.getLyrics).toHaveBeenCalledWith(track);
+    expect(deps.messages[0]).toContain('I have become so numb');
+    expect(deps.messages[0]).toContain('Lyrics from LRCLIB: https://lrclib.net');
+  });
+
+  it('searches for lyrics and handles unavailable results', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.search.searchTracks).mockResolvedValue([track]);
+    vi.mocked(deps.lyrics.getLyrics).mockResolvedValue(null);
+
+    await run(['lyrics', 'Numb', '--first'], deps);
+
+    expect(deps.search.searchTracks).toHaveBeenCalledWith('Numb', 10);
+    expect(deps.lyrics.getLyrics).toHaveBeenCalledWith(track);
+    expect(deps.messages).toContain('Lyrics not found for Numb — Linkin Park.');
   });
 
   it('lists and selects playback devices', async () => {

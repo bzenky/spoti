@@ -1,5 +1,6 @@
 import { createColors } from 'picocolors';
 
+import type { Lyrics } from '../services/lyrics.service.js';
 import type {
   Album,
   AlbumDetail,
@@ -91,6 +92,41 @@ export function formatPlayback(
     '',
     styles.progress(progressLine),
   ].join('\n');
+}
+
+export function formatLyrics(
+  lyrics: Lyrics,
+  styles: OutputStyles = plainOutputStyles,
+): string {
+  const heading = `${sanitizeOneLineText(lyrics.trackName)} — ${sanitizeOneLineText(lyrics.artistName)}`;
+  const content = lyrics.instrumental
+    ? 'Instrumental track.'
+    : sanitizeLyricsText(lyrics.plainLyrics ?? syncedLyricsToPlain(lyrics.syncedLyrics)) ??
+      'Lyrics are not available for this track.';
+  return [
+    styles.heading(heading),
+    styles.metadata(sanitizeOneLineText(lyrics.albumName)),
+    '',
+    content,
+    '',
+    styles.metadata('Lyrics from LRCLIB: https://lrclib.net'),
+  ].join('\n');
+}
+
+export function syncedLyricsToPlain(value: string | null): string | null {
+  if (!value) return null;
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^(?:\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\])+\s*/, ''))
+    .filter((line) => line.trim().length > 0);
+  return lines.length ? lines.join('\n') : null;
+}
+
+function sanitizeLyricsText(value: string | null): string | null {
+  if (!value) return null;
+  const lines = value.split(/\r?\n/).map(sanitizeOneLineText);
+  const normalized = lines.join('\n').trim();
+  return normalized || null;
 }
 
 export function formatTrack(

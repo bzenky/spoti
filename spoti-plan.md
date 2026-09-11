@@ -998,7 +998,7 @@ After the core project works:
 spoti lyrics
 ```
 
-This would likely require a separate lyrics provider because Spotify's public API does not expose full song lyrics.
+Implemented through LRCLIB because Spotify's public API does not expose full song lyrics. Lyrics are fetched only when requested, cached only in memory for the running process, attributed to LRCLIB, and shown as synchronized lines in the TUI when timing data is available.
 
 ### History
 

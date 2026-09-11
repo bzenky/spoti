@@ -2,6 +2,7 @@ import { stripVTControlCharacters } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
+import type { Lyrics } from '../src/services/lyrics.service.js';
 import type {
   AlbumDetail,
   Artist,
@@ -15,6 +16,7 @@ import {
   formatAlbumDetail,
   formatArtist,
   formatArtistDetail,
+  formatLyrics,
   formatPlayback,
   formatPlaylist,
   formatPlaylistDetail,
@@ -128,6 +130,32 @@ describe('output styles', () => {
     expect(formatPlayback(playback, styles)).toContain(
       '<progress>1:01 ━━━━━━────────────────── 4:00</progress>',
     );
+  });
+});
+
+describe('lyrics output', () => {
+  const lyrics: Lyrics = {
+    id: 1,
+    trackName: 'Numb',
+    artistName: 'Linkin Park',
+    albumName: 'Meteora',
+    durationSeconds: 185,
+    instrumental: false,
+    plainLyrics: null,
+    syncedLyrics: '[00:01.00]First line\n[00:02.50]Second\u001B[31m line',
+  };
+
+  it('uses synced lyrics as a safe plain-text fallback and attributes LRCLIB', () => {
+    const output = formatLyrics(lyrics);
+
+    expect(output).toContain('First line\nSecond line');
+    expect(output).toContain('Lyrics from LRCLIB: https://lrclib.net');
+    expect(output).not.toContain('\u001B');
+    expect(output).not.toContain('[00:01.00]');
+  });
+
+  it('describes instrumental tracks without inventing lyrics', () => {
+    expect(formatLyrics({ ...lyrics, instrumental: true })).toContain('Instrumental track.');
   });
 });
 

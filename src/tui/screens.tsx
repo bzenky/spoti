@@ -5,6 +5,7 @@ import {
   DEVICE_SHORTCUTS,
   GLOBAL_SHORTCUTS,
   LIBRARY_SHORTCUTS,
+  LYRICS_SHORTCUTS,
   NAVIGATION_ITEMS,
   PLAYER_SHORTCUTS,
   QUEUE_SHORTCUTS,
@@ -48,6 +49,7 @@ export function HelpScreen({ availableRows = 10 }: { availableRows?: number }) {
       [
         helpSection('Navigation', NAVIGATION_ITEMS.map(toShortcutHelp)),
         helpSection('Player', PLAYER_SHORTCUTS),
+        helpSection('Lyrics', LYRICS_SHORTCUTS),
         helpSection('Search', SEARCH_SHORTCUTS),
         helpSection('Queue', QUEUE_SHORTCUTS),
         helpSection('Devices', DEVICE_SHORTCUTS),

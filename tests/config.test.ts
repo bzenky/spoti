@@ -66,8 +66,10 @@ describe('FileConfigStore', () => {
     await store.write(config);
 
     expect(await store.read()).toEqual(config);
-    expect((await stat(directory)).mode & 0o777).toBe(0o700);
-    expect((await stat(store.path)).mode & 0o777).toBe(0o600);
+    if (process.platform !== 'win32') {
+      expect((await stat(directory)).mode & 0o777).toBe(0o700);
+      expect((await stat(store.path)).mode & 0o777).toBe(0o600);
+    }
     expect(JSON.parse(await readFile(store.path, 'utf8'))).toEqual(config);
   });
 
@@ -139,7 +141,9 @@ describe('FileConfigStore', () => {
 
     await store.write({ ...DEFAULT_CONFIG });
 
-    expect((await stat(directory)).mode & 0o777).toBe(0o700);
+    if (process.platform !== 'win32') {
+      expect((await stat(directory)).mode & 0o777).toBe(0o700);
+    }
   });
 });
 

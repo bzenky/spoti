@@ -4,6 +4,7 @@ import type { AuthService } from './services/auth.service.js';
 import type { CatalogService } from './services/catalog.service.js';
 import type { DeviceService } from './services/device.service.js';
 import type { LibraryService } from './services/library.service.js';
+import type { LyricsService } from './services/lyrics.service.js';
 import type {
   Album,
   Artist,
@@ -33,6 +34,7 @@ import {
   formatAlbum,
   formatAlbumDetail,
   formatArtistDetail,
+  formatLyrics,
   formatPlayback,
   formatPlaylist,
   formatPlaylistOverview,
@@ -64,7 +66,7 @@ import {
   type PageView,
 } from './ui/pagination.js';
 import { watchPlayback, type PlaybackWatcher } from './ui/watch.js';
-import { ConfigurationError } from './utils/errors.js';
+import { AppError, ConfigurationError } from './utils/errors.js';
 import { formatDuration } from './utils/time.js';
 import { VERSION } from './version.js';
 
@@ -75,6 +77,7 @@ export interface AppDependencies {
   search: SearchService;
   playlist: PlaylistService;
   library: LibraryService;
+  lyrics: LyricsService;
   recent: RecentService;
   device: DeviceService;
   queue: QueueService;
@@ -308,6 +311,39 @@ export function createProgram(dependencies: AppDependencies): Command {
       dependencies.output.log(
         playback ? formatPlayback(playback, styles) : 'Nothing is currently playing.',
       );
+    });
+
+  program
+    .command('lyrics')
+    .alias('ly')
+    .description('Show lyrics for the current track or a searched track')
+    .argument('[query...]', 'optional track query')
+    .option('--first', 'use the first search result without prompting')
+    .action(async (queryParts: string[], options: { first?: boolean }) => {
+      const query = queryParts.join(' ').trim();
+      let track: Track | undefined;
+      if (query) {
+        const tracks = await runTask('Searching tracks…', () =>
+          dependencies.search.searchTracks(query, 10),
+        );
+        if (tracks.length === 0) {
+          dependencies.output.log(`No tracks found for "${safe(query)}".`);
+          return;
+        }
+        track = options.first || !isInteractive ? tracks[0] : (await chooseTrack(tracks)) ?? undefined;
+      } else {
+        const playback = await dependencies.player.getCurrentPlayback();
+        track = playback?.track;
+        if (!track) throw new AppError('Nothing is currently playing, so there are no lyrics to show.');
+      }
+      if (!track) return;
+
+      const lyrics = await runTask('Loading lyrics…', () => dependencies.lyrics.getLyrics(track));
+      if (!lyrics) {
+        dependencies.output.log(`Lyrics not found for ${safe(track.name)} — ${safeArtists(track.artists)}.`);
+        return;
+      }
+      dependencies.output.log(formatLyrics(lyrics, styles));
     });
 
   program

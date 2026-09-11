@@ -5,6 +5,7 @@ import { AuthService } from './services/auth.service.js';
 import { CatalogService } from './services/catalog.service.js';
 import { DeviceService } from './services/device.service.js';
 import { LibraryService } from './services/library.service.js';
+import { LyricsService } from './services/lyrics.service.js';
 import { PlayerService } from './services/player.service.js';
 import { PlaylistService } from './services/playlist.service.js';
 import { QueueService } from './services/queue.service.js';
@@ -32,6 +33,7 @@ const playlist = new PlaylistService(spotify);
 const library = new LibraryService(spotify);
 const queue = new QueueService(spotify);
 const recent = new RecentService(spotify);
+const lyrics = new LyricsService();
 const updateCache = new FileUpdateCacheStore();
 const update = new UpdateService(VERSION, { cache: updateCache });
 const program = createProgram({
@@ -39,6 +41,7 @@ const program = createProgram({
   catalog: new CatalogService(spotify),
   device,
   library,
+  lyrics,
   player,
   playlist,
   queue,
@@ -51,7 +54,7 @@ const program = createProgram({
   startTui: async () => {
     if ('NO_COLOR' in process.env) process.env.FORCE_COLOR = '0';
     const { startTui } = await import('./tui/index.js');
-    await startTui({ player, search, queue, device, playlists: playlist, library, recent });
+    await startTui({ player, search, queue, device, playlists: playlist, library, recent, lyrics });
   },
 });
 

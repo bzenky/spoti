@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-11
+
+### Added
+
+- LRCLIB lyrics for the current track or a Spotify search result through `spoti lyrics`, its `spoti ly` alias, and `--first` selection.
+- A TUI Lyrics screen opened with `y`, including synchronized current-line highlighting, automatic following, manual scrolling, and retry controls.
+- Defensive LRCLIB response validation, client identification, request cancellation, a ten-second timeout, bounded `429`/`503` retries, and a session-only lyrics cache.
+- Visible LRCLIB attribution and documentation describing metadata sharing, availability, and lyric-content licensing limitations.
+
+### Changed
+
+- Continue advancing the local playback clock while synchronized lyrics are open without polling Spotify outside the Player screen.
+- Add lyrics commands and aliases to Bash, Zsh, and Fish completion scripts.
+
+### Fixed
+
+- Run POSIX file-permission assertions only on platforms that expose POSIX permission semantics.
+- Increase the Vitest timeout budget for slower Ink tests on Windows CI while retaining bounded test execution.
+
 ## [0.7.0] - 2026-09-10
 
 ### Added

@@ -83,6 +83,8 @@ export function TuiApp({
   const refreshRequest = useRef<AbortController | null>(null);
   const refreshPromise = useRef<Promise<void> | null>(null);
   const automaticPollingStopped = useRef(false);
+  const requestImmediatePlaybackRefresh = useRef<(() => void) | null>(null);
+  const previousActiveScreen = useRef<TuiScreen | null>(null);
   const searchCache = useRef<SearchSessionCache>(new Map());
   const libraryCache = useRef<LibrarySessionCache>(new Map());
 
@@ -103,7 +105,7 @@ export function TuiApp({
       try {
         const current = await player.getCurrentPlayback(controller.signal);
         if (controller.signal.aborted || refreshRequest.current !== controller) return;
-        setPlayback(current);
+        setPlayback((previous) => preserveTrackReference(previous, current));
         setHasLoadedPlayback(true);
         setObservedAt(Date.now());
         setError(null);
@@ -123,24 +125,49 @@ export function TuiApp({
     return task;
   }, [player]);
 
+  const playbackPollingActive = activeScreen === 'player' || activeScreen === 'lyrics';
   useEffect(() => {
-    if (activeScreen !== 'player') return;
+    if (!playbackPollingActive) return;
 
     let active = true;
+    let polling = false;
     let playbackTimer: NodeJS.Timeout | undefined;
     const poll = async () => {
-      await refresh();
-      if (active && !automaticPollingStopped.current) {
-        playbackTimer = setTimeout(() => void poll(), refreshIntervalMs);
+      if (!active || polling || automaticPollingStopped.current) return;
+      if (playbackTimer) clearTimeout(playbackTimer);
+      playbackTimer = undefined;
+      polling = true;
+      try {
+        await refresh();
+      } finally {
+        polling = false;
+        if (active && !automaticPollingStopped.current) {
+          playbackTimer = setTimeout(() => void poll(), refreshIntervalMs);
+        }
       }
+    };
+    requestImmediatePlaybackRefresh.current = () => {
+      if (!active || automaticPollingStopped.current) return;
+      if (playbackTimer) clearTimeout(playbackTimer);
+      playbackTimer = undefined;
+      void poll();
     };
     void poll();
     return () => {
       active = false;
+      requestImmediatePlaybackRefresh.current = null;
       if (playbackTimer) clearTimeout(playbackTimer);
       cancelRefresh();
     };
-  }, [activeScreen, cancelRefresh, refresh, refreshIntervalMs]);
+  }, [cancelRefresh, playbackPollingActive, refresh, refreshIntervalMs]);
+
+  useEffect(() => {
+    const previous = previousActiveScreen.current;
+    previousActiveScreen.current = activeScreen;
+    if (activeScreen === 'player' && previous !== null && previous !== 'player') {
+      requestImmediatePlaybackRefresh.current?.();
+    }
+  }, [activeScreen]);
 
   useEffect(() => {
     if (activeScreen !== 'player' && activeScreen !== 'lyrics') return;
@@ -441,6 +468,14 @@ function PlaybackView({
       ) : null}
     </Box>
   );
+}
+
+function preserveTrackReference(
+  previous: CurrentPlayback | null,
+  current: CurrentPlayback | null,
+): CurrentPlayback | null {
+  if (!previous || !current || previous.track.uri !== current.track.uri) return current;
+  return { ...current, track: previous.track };
 }
 
 function getDisplayedProgress(

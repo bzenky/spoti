@@ -78,6 +78,52 @@ describe('LyricsService', () => {
     await expect(instrumental.getLyrics(track)).resolves.toMatchObject({ instrumental: true });
   });
 
+  it('uses a strongly matching LRCLIB search result after exact lookup misses', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({}, { status: 404 }))
+      .mockResolvedValueOnce(
+        Response.json([
+          lyricsResponse({
+            id: 456,
+            trackName: 'Numb - 2003 Remastered',
+            albumName: 'Meteora (20th Anniversary Edition)',
+            duration: 185.8,
+          }),
+        ]),
+      );
+
+    await expect(new LyricsService(fetcher).getLyrics(track)).resolves.toMatchObject({ id: 456 });
+    const searchUrl = new URL(String(fetcher.mock.calls[1]?.[0]));
+    expect(searchUrl.pathname).toBe('/api/search');
+    expect(searchUrl.searchParams.get('track_name')).toBe('Numb');
+    expect(searchUrl.searchParams.get('artist_name')).toBe('Linkin Park');
+  });
+
+  it('rejects weak or ambiguous fallback matches instead of showing incorrect lyrics', async () => {
+    const wrongVersionFetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({}, { status: 404 }))
+      .mockResolvedValueOnce(
+        Response.json([
+          lyricsResponse({ id: 1, trackName: 'Numb Live', duration: 220 }),
+          lyricsResponse({ id: 2, trackName: 'Another Song', duration: 185 }),
+        ]),
+      );
+    await expect(new LyricsService(wrongVersionFetcher).getLyrics(track)).resolves.toBeNull();
+
+    const ambiguousFetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({}, { status: 404 }))
+      .mockResolvedValueOnce(
+        Response.json([
+          lyricsResponse({ id: 1, duration: 185.1 }),
+          lyricsResponse({ id: 2, duration: 185.2 }),
+        ]),
+      );
+    await expect(new LyricsService(ambiguousFetcher).getLyrics(track)).resolves.toBeNull();
+  });
+
   it('retries bounded 429 and 503 responses using Retry-After', async () => {
     const fetcher = vi
       .fn<typeof fetch>()

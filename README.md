@@ -2,6 +2,8 @@
 
 A local-first command-line client for controlling Spotify through Spotify Connect.
 
+[Website](https://spoti.bzenky.dev/) · [npm](https://www.npmjs.com/package/@bzenky/spoti) · [Releases](https://github.com/bzenky/spoti/releases)
+
 > `spoti` is an independent project and is not affiliated with, endorsed by, or sponsored by Spotify AB.
 
 `spoti` controls playback on an existing Spotify client or Connect device; it does not stream audio itself.

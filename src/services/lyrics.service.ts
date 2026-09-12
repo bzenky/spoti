@@ -9,6 +9,7 @@ const LRCLIB_BASE_URL = 'https://lrclib.net';
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_RETRIES = 2;
 const MAX_AUTOMATIC_WAIT_SECONDS = 5;
+const MAX_CACHE_ENTRIES = 50;
 
 const lyricsResponseSchema = z.object({
   id: z.number().int().nonnegative(),
@@ -21,6 +22,10 @@ const lyricsResponseSchema = z.object({
   plainLyrics: z.string().nullable(),
   syncedLyrics: z.string().nullable(),
 });
+const lyricsSearchResponseSchema = z.array(lyricsResponseSchema);
+
+type LyricsResponse = z.infer<typeof lyricsResponseSchema>;
+type Sleep = (milliseconds: number, signal?: AbortSignal) => Promise<void>;
 
 export class LyricsRateLimitedError extends AppError {
   constructor(public readonly retryAfterSeconds: number) {
@@ -41,8 +46,6 @@ export interface Lyrics {
   syncedLyrics: string | null;
 }
 
-type Sleep = (milliseconds: number, signal?: AbortSignal) => Promise<void>;
-
 export class LyricsService {
   private readonly cache = new Map<string, Lyrics | null>();
 
@@ -58,14 +61,29 @@ export class LyricsService {
       .toLocaleLowerCase();
     if (this.cache.has(cacheKey)) return this.cache.get(cacheKey) ?? null;
 
-    const url = new URL('/api/get', LRCLIB_BASE_URL);
-    url.search = new URLSearchParams({
-      track_name: track.name,
-      artist_name: track.artists.join(', '),
-      album_name: track.album,
-      duration: String(track.durationMs / 1_000),
-    }).toString();
+    const exactResponse = await this.requestJson(createExactLookupUrl(track), signal);
+    if (exactResponse !== null) {
+      const exact = lyricsResponseSchema.safeParse(exactResponse);
+      if (!exact.success) throw new AppError('LRCLIB returned an unexpected response. Try again later.');
+      const lyrics = mapLyrics(exact.data, track);
+      this.storeCacheEntry(cacheKey, lyrics);
+      return lyrics;
+    }
 
+    const searchResponse = await this.requestJson(createSearchUrl(track), signal);
+    if (searchResponse === null) {
+      this.storeCacheEntry(cacheKey, null);
+      return null;
+    }
+    const searched = lyricsSearchResponseSchema.safeParse(searchResponse);
+    if (!searched.success) throw new AppError('LRCLIB returned an unexpected search response. Try again later.');
+    const match = selectFallbackMatch(searched.data, track);
+    const lyrics = match ? mapLyrics(match, track) : null;
+    this.storeCacheEntry(cacheKey, lyrics);
+    return lyrics;
+  }
+
+  private async requestJson(url: URL, signal?: AbortSignal): Promise<unknown | null> {
     for (let attempt = 0; ; attempt += 1) {
       signal?.throwIfAborted();
       const requestSignal = createRequestSignal(signal);
@@ -78,10 +96,7 @@ export class LyricsService {
           signal: requestSignal.signal,
         });
 
-        if (response.status === 404) {
-          this.storeCacheEntry(cacheKey, null);
-          return null;
-        }
+        if (response.status === 404) return null;
         if (response.status === 429 || response.status === 503) {
           const retryAfterSeconds = parseRetryAfter(response.headers.get('retry-after'));
           if (attempt < MAX_RETRIES && retryAfterSeconds <= MAX_AUTOMATIC_WAIT_SECONDS) {
@@ -98,24 +113,7 @@ export class LyricsService {
         if (!response.ok) {
           throw new AppError(`LRCLIB request failed with HTTP ${response.status}. Try again later.`);
         }
-
-        const parsed = lyricsResponseSchema.safeParse(await response.json());
-        if (!parsed.success) {
-          throw new AppError('LRCLIB returned an unexpected response. Try again later.');
-        }
-        const result = parsed.data;
-        const lyrics: Lyrics = {
-          id: result.id,
-          trackName: cleanMetadata(result.trackName ?? result.name, track.name),
-          artistName: cleanMetadata(result.artistName, track.artists.join(', ')),
-          albumName: cleanMetadata(result.albumName, track.album),
-          durationSeconds: result.duration,
-          instrumental: result.instrumental,
-          plainLyrics: normalizeLyrics(result.plainLyrics),
-          syncedLyrics: normalizeLyrics(result.syncedLyrics),
-        };
-        this.storeCacheEntry(cacheKey, lyrics);
-        return lyrics;
+        return await response.json();
       } catch (error) {
         signal?.throwIfAborted();
         const normalized = toError(error);
@@ -133,12 +131,111 @@ export class LyricsService {
   }
 
   private storeCacheEntry(key: string, lyrics: Lyrics | null): void {
-    if (!this.cache.has(key) && this.cache.size >= 50) {
+    if (!this.cache.has(key) && this.cache.size >= MAX_CACHE_ENTRIES) {
       const oldestKey = this.cache.keys().next().value;
       if (oldestKey !== undefined) this.cache.delete(oldestKey);
     }
     this.cache.set(key, lyrics);
   }
+}
+
+function createExactLookupUrl(track: Track): URL {
+  const url = new URL('/api/get', LRCLIB_BASE_URL);
+  url.search = new URLSearchParams({
+    track_name: track.name,
+    artist_name: track.artists.join(', '),
+    album_name: track.album,
+    duration: String(track.durationMs / 1_000),
+  }).toString();
+  return url;
+}
+
+function createSearchUrl(track: Track): URL {
+  const url = new URL('/api/search', LRCLIB_BASE_URL);
+  url.search = new URLSearchParams({
+    track_name: track.name,
+    artist_name: track.artists[0] ?? track.artists.join(', '),
+    album_name: track.album,
+  }).toString();
+  return url;
+}
+
+function selectFallbackMatch(candidates: readonly LyricsResponse[], track: Track): LyricsResponse | null {
+  const targetTitle = normalizeMatchText(track.name);
+  const targetTitleBase = normalizeTitleBase(track.name);
+  const targetArtist = normalizeMatchText(track.artists[0] ?? '');
+  const targetAlbum = normalizeMatchText(track.album);
+  const targetDuration = track.durationMs / 1_000;
+
+  const scored = candidates.flatMap((candidate) => {
+    const title = candidate.trackName ?? candidate.name ?? '';
+    const normalizedTitle = normalizeMatchText(title);
+    const titleMatches = normalizedTitle === targetTitle || normalizeTitleBase(title) === targetTitleBase;
+    if (!titleMatches || !targetArtist) return [];
+
+    const artist = normalizeMatchText(candidate.artistName ?? '');
+    if (!artist || (!artist.includes(targetArtist) && !targetArtist.includes(artist))) return [];
+
+    const albumMatches = normalizeMatchText(candidate.albumName ?? '') === targetAlbum;
+    const durationDifference =
+      candidate.duration === null ? Number.POSITIVE_INFINITY : Math.abs(candidate.duration - targetDuration);
+    if (!albumMatches && !Number.isFinite(durationDifference)) return [];
+    if (Number.isFinite(durationDifference) && durationDifference > 8) return [];
+
+    const score =
+      5 +
+      (normalizedTitle === targetTitle ? 2 : 0) +
+      3 +
+      (albumMatches ? 3 : 0) +
+      (durationDifference <= 2 ? 4 : durationDifference <= 5 ? 3 : durationDifference <= 8 ? 1 : 0);
+    return [{ candidate, score, durationDifference }];
+  });
+
+  scored.sort(
+    (left, right) =>
+      right.score - left.score || left.durationDifference - right.durationDifference || left.candidate.id - right.candidate.id,
+  );
+  const best = scored[0];
+  if (!best || best.score < 11) return null;
+  const second = scored[1];
+  if (
+    second &&
+    second.score === best.score &&
+    Math.abs(second.durationDifference - best.durationDifference) < 0.5
+  ) {
+    return null;
+  }
+  return best.candidate;
+}
+
+function normalizeMatchText(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/\p{Mark}/gu, '')
+    .toLocaleLowerCase()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeTitleBase(value: string): string {
+  return normalizeMatchText(value)
+    .replace(/\b(?:\d{4}\s+)?remaster(?:ed)?\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function mapLyrics(result: LyricsResponse, track: Track): Lyrics {
+  return {
+    id: result.id,
+    trackName: cleanMetadata(result.trackName ?? result.name, track.name),
+    artistName: cleanMetadata(result.artistName, track.artists.join(', ')),
+    albumName: cleanMetadata(result.albumName, track.album),
+    durationSeconds: result.duration,
+    instrumental: result.instrumental,
+    plainLyrics: normalizeLyrics(result.plainLyrics),
+    syncedLyrics: normalizeLyrics(result.syncedLyrics),
+  };
 }
 
 interface RequestSignal {

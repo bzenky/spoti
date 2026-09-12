@@ -213,7 +213,83 @@ describe('TuiApp', () => {
     view.unmount();
   });
 
-  it('stops Spotify polling on Lyrics while the local progress clock keeps advancing', async () => {
+  it('refreshes playback at the normal interval on Lyrics and loads a changed track', async () => {
+    const player = createPlayer();
+    const changedPlayback: CurrentPlayback = {
+      ...playback,
+      progressMs: 5_000,
+      track: {
+        ...playback.track,
+        id: 'track-2',
+        uri: 'spotify:track:track-2',
+        name: 'Faint',
+      },
+    };
+    const playbackReadTimes: number[] = [];
+    vi.mocked(player.getCurrentPlayback).mockImplementation(async () => {
+      playbackReadTimes.push(Date.now());
+      return playbackReadTimes.length === 1 ? playback : changedPlayback;
+    });
+    const props = createTuiProps(player, createSearch());
+    vi.mocked(props.lyrics.getLyrics).mockImplementation(async (track) => ({
+      id: track.id === playback.track.id ? 1 : 2,
+      trackName: track.name,
+      artistName: track.artists[0] ?? '',
+      albumName: track.album,
+      durationSeconds: track.durationMs / 1_000,
+      instrumental: false,
+      plainLyrics: track.id === playback.track.id ? 'First track lyrics' : 'Changed track lyrics',
+      syncedLyrics: null,
+    }));
+    const view = render(<TuiApp {...props} refreshIntervalMs={300} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('y');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('First track lyrics'));
+    await vi.waitFor(() => expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2));
+    expect((playbackReadTimes[1] ?? 0) - (playbackReadTimes[0] ?? 0)).toBeGreaterThanOrEqual(250);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Changed track lyrics'));
+    expect(view.lastFrame()).toContain('Faint');
+    expect(props.lyrics.getLyrics).toHaveBeenCalledTimes(2);
+    expect(props.lyrics.getLyrics).toHaveBeenLastCalledWith(
+      changedPlayback.track,
+      expect.any(AbortSignal),
+    );
+    view.unmount();
+  });
+
+  it('does not reload lyrics for same-track playback snapshots', async () => {
+    const player = createPlayer();
+    vi.mocked(player.getCurrentPlayback).mockImplementation(async () => ({
+      ...playback,
+      progressMs: playback.progressMs + 1_000,
+      track: { ...playback.track },
+    }));
+    const props = createTuiProps(player, createSearch());
+    vi.mocked(props.lyrics.getLyrics).mockResolvedValue({
+      id: 1,
+      trackName: playback.track.name,
+      artistName: playback.track.artists[0] ?? '',
+      albumName: playback.track.album,
+      durationSeconds: 196,
+      instrumental: false,
+      plainLyrics: 'Stable lyrics',
+      syncedLyrics: null,
+    });
+    const view = render(<TuiApp {...props} refreshIntervalMs={50} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('y');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Stable lyrics'));
+    await vi.waitFor(() => {
+      expect(vi.mocked(player.getCurrentPlayback).mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    expect(props.lyrics.getLyrics).toHaveBeenCalledOnce();
+    view.unmount();
+  });
+
+  it('keeps the local Lyrics progress clock advancing between Spotify refreshes', async () => {
     const player = createPlayer();
     const props = createTuiProps(player, createSearch());
     vi.mocked(props.lyrics.getLyrics).mockResolvedValue({
@@ -226,17 +302,55 @@ describe('TuiApp', () => {
       plainLyrics: null,
       syncedLyrics: '[01:14.00]First line\n[01:15.00]Second line',
     });
-    const view = render(<TuiApp {...props} refreshIntervalMs={50} />);
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
     await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
 
     view.stdin.write('y');
     await vi.waitFor(() => expect(view.lastFrame()).toContain('▶ First line'));
-    const readsOnEntry = vi.mocked(player.getCurrentPlayback).mock.calls.length;
-
     await new Promise((resolve) => setTimeout(resolve, 1_100));
 
-    expect(player.getCurrentPlayback).toHaveBeenCalledTimes(readsOnEntry);
+    expect(player.getCurrentPlayback).toHaveBeenCalledOnce();
     expect(view.lastFrame()).toContain('▶ Second line');
+    view.unmount();
+  });
+
+  it('refreshes immediately when returning from Lyrics to Player', async () => {
+    const player = createPlayer();
+    const props = createTuiProps(player, createSearch());
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('y');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Lyrics'));
+    expect(player.getCurrentPlayback).toHaveBeenCalledOnce();
+    view.stdin.write('\u001B');
+
+    await vi.waitFor(() => expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2));
+    expect(view.lastFrame()).toContain('Breaking the Habit');
+    view.unmount();
+  });
+
+  it('keeps a Lyrics refresh single-flight when returning to Player', async () => {
+    const player = createPlayer();
+    let resolvePlayback: ((value: CurrentPlayback) => void) | undefined;
+    vi.mocked(player.getCurrentPlayback)
+      .mockResolvedValueOnce(playback)
+      .mockImplementation(
+        async () => new Promise<CurrentPlayback>((resolve) => { resolvePlayback = resolve; }),
+      );
+    const view = render(
+      <TuiApp {...createTuiProps(player, createSearch())} refreshIntervalMs={50} />,
+    );
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('y');
+    await vi.waitFor(() => expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2));
+    view.stdin.write('\u001B');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2);
+    resolvePlayback?.(playback);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
     view.unmount();
   });
 
@@ -471,6 +585,31 @@ describe('TuiApp', () => {
     view.stdin.write('\u0012');
     await vi.waitFor(() => expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+    view.unmount();
+  });
+
+  it('keeps quota-paused Lyrics polling stopped until a manual Player retry', async () => {
+    const player = createPlayer();
+    vi.mocked(player.getCurrentPlayback)
+      .mockResolvedValueOnce(playback)
+      .mockRejectedValueOnce(new DevelopmentQuotaExceededError(3_600))
+      .mockResolvedValue(playback);
+    const view = render(
+      <TuiApp {...createTuiProps(player, createSearch())} refreshIntervalMs={20} />,
+    );
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('y');
+    await vi.waitFor(() => expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2);
+
+    view.stdin.write('\u001B');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2);
+    view.stdin.write('\u0012');
+
+    await vi.waitFor(() => expect(player.getCurrentPlayback).toHaveBeenCalledTimes(3));
     view.unmount();
   });
 

@@ -742,7 +742,7 @@ The first website should remain intentionally small:
 - Spotify Connect, Premium, and quota limitations
 - links to npm, GitHub, issues, releases, privacy information, and the Spotify attribution notice
 
-Prefer a static GitHub Pages deployment with no backend, accounts, analytics, Spotify tokens, or duplicated full documentation. The repository README remains the detailed source of truth.
+Deploy the static site to Vercel at `spoti.bzenky.dev` with no backend, accounts, analytics, Spotify tokens, or duplicated full documentation. The repository README remains the detailed source of truth.
 
 ---
 
@@ -1185,8 +1185,8 @@ At this point the MVP is complete.
 - [x] Add Spotify Connect device selector
 - [x] Add playlist, liked-track, and recent-history browsing with lazy cached pagination
 - [x] Add initial playback loading, empty, and recoverable error states
-- [ ] Restore terminal state after normal exit, errors, and signals
-- [ ] Test narrow-terminal and `NO_COLOR` behavior
+- [x] Restore terminal state after normal exit, errors, and signals
+- [x] Test narrow-terminal and `NO_COLOR` behavior
 
 ---
 
@@ -1194,23 +1194,23 @@ At this point the MVP is complete.
 
 - [x] Parse and retain Spotify API error reasons such as `QUOTA_EXCEEDED`
 - [x] Distinguish development quota exhaustion from ordinary rate limiting
-- [ ] Audit requests, polling, lazy loading, and session caching
+- [x] Audit requests, polling, lazy loading, and session caching
 - [x] Add dedicated quota documentation
-- [ ] Validate authentication and token refresh
-- [ ] Validate npm installation and self-update behavior
-- [ ] Run the full CLI regression suite
-- [ ] Test supported terminal behavior on Linux, macOS, and Windows where possible
-- [ ] Audit user-facing errors, Spotify attribution, and policy documentation
+- [x] Validate authentication and token refresh
+- [ ] Validate npm installation and self-update behavior manually on each supported OS
+- [x] Run the full CLI regression suite
+- [x] Test builds and automated terminal behavior on Linux, macOS, and Windows CI
+- [x] Audit user-facing errors, Spotify attribution, and policy documentation
 
 ---
 
 ## Phase 12 — Companion website
 
-- [ ] Create a static landing and setup site after the TUI design stabilizes
-- [ ] Add installation, setup, command, shortcut, and limitations sections
-- [ ] Add an accurate TUI screenshot or recording
-- [ ] Link npm, GitHub, issues, releases, privacy information, and attribution
-- [ ] Deploy with GitHub Pages without a backend or user tracking
+- [x] Create a static landing and setup site after the TUI design stabilizes
+- [x] Add installation, setup, command, shortcut, and limitations sections
+- [ ] Add an accurate TUI screenshot or recording — the initial site uses a representative terminal mock
+- [x] Link npm, GitHub, issues, releases, privacy information, and attribution
+- [x] Configure Vercel deployment at `spoti.bzenky.dev` without a backend or user tracking
 
 ---
 

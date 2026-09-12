@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="spoti is a local-first TUI and CLI for controlling Spotify through Spotify Connect.">
+  <meta name="theme-color" content="#090d0b">
+  <meta property="og:title" content="spoti — Spotify control from your terminal">
+  <meta property="og:description" content="A local-first TUI and CLI for Spotify Connect playback, search, library, queue, devices, and lyrics.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://spoti.bzenky.dev/">
+  <link rel="canonical" href="https://spoti.bzenky.dev/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <title>spoti — Spotify control from your terminal</title>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="#top" aria-label="spoti home"><span aria-hidden="true">›_</span> spoti</a>
+      <nav aria-label="Primary navigation">
+        <a href="#features">Features</a>
+        <a href="#setup">Setup</a>
+        <a href="https://github.com/bzenky/spoti/blob/main/README.md">Docs</a>
+        <a class="nav-github" href="https://github.com/bzenky/spoti">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="shell hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Local-first · open source</p>
+          <h1>Your music.<br><span>In your terminal.</span></h1>
+          <p class="lede">A fast, keyboard-driven TUI and CLI for controlling Spotify through Spotify Connect. Search, play, queue, switch devices, browse your library, and follow synced lyrics without leaving the terminal.</p>
+          <div class="actions">
+            <a class="button button-primary" href="#setup">Get started</a>
+            <a class="button button-secondary" href="https://github.com/bzenky/spoti">View on GitHub <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="install" aria-label="npm installation command">
+            <span aria-hidden="true">$</span>
+            <code>npm install --global @bzenky/spoti</code>
+          </div>
+          <p class="requirement">Requires Node.js 22+ and Spotify Premium for playback controls.</p>
+        </div>
+
+        <figure class="terminal-wrap" aria-labelledby="player-caption">
+          <div class="terminal-bar" aria-hidden="true">
+            <span></span><span></span><span></span>
+            <p>spoti — interactive</p>
+          </div>
+          <div class="terminal" role="img" aria-label="spoti Player screen showing Breaking the Habit by Linkin Park, playback progress, volume, shuffle, repeat, device, navigation, and keyboard controls">
+            <div class="tui-border" aria-hidden="true">
+              <div class="tui-brand">spoti</div>
+              <div class="tui-nav"><b>[1] Player</b> <span>[y] Lyrics</span> <span>[/] Search</span> <span>[q] Queue</span> <span>[d] Devices</span> <span>[l] Library</span> <span>[?] Help</span></div>
+              <div class="tui-player">
+                <p><i>▶</i> <strong>Breaking the Habit</strong></p>
+                <p class="dim">Linkin Park · Meteora</p>
+                <p class="progress"><span>━━━━━━━━━━━━</span>──────────────────────</p>
+                <p>1:14 / 3:16</p>
+                <p class="stats">Volume: 42% &nbsp; Shuffle: On &nbsp; Repeat: Track</p>
+                <p class="dim">Device: Notebook</p>
+              </div>
+              <div class="tui-help dim">[space] Play/Pause&nbsp; [n/p] Track&nbsp; [←/→] Seek&nbsp; [-/+] Volume&nbsp; [s] Shuffle&nbsp; [r] Repeat&nbsp; [y] Lyrics&nbsp; [?] Help&nbsp; [x/Esc] Exit</div>
+            </div>
+          </div>
+          <figcaption id="player-caption">Full-screen when you want it. Scriptable when you don’t.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="feature-section" id="features" aria-labelledby="features-title">
+      <div class="shell">
+        <div class="section-heading">
+          <p class="eyebrow">One tool, two modes</p>
+          <h2 id="features-title">Built for the way terminals work</h2>
+          <p>Open the interactive interface for exploration, or use focused commands in scripts and daily workflows.</p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card featured">
+            <div class="feature-icon" aria-hidden="true">⌨</div>
+            <h3>Keyboard-first TUI</h3>
+            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts and direct shortcuts.</p>
+            <code>spoti interactive</code>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">$</div>
+            <h3>Composable CLI</h3>
+            <p>Control playback, inspect state, search Spotify, transfer devices, and manage your library one command at a time.</p>
+            <code>spoti now --watch</code>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">♪</div>
+            <h3>Synced lyrics</h3>
+            <p>Follow the current line in the TUI or fetch lyrics for the playing track and search results from LRCLIB.</p>
+            <code>spoti lyrics</code>
+          </article>
+        </div>
+
+        <div class="examples-grid">
+          <div class="example-copy">
+            <p class="eyebrow">CLI examples</p>
+            <h2>Small commands.<br>Full control.</h2>
+            <p>Ordinary multi-word searches do not need quotes. Add <code>--first</code> when you want deterministic, non-interactive selection.</p>
+            <pre class="command-list" aria-label="Example spoti commands"><code><span>$</span> spoti play Fear of the Dark
+<span>$</span> spoti pause
+<span>$</span> spoti seek +30
+<span>$</span> spoti volume 50
+<span>$</span> spoti queue "Faint" --first
+<span>$</span> spoti device "My Computer"
+<span>$</span> spoti lyrics Numb Linkin Park
+<span>$</span> spoti liked --limit 10</code></pre>
+          </div>
+
+          <figure class="mini-terminal" aria-labelledby="lyrics-caption">
+            <div class="terminal-bar" aria-hidden="true">
+              <span></span><span></span><span></span>
+              <p>spoti — lyrics</p>
+            </div>
+            <div class="lyrics-screen" role="img" aria-label="spoti Lyrics screen with a synchronized current line and LRCLIB attribution">
+              <b class="tui-brand">spoti</b>
+              <p class="tui-nav"><span>[1] Player</span> <b>[y] Lyrics</b> <span>[/] Search</span> <span>[q] Queue</span></p>
+              <div class="lyrics-body">
+                <strong>Lyrics</strong>
+                <p class="dim">Current track — Example Artist</p>
+                <p class="dim">&nbsp;&nbsp;A quiet line drifts into view</p>
+                <p class="current-line">▶ The next beat meets the cursor</p>
+                <p class="dim">&nbsp;&nbsp;And the screen keeps time with you</p>
+              </div>
+              <p class="dim attribution">Lyrics from LRCLIB: https://lrclib.net</p>
+              <p class="dim shortcut">[↑/↓] Scroll · [f] Following · [Esc] Back · [Ctrl+X] Exit</p>
+            </div>
+            <figcaption id="lyrics-caption">Synchronized lines follow local playback progress. Scroll freely; press <kbd>f</kbd> to resume following.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="setup-section" id="setup" aria-labelledby="setup-title">
+      <div class="shell setup-grid">
+        <div class="setup-intro">
+          <p class="eyebrow">Setup</p>
+          <h2 id="setup-title">Your app.<br>Your credentials.</h2>
+          <p>spoti uses OAuth Authorization Code with PKCE. Your public client ID and credentials stay in your local configuration; no client secret is needed or accepted.</p>
+          <a class="text-link" href="https://developer.spotify.com/dashboard">Open Spotify Developer Dashboard <span aria-hidden="true">↗</span></a>
+        </div>
+
+        <ol class="steps">
+          <li>
+            <span class="step-number">01</span>
+            <div>
+              <h3>Create a Spotify app</h3>
+              <p>In the Spotify Developer Dashboard, create an application and add this exact redirect URI:</p>
+              <div class="code-block"><code>http://127.0.0.1:43821/callback</code></div>
+              <p class="step-note">Use <code>127.0.0.1</code> exactly—not <code>localhost</code> and not a wildcard.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-number">02</span>
+            <div>
+              <h3>Install spoti</h3>
+              <div class="code-block"><code>npm install --global @bzenky/spoti</code></div>
+            </div>
+          </li>
+          <li>
+            <span class="step-number">03</span>
+            <div>
+              <h3>Save your client ID and sign in</h3>
+              <div class="code-block two-lines"><code>spoti setup<br>spoti login</code></div>
+              <p class="step-note">Authentication opens Spotify’s authorization page in your browser.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-number">04</span>
+            <div>
+              <h3>Start listening</h3>
+              <div class="code-block"><code>spoti interactive</code></div>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="notice-section" aria-labelledby="know-title">
+      <div class="shell">
+        <div class="section-heading left">
+          <p class="eyebrow">Good to know</p>
+          <h2 id="know-title">Clear boundaries by design</h2>
+        </div>
+        <div class="notice-grid">
+          <article>
+            <h3><span aria-hidden="true">◉</span> Spotify Connect</h3>
+            <p>spoti controls an existing Spotify client or Connect device. It does not stream or download audio, so an available playback device is required.</p>
+          </article>
+          <article>
+            <h3><span aria-hidden="true">◆</span> Premium &amp; quota</h3>
+            <p>Spotify Premium is required for playback-control commands, and a development-mode app’s owner must have Premium. Development mode has a small user allowlist and quota may be shared across apps owned by one developer account; each user should create their own app. Longer quota waits exit with a retry time.</p>
+          </article>
+          <article>
+            <h3><span aria-hidden="true">≋</span> Lyrics &amp; privacy</h3>
+            <p>Spotify does not provide lyrics through its Web API. Only when lyrics are requested, spoti sends the track title, artists, album, and duration to the community-run LRCLIB service. Lyrics are loaded live and not persisted locally.</p>
+          </article>
+          <article>
+            <h3><span aria-hidden="true">§</span> Lyrics licensing</h3>
+            <p>Lyrics are shown with LRCLIB attribution for personal, immediate use. LRCLIB’s software license does not grant redistribution rights to copyrighted lyrics; availability and synchronization depend on community data.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section" aria-labelledby="cta-title">
+      <div class="shell cta">
+        <div>
+          <p class="eyebrow">Ready when you are</p>
+          <h2 id="cta-title">Put Spotify at your fingertips.</h2>
+        </div>
+        <div class="cta-actions">
+          <a class="button button-light" href="https://www.npmjs.com/package/@bzenky/spoti">View npm package <span aria-hidden="true">↗</span></a>
+          <a class="button button-outline" href="https://github.com/bzenky/spoti/releases">Browse releases</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-grid">
+      <div>
+        <a class="brand" href="#top"><span aria-hidden="true">›_</span> spoti</a>
+        <p>A local-first command-line client for Spotify Connect.</p>
+      </div>
+      <nav aria-label="Project links">
+        <a href="https://github.com/bzenky/spoti">GitHub</a>
+        <a href="https://www.npmjs.com/package/@bzenky/spoti">npm</a>
+        <a href="https://github.com/bzenky/spoti/releases">Releases</a>
+        <a href="https://github.com/bzenky/spoti/issues">Issues</a>
+        <a href="https://github.com/bzenky/spoti/blob/main/README.md">README</a>
+      </nav>
+    </div>
+    <div class="shell legal">
+      <p>spoti is an independent project and is not affiliated with, endorsed by, or sponsored by Spotify AB. Spotify is a trademark of Spotify AB.</p>
+      <p>MIT licensed · Built for the terminal</p>
+    </div>
+  </footer>
+</body>
+</html>

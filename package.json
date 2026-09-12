@@ -20,7 +20,7 @@
     "type": "git",
     "url": "git+https://github.com/bzenky/spoti.git"
   },
-  "homepage": "https://github.com/bzenky/spoti#readme",
+  "homepage": "https://spoti.bzenky.dev/",
   "bugs": {
     "url": "https://github.com/bzenky/spoti/issues"
   },

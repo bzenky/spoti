@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-12
+
+### Added
+
+- A responsive static project website for `spoti.bzenky.dev`, including installation, Spotify setup, CLI/TUI examples, limitations, privacy information, and LRCLIB attribution.
+- Vercel static-site configuration with clean URLs and restrictive browser security headers.
+- Structured LRCLIB search fallback when exact metadata lookup does not find lyrics.
+
+### Changed
+
+- Accept fallback lyrics only when normalized title, primary artist, album, and duration produce a strong, unambiguous match.
+- Refresh Spotify playback at the normal bounded interval while Lyrics is open so track changes load the new song's lyrics automatically.
+- Refresh playback immediately when returning to Player while preserving single-flight polling and quota-aware pauses.
+- Point the npm package homepage and README website link to `https://spoti.bzenky.dev`.
+
+### Fixed
+
+- Reject weak, incorrect-version, and ambiguous LRCLIB fallback results instead of displaying potentially unrelated lyrics.
+
 ## [0.8.0] - 2026-09-11
 
 ### Added

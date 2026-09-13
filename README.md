@@ -385,7 +385,7 @@ or, when `XDG_CONFIG_HOME` is not set:
 ~/.config/spoti/credentials.json
 ```
 
-On POSIX systems, the credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically using the environment client ID when present, otherwise the client ID saved by `spoti setup`. The unreleased playlist-addition feature adds the minimum permissions needed to modify public and private playlists. Existing installations will be asked to run `spoti login` once after upgrading. Previous releases already request permissions for private playlist listing, liked-track access, library modification, and recently played tracks. Never provide or store a Spotify client secret in `spoti`.
+On POSIX systems, the credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically using the environment client ID when present, otherwise the client ID saved by `spoti setup`. Version `0.10.0` adds the minimum permissions needed to modify public and private playlists. Existing installations will be asked to run `spoti login` once after upgrading. Previous releases already request permissions for private playlist listing, liked-track access, library modification, and recently played tracks. Never provide or store a Spotify client secret in `spoti`.
 
 ## Spotify API policy
 
@@ -442,4 +442,4 @@ The release workflow attaches the npm package tarball and a `SHA256SUMS` file, a
 
 ## Current scope
 
-Version `0.9.0` includes the complete command-driven CLI and Ink TUI, Spotify Connect controls, paginated search and library browsing, secure PKCE authentication, quota-aware request handling, LRCLIB lyrics, update checks, cross-platform CI, and the companion website. Current unreleased development adds playlist insertion for the current track, a configurable default playback device, `spoti open`, and compact `spoti now --short` output as the final feature-focused release before `v1.0.0` stabilization.
+Version `0.9.0` includes the complete command-driven CLI and Ink TUI, Spotify Connect controls, paginated search and library browsing, secure PKCE authentication, quota-aware request handling, LRCLIB lyrics, update checks, cross-platform CI, and the companion website. Version `0.10.0` adds playlist insertion for the current track, a configurable default playback device, `spoti open`, and compact `spoti now --short` output as the final feature-focused release before `v1.0.0` stabilization.

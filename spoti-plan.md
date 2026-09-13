@@ -1223,7 +1223,7 @@ At this point the MVP is complete.
 - [x] Add `spoti open` for the current track
 - [x] Add compact `spoti now --short` output
 - [x] Update static shell completions and user documentation
-- [ ] Complete normal-use testing and fix regressions before release preparation
+- [x] Complete normal-use testing and fix regressions before release preparation
 
 ---
 

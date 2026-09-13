@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-13
+
+### Added
+
+- `spoti add` for adding the current track to an existing playlist by paginated selection, displayed number, or playlist name.
+- A TUI playlist picker opened with `a` from Player, including lazy session-cached pagination, cancellation, and optimistic item counts.
+- A `defaultDevice` setting and `spoti device <device> --default` for choosing the fallback Spotify Connect device when none is active.
+- `spoti open` for opening the current track in Spotify through the system browser or registered handler.
+- Compact one-line playback output through `spoti now --short` for prompts and status bars.
+
+### Changed
+
+- Apply active, configured-default, and single-device fallback resolution consistently across playback controls that support Spotify's `device_id` parameter.
+- Request the minimum public and private playlist-modification scopes required by playlist insertion; existing users must authorize the new scopes once with `spoti login`.
+- Extend Bash, Zsh, and Fish completions, the README, roadmap, and companion website with the new commands and configuration.
+
 ## [0.9.0] - 2026-09-12
 
 ### Added

@@ -36,6 +36,7 @@ import {
   formatArtistDetail,
   formatLyrics,
   formatPlayback,
+  formatPlaybackShort,
   formatPlaylist,
   formatPlaylistOverview,
   formatRecentlyPlayed,
@@ -98,6 +99,7 @@ export interface AppDependencies {
   styles?: OutputStyles;
   watchPlayback?: PlaybackWatcher;
   startTui?: () => Promise<void>;
+  openExternal?: (url: string) => Promise<unknown>;
   isInteractive?: boolean;
 }
 
@@ -298,7 +300,11 @@ export function createProgram(dependencies: AppDependencies): Command {
     .alias('np')
     .description('Show the current Spotify playback')
     .option('-w, --watch', 'continuously refresh playback information')
-    .action(async (options: { watch?: boolean }) => {
+    .option('--short', 'print one compact line for status bars and scripts')
+    .action(async (options: { watch?: boolean; short?: boolean }) => {
+      if (options.watch && options.short) {
+        throw new ConfigurationError('--watch and --short cannot be used together.');
+      }
       if (options.watch) {
         const config = await dependencies.config.read();
         await startWatching({
@@ -309,8 +315,29 @@ export function createProgram(dependencies: AppDependencies): Command {
       }
       const playback = await dependencies.player.getCurrentPlayback();
       dependencies.output.log(
-        playback ? formatPlayback(playback, styles) : 'Nothing is currently playing.',
+        playback
+          ? options.short
+            ? formatPlaybackShort(playback)
+            : formatPlayback(playback, styles)
+          : 'Nothing is currently playing.',
       );
+    });
+
+  program
+    .command('open')
+    .description('Open the current track in Spotify')
+    .action(async () => {
+      const playback = await dependencies.player.getCurrentPlayback();
+      if (!playback) {
+        throw new AppError('Nothing is currently playing, so there is no Spotify link to open.');
+      }
+      if (!dependencies.openExternal) {
+        throw new AppError('Opening Spotify links is unavailable in this environment.');
+      }
+      const url = playback.track.externalUrl ??
+        `https://open.spotify.com/track/${encodeURIComponent(playback.track.id)}`;
+      await dependencies.openExternal(url);
+      dependencies.output.log(`✓ Opened ${safe(playback.track.name)} in Spotify`);
     });
 
   program
@@ -387,19 +414,27 @@ export function createProgram(dependencies: AppDependencies): Command {
     .alias('devs')
     .description('List available Spotify Connect devices')
     .action(async () => {
-      const devices = await runTask('Loading devices…', () =>
-        dependencies.device.getDevices(),
-      );
+      const [devices, config] = await Promise.all([
+        runTask('Loading devices…', () => dependencies.device.getDevices()),
+        dependencies.config.read(),
+      ]);
+      const defaultDevice = config.defaultDevice?.toLocaleLowerCase();
       const formatted =
         devices.length === 0
           ? 'No Spotify devices are available. Open Spotify on a device and try again.'
           : devices
               .map((device, index) => {
-                const state = device.isActive
-                  ? 'active'
-                  : device.isRestricted
-                    ? 'restricted'
-                    : 'available';
+                const states = [
+                  device.isActive ? 'active' : device.isRestricted ? 'restricted' : 'available',
+                ];
+                if (
+                  defaultDevice &&
+                  (device.name.toLocaleLowerCase() === defaultDevice ||
+                    device.id?.toLocaleLowerCase() === defaultDevice)
+                ) {
+                  states.push('default');
+                }
+                const state = states.join(' · ');
                 const volume =
                   device.volumePercent === null ? '' : ` · ${device.volumePercent}%`;
                 const name = styles.name(sanitizeOneLineText(device.name));
@@ -417,11 +452,23 @@ export function createProgram(dependencies: AppDependencies): Command {
     .alias('dev')
     .description('Transfer playback to a Spotify Connect device')
     .argument('<number-name-or-id...>', 'displayed number, exact device name, or ID')
-    .action(async (nameOrIdParts: string[]) => {
-      const device = await dependencies.device.findDevice(nameOrIdParts.join(' '));
+    .option('--default', 'also save this device as the playback fallback')
+    .action(async (nameOrIdParts: string[], options: { default?: boolean }) => {
+      const selection = nameOrIdParts.join(' ').trim();
+      const device = await dependencies.device.findDevice(selection);
       if (!device.id) throw new ConfigurationError('The selected device has no usable ID.');
       await dependencies.device.transferPlayback(device.id);
-      dependencies.output.log(`✓ Active device: ${safe(device.name)}`);
+      if (options.default) {
+        const selectedByIdOrNumber =
+          /^\d+$/.test(selection) || device.id.toLocaleLowerCase() === selection.toLocaleLowerCase();
+        await dependencies.config.set(
+          'defaultDevice',
+          selectedByIdOrNumber ? device.id : device.name,
+        );
+      }
+      dependencies.output.log(
+        `✓ Active device: ${safe(device.name)}${options.default ? ' · saved as default' : ''}`,
+      );
     });
 
   program
@@ -626,6 +673,67 @@ export function createProgram(dependencies: AppDependencies): Command {
       if (!selected) return;
       await dependencies.player.playContext(selected.uri);
       dependencies.output.log(`▶ Playing playlist ${safe(selected.name)}`);
+    });
+
+  program
+    .command('add')
+    .description('Add the current track to one of your playlists')
+    .argument('[playlist...]', 'playlist number or name')
+    .option('--first', 'use the first matching playlist without prompting')
+    .action(async (playlistParts: string[], options: { first?: boolean }) => {
+      const playback = await dependencies.player.getCurrentPlayback();
+      if (!playback) {
+        throw new AppError('Nothing is currently playing, so there is no track to add.');
+      }
+
+      const query = playlistParts.join(' ').trim();
+      let selected: Playlist | null | undefined;
+      if (!query) {
+        if (!isInteractive) {
+          throw new ConfigurationError(
+            'A playlist number or name is required outside an interactive terminal.\n\nRun: spoti playlists',
+          );
+        }
+        selected = await createCollectionBrowser<Playlist, OffsetToken>({
+          title: 'Playlists',
+          loadPage: (token) =>
+            runTask('Loading playlists…', () =>
+              dependencies.playlist.listPlaylistsPage(token, 20),
+            ),
+          formatItem: (playlist, index) => formatPlaylist(playlist, index, styles),
+        }).select();
+      } else if (/^\d+$/.test(query)) {
+        selected = await runTask('Loading playlist…', () =>
+          dependencies.playlist.getPlaylistByNumber(Number(query)),
+        );
+        if (!selected) throw playlistNumberOutOfRange(query);
+      } else {
+        let token: OffsetToken | undefined;
+        let matches: Playlist[];
+        do {
+          const page = await runTask('Loading playlists…', () =>
+            dependencies.playlist.listPlaylistsPage(token, 50),
+          );
+          matches = page.items.filter((playlist) =>
+            playlist.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+          );
+          token = page.nextToken ?? undefined;
+        } while (matches.length === 0 && token);
+        if (matches.length === 0) {
+          dependencies.output.log(`No playlists found for "${safe(query)}".`);
+          return;
+        }
+        selected = options.first || !isInteractive ? matches[0] : await choosePlaylist(matches);
+      }
+
+      if (!selected) {
+        dependencies.output.log('Selection cancelled.');
+        return;
+      }
+      await dependencies.playlist.addItems(selected.id, [playback.track.uri]);
+      dependencies.output.log(
+        `✓ Added ${safe(playback.track.name)} — ${safeArtists(playback.track.artists)} to ${safe(selected.name)}`,
+      );
     });
 
   program

@@ -36,6 +36,7 @@ describe('FileConfigStore', () => {
     expect(await store.read()).toEqual(DEFAULT_CONFIG);
     expect(CONFIG_KEYS).toEqual([
       'spotifyClientId',
+      'defaultDevice',
       'watchAfterPlay',
       'refreshIntervalMs',
     ]);
@@ -48,6 +49,7 @@ describe('FileConfigStore', () => {
 
     expect(await store.read()).toEqual({
       spotifyClientId: null,
+      defaultDevice: null,
       watchAfterPlay: true,
       refreshIntervalMs: 1_000,
     });
@@ -59,6 +61,7 @@ describe('FileConfigStore', () => {
     const store = new FileConfigStore({ directory });
     const config: AppConfig = {
       spotifyClientId: 'client123',
+      defaultDevice: 'Laptop',
       watchAfterPlay: true,
       refreshIntervalMs: 5_000,
     };
@@ -89,6 +92,7 @@ describe('FileConfigStore', () => {
     const store = new FileConfigStore({ directory: await createTemporaryDirectory() });
     await store.write({
       spotifyClientId: 'client123',
+      defaultDevice: null,
       watchAfterPlay: false,
       refreshIntervalMs: 8_000,
     });
@@ -97,6 +101,7 @@ describe('FileConfigStore', () => {
 
     expect(await store.read()).toEqual({
       spotifyClientId: 'client123',
+      defaultDevice: null,
       watchAfterPlay: true,
       refreshIntervalMs: 8_000,
     });
@@ -106,6 +111,7 @@ describe('FileConfigStore', () => {
     const store = new FileConfigStore({ directory: await createTemporaryDirectory() });
     await store.write({
       spotifyClientId: 'client123',
+      defaultDevice: 'Laptop',
       watchAfterPlay: true,
       refreshIntervalMs: 8_000,
     });
@@ -114,6 +120,7 @@ describe('FileConfigStore', () => {
 
     expect(await store.read()).toEqual({
       spotifyClientId: null,
+      defaultDevice: 'Laptop',
       watchAfterPlay: true,
       refreshIntervalMs: 8_000,
     });
@@ -123,6 +130,7 @@ describe('FileConfigStore', () => {
     const store = new FileConfigStore({ directory: await createTemporaryDirectory() });
     await store.write({
       spotifyClientId: null,
+      defaultDevice: null,
       watchAfterPlay: true,
       refreshIntervalMs: 10_000,
     });
@@ -150,6 +158,7 @@ describe('FileConfigStore', () => {
 describe('parseConfigValue', () => {
   it('parses supported client ID, boolean, and interval values', () => {
     expect(parseConfigValue('spotifyClientId', '  client123  ')).toBe('client123');
+    expect(parseConfigValue('defaultDevice', '  Living Room  ')).toBe('Living Room');
     expect(parseConfigValue('watchAfterPlay', 'true')).toBe(true);
     expect(parseConfigValue('watchAfterPlay', 'false')).toBe(false);
     expect(parseConfigValue('refreshIntervalMs', '1000')).toBe(1_000);
@@ -159,6 +168,7 @@ describe('parseConfigValue', () => {
   it.each([
     ['spotifyClientId', ''],
     ['spotifyClientId', 'client id'],
+    ['defaultDevice', ''],
     ['watchAfterPlay', 'yes'],
     ['watchAfterPlay', 'TRUE'],
     ['refreshIntervalMs', '999'],

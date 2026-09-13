@@ -63,6 +63,7 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
     playlists: {
       listPlaylistsPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
       getPlaylistItemsPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
+      addItems: vi.fn().mockResolvedValue(undefined),
     },
     library: {
       getLikedTracksPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
@@ -95,6 +96,7 @@ describe('TuiApp', () => {
     expect(frame).toContain('Repeat: Track');
     expect(frame).toContain('Device: Notebook');
     expect(frame).toContain('[space] Play/Pause');
+    expect(frame).toContain('[a] Add');
     expect(frame).toContain('[y] Lyrics');
     expect(frame).toContain('[/] Search');
     expect(frame).toContain('[?] Help');
@@ -137,6 +139,61 @@ describe('TuiApp', () => {
 
     await vi.waitFor(() => expect(player[method]).toHaveBeenCalledWith(value));
     expect(player.getCurrentPlayback).toHaveBeenCalledOnce();
+    view.unmount();
+  });
+
+  it('adds the current track to a selected playlist and shows confirmation on Player', async () => {
+    const player = createPlayer();
+    const props = createTuiProps(player, createSearch());
+    const playlist = {
+      id: 'playlist-1',
+      uri: 'spotify:playlist:playlist-1',
+      name: 'Workout',
+      description: '',
+      ownerName: 'Zenky',
+      isPublic: false,
+      totalTracks: 3,
+    };
+    vi.mocked(props.playlists.listPlaylistsPage).mockResolvedValue({
+      items: [playlist],
+      nextToken: null,
+    });
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('a');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Add current track to playlist'));
+    expect(view.lastFrame()).toContain('Workout — Zenky · 3 tracks');
+    view.stdin.write('\r');
+
+    await vi.waitFor(() =>
+      expect(props.playlists.addItems).toHaveBeenCalledWith(
+        playlist.id,
+        [playback.track.uri],
+        expect.any(AbortSignal),
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(view.lastFrame()).toContain('Added Breaking the Habit to Workout.'),
+    );
+    expect(view.lastFrame()).toContain('[a] Add');
+    view.unmount();
+  });
+
+  it('does not open the playlist picker when nothing is currently playing', async () => {
+    const player = createPlayer();
+    vi.mocked(player.getCurrentPlayback).mockResolvedValue(null);
+    const props = createTuiProps(player, createSearch());
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Nothing is currently playing.'));
+
+    view.stdin.write('a');
+
+    await vi.waitFor(() =>
+      expect(view.lastFrame()).toContain('Nothing is currently playing to add.'),
+    );
+    expect(props.playlists.listPlaylistsPage).not.toHaveBeenCalled();
+    expect(props.playlists.addItems).not.toHaveBeenCalled();
     view.unmount();
   });
 
@@ -365,6 +422,7 @@ describe('TuiApp', () => {
 
     await vi.waitFor(() => expect(view.lastFrame()).toContain('Keyboard shortcuts'));
     expect(view.lastFrame()).toContain('Open Lyrics');
+    expect(view.lastFrame()).toContain('Add the current track to a playlist');
     view.stdin.write('\u001B[B');
     await vi.waitFor(() => expect(view.lastFrame()).toContain('Resume following synced lyrics'));
     view.unmount();

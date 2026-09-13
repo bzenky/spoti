@@ -127,6 +127,7 @@ p       previous track (Player)
 - / +   lower or raise volume by 5% (Player)
 s       toggle shuffle (Player)
 r       cycle repeat off, track, and context (Player)
+a       add the current track to a playlist (Player)
 Ctrl+R  refresh now (Player)
 
 Esc     back one level, or exit from Player
@@ -157,7 +158,9 @@ Control playback. Quotes are optional for ordinary multi-word queries because `s
 
 ```bash
 spoti now
+spoti now --short
 spoti now --watch
+spoti open
 spoti play Numb
 spoti play Fear of the Dark
 spoti play Numb --first
@@ -189,9 +192,10 @@ Manage playback devices:
 spoti devices
 spoti device 2
 spoti device "My Computer"
+spoti device "My Computer" --default
 ```
 
-Use the displayed one-based number, exact device name, or Spotify device ID.
+Use the displayed one-based number, exact device name, or Spotify device ID. Add `--default` to save the selected device name as the fallback when no device is active. You can also manage it directly with `spoti config set defaultDevice "My Computer"` and `spoti config unset defaultDevice`. An already-active device always takes precedence over the saved default.
 
 When playback reports no active device, `spoti play` and `spoti resume` retry the one active controllable device if Spotify reports one, or the only controllable device when exactly one is available. If several inactive devices are available, `spoti` asks you to select one explicitly.
 
@@ -226,12 +230,17 @@ spoti artist "Linkin Park"
 spoti playlists
 spoti playlist 1
 spoti playlist "Workout"
+spoti add
+spoti add 1
+spoti add "Workout" --first
 spoti play track "Numb"
 spoti play album "Meteora"
 spoti play artist "Linkin Park"
 spoti play playlist "Workout"
 spoti play playlist 1
 ```
+
+`spoti add` adds the currently playing track to an existing playlist. In an interactive terminal, omit the playlist to browse lazily loaded pages; otherwise pass a displayed number or playlist name. The TUI offers the same flow with `a` from Player. This feature requires Spotify playlist-modification scopes, so existing users upgrading to this version must run `spoti login` once to authorize the new minimum permissions.
 
 User playlists preserve Spotify’s order so their global displayed numbers remain stable across pages. A displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`, including numbers beyond the first page.
 
@@ -258,6 +267,8 @@ Check for updates or install the latest npm release:
 spoti update --check
 spoti update
 ```
+
+`spoti now --short` prints a single line such as `▶ Linkin Park — Numb` and exits, making it suitable for prompts and status bars. `spoti open` opens the current track's Spotify page in the system browser or registered Spotify handler.
 
 `spoti update` asks for confirmation before installing the exact version returned by the update check. It never installs an update silently. Normal commands use a cached update result and refresh it in a detached process at most once every 24 hours, so npm availability does not delay or break Spotify controls.
 
@@ -354,6 +365,7 @@ Available settings:
 | Setting | Default | Description |
 | --- | ---: | --- |
 | `spotifyClientId` | `null` | Public Spotify application client ID saved by `spoti setup`. |
+| `defaultDevice` | `null` | Exact Spotify Connect device name or ID used when no device is active. |
 | `watchAfterPlay` | `false` | Keep `spoti play` open in watch mode after playback starts. |
 | `refreshIntervalMs` | `1000` | Watch refresh interval from `1000` to `30000` milliseconds. |
 
@@ -373,7 +385,7 @@ or, when `XDG_CONFIG_HOME` is not set:
 ~/.config/spoti/credentials.json
 ```
 
-On POSIX systems, the credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically using the environment client ID when present, otherwise the client ID saved by `spoti setup`. Version `0.3.0` adds minimum permissions for private playlist listing, liked-track access, library modification, and recently played tracks. Existing installations will be asked to run `spoti login` once after upgrading. Never provide or store a Spotify client secret in `spoti`.
+On POSIX systems, the credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically using the environment client ID when present, otherwise the client ID saved by `spoti setup`. The unreleased playlist-addition feature adds the minimum permissions needed to modify public and private playlists. Existing installations will be asked to run `spoti login` once after upgrading. Previous releases already request permissions for private playlist listing, liked-track access, library modification, and recently played tracks. Never provide or store a Spotify client secret in `spoti`.
 
 ## Spotify API policy
 
@@ -430,4 +442,4 @@ The release workflow attaches the npm package tarball and a `SHA256SUMS` file, a
 
 ## Current scope
 
-Version `0.6.0` adds lazy collection pagination, nested Back navigation, playlist-track selection, current-volume output, new command aliases, visible play-search progress, and bounded rate-limit handling. Development toward `v1.0.0` now includes functional Player, Search, Queue, Devices, and Library TUI screens, shared navigation and keyboard Help, lazy session-cached collection pagination, cancellation-aware requests, and quota-aware error handling.
+Version `0.9.0` includes the complete command-driven CLI and Ink TUI, Spotify Connect controls, paginated search and library browsing, secure PKCE authentication, quota-aware request handling, LRCLIB lyrics, update checks, cross-platform CI, and the companion website. Current unreleased development adds playlist insertion for the current track, a configurable default playback device, `spoti open`, and compact `spoti now --short` output as the final feature-focused release before `v1.0.0` stabilization.

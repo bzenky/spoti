@@ -185,6 +185,66 @@ describe('PlayerService', () => {
     });
   });
 
+  it('uses the configured default device when none is active', async () => {
+    const api = createApi();
+    vi.mocked(api.put)
+      .mockRejectedValueOnce(new NoActiveDeviceError())
+      .mockResolvedValueOnce(undefined);
+    const service = new PlayerService(
+      api,
+      {
+        getControllableDevices: async () => [
+          device('laptop-id'),
+          { ...device('speaker-id'), name: 'Living Room' },
+        ],
+      },
+      {
+        read: async () => ({
+          spotifyClientId: null,
+          defaultDevice: 'living room',
+          watchAfterPlay: false,
+          refreshIntervalMs: 1_000,
+        }),
+      },
+    );
+
+    await service.resume();
+
+    expect(api.put).toHaveBeenNthCalledWith(2, '/me/player/play', {
+      query: { device_id: 'speaker-id' },
+    });
+  });
+
+  it('prefers an active device over the configured default device', async () => {
+    const api = createApi();
+    vi.mocked(api.put)
+      .mockRejectedValueOnce(new NoActiveDeviceError())
+      .mockResolvedValueOnce(undefined);
+    const service = new PlayerService(
+      api,
+      {
+        getControllableDevices: async () => [
+          device('active-id', true),
+          { ...device('default-id'), name: 'Living Room' },
+        ],
+      },
+      {
+        read: async () => ({
+          spotifyClientId: null,
+          defaultDevice: 'Living Room',
+          watchAfterPlay: false,
+          refreshIntervalMs: 1_000,
+        }),
+      },
+    );
+
+    await service.resume();
+
+    expect(api.put).toHaveBeenNthCalledWith(2, '/me/player/play', {
+      query: { device_id: 'active-id' },
+    });
+  });
+
   it('retries resume without inventing a body and merges existing query parameters', async () => {
     const api = createApi();
     vi.mocked(api.put)

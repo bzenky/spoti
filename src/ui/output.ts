@@ -77,6 +77,12 @@ export function createOutputStyles(
 }
 
 
+export function formatPlaybackShort(playback: CurrentPlayback): string {
+  const indicator = playback.isPlaying ? '▶' : '⏸';
+  const artists = playback.track.artists.map(sanitizeOneLineText).join(', ');
+  return `${indicator} ${artists} — ${sanitizeOneLineText(playback.track.name)}`;
+}
+
 export function formatPlayback(
   playback: CurrentPlayback,
   styles: OutputStyles = plainOutputStyles,

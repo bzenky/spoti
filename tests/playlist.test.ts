@@ -199,6 +199,34 @@ describe('PlaylistService', () => {
     });
   });
 
+  it('adds items through the current non-deprecated playlist items endpoint', async () => {
+    const api = createApi();
+    const signal = new AbortController().signal;
+
+    await new PlaylistService(api).addItems('playlist/id', [' spotify:track:track-id '], signal);
+
+    expect(api.post).toHaveBeenCalledWith('/playlists/playlist%2Fid/items', {
+      body: { uris: ['spotify:track:track-id'] },
+      signal,
+    });
+  });
+
+  it('rejects invalid playlist additions before making a request', async () => {
+    const api = createApi();
+    const service = new PlaylistService(api);
+
+    await expect(service.addItems('', ['spotify:track:1'])).rejects.toThrow(
+      'playlist ID is required',
+    );
+    await expect(service.addItems('playlist', [])).rejects.toThrow(
+      'At least one Spotify item URI is required',
+    );
+    await expect(
+      service.addItems('playlist', Array.from({ length: 101 }, (_, index) => `spotify:track:${index}`)),
+    ).rejects.toThrow('at most 100');
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
   it('returns no playlist-item token for a terminal raw page', async () => {
     const api = createApi();
     vi.mocked(api.get).mockResolvedValue(

@@ -16,6 +16,11 @@ import {
 } from './library-screen.js';
 import { LyricsScreen, type TuiLyrics } from './lyrics-screen.js';
 import { getNavigationScreen, type TuiScreen } from './navigation.js';
+import {
+  PlaylistPickerScreen,
+  type PlaylistPickerSessionCache,
+  type TuiPlaylistPicker,
+} from './playlist-picker-screen.js';
 import { QueueScreen, type TuiQueue } from './queue-screen.js';
 import { HelpScreen, NavigationBar } from './screens.js';
 import {
@@ -46,7 +51,7 @@ export interface TuiAppProps {
   search: TuiSearch;
   queue: TuiQueue;
   device: TuiDevice;
-  playlists: TuiPlaylistLibrary;
+  playlists: TuiPlaylistLibrary & TuiPlaylistPicker;
   library: TuiLikedLibrary;
   recent: TuiRecentLibrary;
   lyrics: TuiLyrics;
@@ -77,6 +82,7 @@ export function TuiApp({
   const [hasLoadedPlayback, setHasLoadedPlayback] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [action, setAction] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
   const [observedAt, setObservedAt] = useState(Date.now());
   const [clock, setClock] = useState(Date.now());
   const actionInProgress = useRef(false);
@@ -87,6 +93,7 @@ export function TuiApp({
   const previousActiveScreen = useRef<TuiScreen | null>(null);
   const searchCache = useRef<SearchSessionCache>(new Map());
   const libraryCache = useRef<LibrarySessionCache>(new Map());
+  const playlistPickerCache = useRef<PlaylistPickerSessionCache>({ pages: [], index: 0 });
 
   const cancelRefresh = useCallback(() => {
     const controller = refreshRequest.current;
@@ -228,6 +235,16 @@ export function TuiApp({
     }
     if (activeScreen !== 'player') return;
 
+    if (input === 'a') {
+      setError(null);
+      setConfirmation(null);
+      if (!playback) {
+        setError('Nothing is currently playing to add.');
+      } else {
+        setActiveScreen('add-to-playlist');
+      }
+      return;
+    }
     if (input === ' ') {
       const operation = playback?.isPlaying ? () => player.pause() : () => player.resume();
       void runPlayerAction(
@@ -358,7 +375,27 @@ export function TuiApp({
                 <Text color="red">{error}</Text>
               </Box>
             ) : null}
+            {confirmation ? (
+              <Box marginTop={1}>
+                <Text color="green">{confirmation}</Text>
+              </Box>
+            ) : null}
           </>
+        ) : activeScreen === 'add-to-playlist' && playback ? (
+          <PlaylistPickerScreen
+            playlists={playlists}
+            track={playback.track}
+            sessionCache={playlistPickerCache.current}
+            availableRows={Math.max(1, rows - 8)}
+            onAdded={(playlist) => {
+              setConfirmation(
+                `Added ${sanitizeOneLineText(playback.track.name)} to ${sanitizeOneLineText(playlist.name)}.`,
+              );
+              setActiveScreen('player');
+            }}
+            onBack={() => setActiveScreen('player')}
+            onExit={exit}
+          />
         ) : activeScreen === 'lyrics' ? (
           <LyricsScreen
             lyrics={lyrics}
@@ -411,13 +448,15 @@ export function TuiApp({
         <Text dimColor>
           {activeScreen === 'player'
             ? rows < 16
-              ? '[space] [y] Lyrics [?] Help [x] Exit'
-              : '[space] Play/Pause  [n/p] Track  [←/→] Seek  [-/+] Volume  [s] Shuffle  [r] Repeat  [Ctrl+R] Refresh  [y] Lyrics  [?] Help  [x/Esc] Exit'
+              ? '[space] [a] Add [y] Lyrics [?] [x]'
+              : '[space] Play/Pause  [n/p] Track  [←/→] Seek  [-/+] Volume  [s] Shuffle  [r] Repeat  [a] Add  [Ctrl+R] Refresh  [y] Lyrics  [?] Help  [x/Esc] Exit'
             : activeScreen === 'help'
               ? '[Esc] Back to Player  [x] Exit'
               : activeScreen === 'lyrics'
                 ? '[↑/↓] Scroll  [f] Follow  [Esc] Back  [Ctrl+X] Exit'
-                : '[Esc] Back  [Ctrl+X] Exit'}
+                : activeScreen === 'add-to-playlist'
+                  ? '[↑/↓] Select  [Enter] Add  [n/p] Page  [Esc] Cancel  [Ctrl+X] Exit'
+                  : '[Esc] Back  [Ctrl+X] Exit'}
         </Text>
       </Box>
     </Box>

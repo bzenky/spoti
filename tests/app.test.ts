@@ -98,6 +98,7 @@ function dependencies() {
       getPlaylistByNumber: vi.fn(),
       getPlaylist: vi.fn(),
       getPlaylistItemsPage: vi.fn(),
+      addItems: vi.fn(),
     } as unknown as PlaylistService,
     library: {
       getLikedTracks: vi.fn(),
@@ -147,6 +148,7 @@ function dependencies() {
     progress: vi.fn(async (_label: string, task: () => Promise<unknown>) => task()) as ProgressRunner,
     watchPlayback: vi.fn() as PlaybackWatcher,
     startTui: vi.fn().mockResolvedValue(undefined),
+    openExternal: vi.fn().mockResolvedValue(undefined),
     isInteractive: false,
   };
 }
@@ -204,7 +206,7 @@ describe('CLI application', () => {
     const deps = dependencies();
     await run(['config'], deps);
     expect(deps.messages).toEqual([
-      'spotifyClientId: null\nwatchAfterPlay: false\nrefreshIntervalMs: 1000',
+      'spotifyClientId: null\ndefaultDevice: null\nwatchAfterPlay: false\nrefreshIntervalMs: 1000',
     ]);
 
     await run(['config', 'set', 'watchAfterPlay', 'true'], deps);
@@ -221,6 +223,7 @@ describe('CLI application', () => {
     const deps = dependencies();
     vi.mocked(deps.config.read).mockResolvedValue({
       spotifyClientId: null,
+      defaultDevice: null,
       watchAfterPlay: true,
       refreshIntervalMs: 2_000,
     });
@@ -238,6 +241,7 @@ describe('CLI application', () => {
     const deps = dependencies();
     vi.mocked(deps.config.read).mockResolvedValue({
       spotifyClientId: null,
+      defaultDevice: null,
       watchAfterPlay: true,
       refreshIntervalMs: 1_000,
     });
@@ -253,6 +257,7 @@ describe('CLI application', () => {
     const deps = dependencies();
     vi.mocked(deps.config.read).mockResolvedValue({
       spotifyClientId: null,
+      defaultDevice: null,
       watchAfterPlay: false,
       refreshIntervalMs: 3_000,
     });
@@ -263,6 +268,44 @@ describe('CLI application', () => {
       player: deps.player,
       refreshIntervalMs: 3_000,
     });
+  });
+
+  it('prints compact playback and rejects combining it with watch mode', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue({
+      isPlaying: true,
+      progressMs: 1_000,
+      track,
+    });
+
+    await run(['now', '--short'], deps);
+
+    expect(deps.messages).toContain('▶ Linkin Park — Numb');
+    await expect(run(['now', '--short', '--watch'], deps)).rejects.toThrow(
+      '--watch and --short cannot be used together.',
+    );
+  });
+
+  it('opens the current track in Spotify', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue({
+      isPlaying: true,
+      progressMs: 1_000,
+      track: { ...track, externalUrl: 'https://open.spotify.com/track/1' },
+    });
+
+    await run(['open'], deps);
+
+    expect(deps.openExternal).toHaveBeenCalledWith('https://open.spotify.com/track/1');
+    expect(deps.messages).toContain('✓ Opened Numb in Spotify');
+  });
+
+  it('reports when there is no current track to open', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue(null);
+
+    await expect(run(['open'], deps)).rejects.toThrow('Nothing is currently playing');
+    expect(deps.openExternal).not.toHaveBeenCalled();
   });
 
   it('shows LRCLIB lyrics for the current track', async () => {
@@ -320,11 +363,32 @@ describe('CLI application', () => {
     await run(['devices'], deps);
     expect(deps.messages).toContain('1. Laptop · Computer · active · 50%');
 
-    await run(['device', 'Laptop'], deps);
+    await run(['device', 'Laptop', '--default'], deps);
     await run(['device', '1'], deps);
     expect(deps.device.findDevice).toHaveBeenNthCalledWith(1, 'Laptop');
     expect(deps.device.findDevice).toHaveBeenNthCalledWith(2, '1');
     expect(deps.device.transferPlayback).toHaveBeenCalledWith('device-id');
+    expect(deps.config.set).toHaveBeenCalledWith('defaultDevice', 'Laptop');
+    expect(deps.messages).toContain('✓ Active device: Laptop · saved as default');
+  });
+
+  it('stores a device ID as the default when selection used a numeric position', async () => {
+    const deps = dependencies();
+    const device = {
+      id: 'device-id',
+      name: 'Living Room',
+      type: 'Speaker',
+      isActive: false,
+      isPrivateSession: false,
+      isRestricted: false,
+      volumePercent: 50,
+      supportsVolume: true,
+    };
+    vi.mocked(deps.device.findDevice).mockResolvedValue(device);
+
+    await run(['device', '1', '--default'], deps);
+
+    expect(deps.config.set).toHaveBeenCalledWith('defaultDevice', 'device-id');
   });
 
   it('seeks to absolute and relative positions', async () => {
@@ -599,6 +663,63 @@ describe('CLI application', () => {
     expect(deps.playlist.listPlaylists).toHaveBeenCalledWith(50);
     expect(deps.player.playContext).toHaveBeenCalledWith(playlist.uri);
     expect(deps.messages.join('\n')).toContain('Workout — Bruno · 1 item');
+  });
+
+  it('adds the current track to a selected playlist', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue({
+      isPlaying: true,
+      progressMs: 1_000,
+      track,
+    });
+    vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue(playlist);
+
+    await run(['add', '1'], deps);
+
+    expect(deps.playlist.addItems).toHaveBeenCalledWith(playlist.id, [track.uri]);
+    expect(deps.messages).toContain('✓ Added Numb — Linkin Park to Workout');
+  });
+
+  it('continues paginated name lookup beyond the first 50 playlists', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue({
+      isPlaying: true,
+      progressMs: 1_000,
+      track,
+    });
+    vi.mocked(deps.playlist.listPlaylistsPage)
+      .mockResolvedValueOnce({ items: [], nextToken: { offset: 50 }, total: 51 })
+      .mockResolvedValueOnce({ items: [playlist], nextToken: null, total: 51 });
+
+    await run(['add', 'Workout', '--first'], deps);
+
+    expect(deps.playlist.listPlaylistsPage).toHaveBeenNthCalledWith(1, undefined, 50);
+    expect(deps.playlist.listPlaylistsPage).toHaveBeenNthCalledWith(2, { offset: 50 }, 50);
+    expect(deps.playlist.addItems).toHaveBeenCalledWith(playlist.id, [track.uri]);
+  });
+
+  it('requires a playlist outside a TTY and supports interactive paginated selection', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue({
+      isPlaying: true,
+      progressMs: 1_000,
+      track,
+    });
+
+    await expect(run(['add'], deps)).rejects.toThrow(
+      'A playlist number or name is required outside an interactive terminal.',
+    );
+
+    deps.isInteractive = true;
+    vi.mocked(deps.playlist.listPlaylistsPage).mockResolvedValue({
+      items: [playlist],
+      nextToken: null,
+      total: 1,
+    });
+    deps.choosePageAction.mockResolvedValue({ type: 'select', index: 0 });
+    await run(['add'], deps);
+
+    expect(deps.playlist.addItems).toHaveBeenCalledWith(playlist.id, [track.uri]);
   });
 
   it('plays a playlist selected from the paginated playlist list', async () => {

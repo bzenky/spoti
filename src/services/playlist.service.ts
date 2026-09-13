@@ -1,4 +1,5 @@
 import type { SpotifyApi } from '../spotify/client.js';
+import { AppError } from '../utils/errors.js';
 import type {
   SpotifyPaging,
   SpotifyPlaylist,
@@ -54,6 +55,21 @@ export class PlaylistService {
 
   async getPlaylistItems(id: string, limit = DEFAULT_ITEM_LIMIT): Promise<Track[]> {
     return (await this.getPlaylistItemsPage(id, undefined, limit)).items;
+  }
+
+  async addItems(id: string, uris: string[], signal?: AbortSignal): Promise<void> {
+    const playlistId = id.trim();
+    const items = uris.map((uri) => uri.trim()).filter(Boolean);
+    if (!playlistId) throw new AppError('A Spotify playlist ID is required.');
+    if (items.length === 0) throw new AppError('At least one Spotify item URI is required.');
+    if (items.length > 100) {
+      throw new AppError('Spotify accepts at most 100 playlist items per request.');
+    }
+
+    await this.spotify.post<void>(`/playlists/${encodeURIComponent(playlistId)}/items`, {
+      body: { uris: items },
+      ...(signal === undefined ? {} : { signal }),
+    });
   }
 
   async getPlaylistItemsPage(

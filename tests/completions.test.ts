@@ -13,6 +13,7 @@ const commands = [
   'config',
   'interactive',
   'now',
+  'open',
   'pause',
   'resume',
   'next',
@@ -27,6 +28,7 @@ const commands = [
   'album',
   'artist',
   'playlists',
+  'add',
   'playlist',
   'liked',
   'like',
@@ -76,19 +78,19 @@ describe('generateCompletionScript', () => {
       'bash',
       '# bash completion for spoti',
       'complete -F _spoti_completion spoti',
-      ['--help', '--version', '--first', '--watch', '--no-watch', '--limit', '--check'],
+      ['--help', '--version', '--first', '--watch', '--no-watch', '--limit', '--check', '--short', '--default'],
     ],
     [
       'zsh',
       '#compdef spoti',
       `_spoti "$@"`,
-      ['--help', '--version', '--first', '--watch', '--no-watch', '--limit', '--check'],
+      ['--help', '--version', '--first', '--watch', '--no-watch', '--limit', '--check', '--short', '--default'],
     ],
     [
       'fish',
       '# fish completion for spoti',
       'complete -c spoti',
-      ['-l help', '-l version', '-l first', '-l watch', '-l no-watch', '-l limit', '-l check'],
+      ['-l help', '-l version', '-l first', '-l watch', '-l no-watch', '-l limit', '-l check', '-l short', '-l default'],
     ],
   ] as const)(
     'generates a self-contained %s script',
@@ -110,7 +112,7 @@ describe('generateCompletionScript', () => {
     for (const shell of ['bash', 'zsh', 'fish'] satisfies CompletionShell[]) {
       const script = generateCompletionScript(shell);
 
-      expectWords(script, ['spotifyClientId', 'watchAfterPlay', 'refreshIntervalMs']);
+      expectWords(script, ['spotifyClientId', 'defaultDevice', 'watchAfterPlay', 'refreshIntervalMs']);
       expectWords(script, ['on', 'off', 'track', 'context']);
       expectWords(script, ['bash', 'zsh', 'fish']);
       expect(script).not.toContain('--json');

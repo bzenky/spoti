@@ -90,8 +90,8 @@
           <article class="feature-card">
             <div class="feature-icon" aria-hidden="true">$</div>
             <h3>Composable CLI</h3>
-            <p>Control playback, inspect state, search Spotify, transfer devices, and manage your library one command at a time.</p>
-            <code>spoti now --watch</code>
+            <p>Control playback, inspect state, search Spotify, transfer devices, organize playlists, and manage your library one command at a time.</p>
+            <code>spoti now --short</code>
           </article>
           <article class="feature-card">
             <div class="feature-icon" aria-hidden="true">♪</div>
@@ -111,7 +111,9 @@
 <span>$</span> spoti seek +30
 <span>$</span> spoti volume 50
 <span>$</span> spoti queue "Faint" --first
-<span>$</span> spoti device "My Computer"
+<span>$</span> spoti add "Workout" --first
+<span>$</span> spoti device "My Computer" --default
+<span>$</span> spoti open
 <span>$</span> spoti lyrics Numb Linkin Park
 <span>$</span> spoti liked --limit 10</code></pre>
           </div>

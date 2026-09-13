@@ -18,6 +18,7 @@ import {
   formatArtistDetail,
   formatLyrics,
   formatPlayback,
+  formatPlaybackShort,
   formatPlaylist,
   formatPlaylistDetail,
   formatPlaylistOverview,
@@ -219,6 +220,7 @@ describe('plain output compatibility', () => {
     expect(formatRecentlyPlayed({ track, playedAt: '2026-01-02' })).toBe(
       'Midnight City — M83, Guest · Hurry Up, We’re Dreaming · played 2026-01-02',
     );
+    expect(formatPlaybackShort(playback)).toBe('▶ M83, Guest — Midnight City');
     expect(formatPlayback(playback)).toBe(
       [
         '▶ Midnight City',

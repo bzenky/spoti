@@ -16,6 +16,7 @@ const spotifyClientIdSchema = z
 
 const configSchema = z.strictObject({
   spotifyClientId: spotifyClientIdSchema.nullable().default(null),
+  defaultDevice: z.string().trim().min(1).max(256).nullable().default(null),
   watchAfterPlay: z.boolean().default(false),
   refreshIntervalMs: z.number().int().min(1_000).max(30_000).default(1_000),
 });
@@ -24,6 +25,7 @@ export type AppConfig = z.infer<typeof configSchema>;
 
 export const CONFIG_KEYS = [
   'spotifyClientId',
+  'defaultDevice',
   'watchAfterPlay',
   'refreshIntervalMs',
 ] as const;
@@ -142,6 +144,14 @@ export function parseConfigValue<Key extends ConfigKey>(
     if (clientId.success) return clientId.data as AppConfig[Key];
     throw new ConfigurationError(
       'Invalid Spotify client ID: expected a non-empty alphanumeric value.',
+    );
+  }
+
+  if (key === 'defaultDevice') {
+    const device = z.string().trim().min(1).max(256).safeParse(value);
+    if (device.success) return device.data as AppConfig[Key];
+    throw new ConfigurationError(
+      'Invalid default device: expected a non-empty device name or ID.',
     );
   }
 

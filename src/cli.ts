@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import open from 'open';
+
 import { createProgram } from './app.js';
 import { AuthService } from './services/auth.service.js';
 import { CatalogService } from './services/catalog.service.js';
@@ -26,8 +28,9 @@ import { VERSION } from './version.js';
 
 const auth = new AuthService();
 const spotify = new SpotifyClient(auth);
+const config = new FileConfigStore();
 const device = new DeviceService(spotify);
-const player = new PlayerService(spotify, device);
+const player = new PlayerService(spotify, device, config);
 const search = new SearchService(spotify);
 const playlist = new PlaylistService(spotify);
 const library = new LibraryService(spotify);
@@ -48,8 +51,9 @@ const program = createProgram({
   recent,
   search,
   update,
-  config: new FileConfigStore(),
+  config,
   output: consoleOutput,
+  openExternal: open,
   styles: createOutputStyles(Boolean(process.stdout.isTTY), process.env),
   startTui: async () => {
     if ('NO_COLOR' in process.env) process.env.FORCE_COLOR = '0';

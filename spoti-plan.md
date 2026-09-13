@@ -1214,6 +1214,19 @@ At this point the MVP is complete.
 
 ---
 
+## Phase 13 — v0.10 final feature pass
+
+- [x] Add the current track to an existing playlist from the CLI and TUI
+- [x] Use the non-deprecated `/playlists/{playlist_id}/items` endpoint
+- [x] Request only the public/private playlist-modification scopes required by that workflow
+- [x] Add a configurable default playback device while preferring an active device
+- [x] Add `spoti open` for the current track
+- [x] Add compact `spoti now --short` output
+- [x] Update static shell completions and user documentation
+- [ ] Complete normal-use testing and fix regressions before release preparation
+
+---
+
 # 26. MVP Definition
 
 Do not expand the scope until all of these work:

@@ -1,5 +1,6 @@
 import type { RequestOptions, SpotifyApi } from '../spotify/client.js';
 import type { SpotifyPlaybackState } from '../spotify/types.js';
+import type { ConfigStore } from '../storage/config.js';
 import { AppError, NoActiveDeviceError } from '../utils/errors.js';
 import type { DeviceService } from './device.service.js';
 import { mapPlaybackItem } from './mappers.js';
@@ -9,6 +10,7 @@ export class PlayerService {
   constructor(
     private readonly spotify: SpotifyApi,
     private readonly deviceService?: Pick<DeviceService, 'getControllableDevices'>,
+    private readonly config?: Pick<ConfigStore, 'read'>,
   ) {}
 
   async getCurrentPlayback(signal?: AbortSignal): Promise<CurrentPlayback | null> {
@@ -77,7 +79,7 @@ export class PlayerService {
   }
 
   async pause(): Promise<void> {
-    await this.spotify.put<void>('/me/player/pause');
+    await this.putWithDeviceFallback('/me/player/pause');
   }
 
   async resume(): Promise<void> {
@@ -85,11 +87,11 @@ export class PlayerService {
   }
 
   async next(): Promise<void> {
-    await this.spotify.post<void>('/me/player/next');
+    await this.postWithDeviceFallback('/me/player/next');
   }
 
   async previous(): Promise<void> {
-    await this.spotify.post<void>('/me/player/previous');
+    await this.postWithDeviceFallback('/me/player/previous');
   }
 
   async getVolume(): Promise<number> {
@@ -103,7 +105,7 @@ export class PlayerService {
 
   async setVolume(volumePercent: number): Promise<number> {
     const volume = clampVolume(volumePercent);
-    await this.spotify.put<void>('/me/player/volume', {
+    await this.putWithDeviceFallback('/me/player/volume', {
       query: { volume_percent: volume },
     });
     return volume;
@@ -115,7 +117,7 @@ export class PlayerService {
 
   async seek(positionMs: number): Promise<number> {
     const position = Math.max(0, Math.round(positionMs));
-    await this.spotify.put<void>('/me/player/seek', {
+    await this.putWithDeviceFallback('/me/player/seek', {
       query: { position_ms: position },
     });
     return position;
@@ -133,8 +135,28 @@ export class PlayerService {
     path: string,
     options?: RequestOptions,
   ): Promise<void> {
+    await this.requestWithDeviceFallback(
+      (requestOptions) => this.spotify.put<void>(path, requestOptions),
+      options,
+    );
+  }
+
+  private async postWithDeviceFallback(
+    path: string,
+    options?: RequestOptions,
+  ): Promise<void> {
+    await this.requestWithDeviceFallback(
+      (requestOptions) => this.spotify.post<void>(path, requestOptions),
+      options,
+    );
+  }
+
+  private async requestWithDeviceFallback(
+    request: (options?: RequestOptions) => Promise<void>,
+    options?: RequestOptions,
+  ): Promise<void> {
     try {
-      await this.spotify.put<void>(path, options);
+      await request(options);
       return;
     } catch (error) {
       options?.signal?.throwIfAborted();
@@ -147,8 +169,12 @@ export class PlayerService {
         : await this.deviceService.getControllableDevices(options.signal);
     options?.signal?.throwIfAborted();
     const activeDevices = devices.filter((device) => device.isActive);
-    const device =
-      activeDevices.length === 1 ? activeDevices[0] : devices.length === 1 ? devices[0] : undefined;
+    let device = activeDevices.length === 1 ? activeDevices[0] : undefined;
+    if (!device && this.config) {
+      const preference = (await this.config.read()).defaultDevice;
+      if (preference) device = findPreferredDevice(devices, preference);
+    }
+    device ??= devices.length === 1 ? devices[0] : undefined;
     if (!device?.id) {
       if (devices.length > 1) {
         throw new AppError(
@@ -158,11 +184,24 @@ export class PlayerService {
       throw new NoActiveDeviceError();
     }
 
-    await this.spotify.put<void>(path, {
+    await request({
       ...options,
       query: { ...options?.query, device_id: device.id },
     });
   }
+}
+
+function findPreferredDevice(
+  devices: Awaited<ReturnType<DeviceService['getControllableDevices']>>,
+  preference: string,
+) {
+  const normalized = preference.trim().toLocaleLowerCase();
+  const idMatch = devices.find((device) => device.id?.toLocaleLowerCase() === normalized);
+  if (idMatch) return idMatch;
+  const nameMatches = devices.filter(
+    (device) => device.name.toLocaleLowerCase() === normalized,
+  );
+  return nameMatches.length === 1 ? nameMatches[0] : undefined;
 }
 
 function isRepeatMode(value: string): value is RepeatMode {

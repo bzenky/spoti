@@ -1,4 +1,12 @@
-export type TuiScreen = 'player' | 'lyrics' | 'search' | 'queue' | 'devices' | 'library' | 'help';
+export type TuiScreen =
+  | 'player'
+  | 'lyrics'
+  | 'search'
+  | 'queue'
+  | 'devices'
+  | 'library'
+  | 'add-to-playlist'
+  | 'help';
 
 export interface NavigationItem {
   screen: TuiScreen;
@@ -28,6 +36,7 @@ export const PLAYER_SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: '- / +', description: 'Lower or raise volume by 5%' },
   { keys: 's', description: 'Toggle shuffle' },
   { keys: 'r', description: 'Cycle repeat off, track, and context' },
+  { keys: 'a', description: 'Add the current track to a playlist' },
   { keys: 'Ctrl+R', description: 'Refresh playback' },
 ];
 

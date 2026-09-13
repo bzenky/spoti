@@ -6,7 +6,7 @@ _spoti_completion() {
   cur="\${COMP_WORDS[COMP_CWORD]}"
   command="\${COMP_WORDS[1]}"
 
-  local commands="setup login logout status config interactive now lyrics pause resume next previous devices device seek volume queue shuffle repeat album artist playlists playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art"
+  local commands="setup login logout status config interactive now open lyrics pause resume next previous devices device seek volume queue shuffle repeat album artist playlists add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art"
   local global_options="-h --help -V --version"
 
   if (( COMP_CWORD == 1 )); then
@@ -19,7 +19,7 @@ _spoti_completion() {
       if (( COMP_CWORD == 2 )); then
         COMPREPLY=( $(compgen -W "get set reset path unset -h --help" -- "$cur") )
       elif (( COMP_CWORD == 3 )) && [[ "\${COMP_WORDS[2]}" == get || "\${COMP_WORDS[2]}" == set || "\${COMP_WORDS[2]}" == unset ]]; then
-        COMPREPLY=( $(compgen -W "spotifyClientId watchAfterPlay refreshIntervalMs" -- "$cur") )
+        COMPREPLY=( $(compgen -W "spotifyClientId defaultDevice watchAfterPlay refreshIntervalMs" -- "$cur") )
       elif (( COMP_CWORD == 4 )) && [[ "\${COMP_WORDS[2]}" == set && "\${COMP_WORDS[3]}" == watchAfterPlay ]]; then
         COMPREPLY=( $(compgen -W "true false" -- "$cur") )
       fi
@@ -28,13 +28,16 @@ _spoti_completion() {
       COMPREPLY=( $(compgen -W "bash zsh fish -h --help" -- "$cur") )
       ;;
     now|np)
-      COMPREPLY=( $(compgen -W "-w --watch -h --help" -- "$cur") )
+      COMPREPLY=( $(compgen -W "-w --watch --short -h --help" -- "$cur") )
       ;;
-    queue|q|album|alb|artist|art|playlist|pl|lyrics|ly)
+    queue|q|album|alb|artist|art|playlist|pl|lyrics|ly|add)
       COMPREPLY=( $(compgen -W "--first -h --help" -- "$cur") )
       ;;
     playlists|pls|liked|recent|rec|search|s)
       COMPREPLY=( $(compgen -W "-l --limit -h --help" -- "$cur") )
+      ;;
+    device|dev)
+      COMPREPLY=( $(compgen -W "--default -h --help" -- "$cur") )
       ;;
     update)
       COMPREPLY=( $(compgen -W "--check -h --help" -- "$cur") )
@@ -71,6 +74,7 @@ _spoti() {
     'config:view and update spoti configuration'
     'interactive:open the interactive spoti TUI'
     'now:show the current Spotify playback'
+    'open:open the current track in Spotify'
     'lyrics:show lyrics for the current track or a searched track'
     'pause:pause playback'
     'resume:resume playback'
@@ -89,6 +93,7 @@ _spoti() {
     'artist:search for and show an artist'
     'art:alias for artist'
     'playlists:browse and optionally play your Spotify playlists'
+    'add:add the current track to a playlist'
     'playlist:show one of your Spotify playlists'
     'liked:browse and optionally play your liked tracks'
     'like:add the current track to your Spotify library'
@@ -141,16 +146,16 @@ _spoti() {
           if (( CURRENT == 3 )); then
             _describe 'config command' config_commands
           elif [[ "$words[3]" == get || "$words[3]" == set || "$words[3]" == unset ]]; then
-            _values 'configuration key' spotifyClientId watchAfterPlay refreshIntervalMs
+            _values 'configuration key' spotifyClientId defaultDevice watchAfterPlay refreshIntervalMs
           fi
           ;;
         completion)
           _values 'shell' bash zsh fish
           ;;
         now|np)
-          _arguments '(-w --watch)'{-w,--watch}'[continuously refresh playback information]'
+          _arguments '(-w --watch)'{-w,--watch}'[continuously refresh playback information]' '--short[print one compact line]'
           ;;
-        queue|q|album|alb|artist|art|playlist|pl|lyrics|ly)
+        queue|q|album|alb|artist|art|playlist|pl|lyrics|ly|add)
           _arguments '--first[select the first result without prompting]' '*:query:'
           ;;
         playlists|pls|liked|recent|rec)
@@ -158,6 +163,9 @@ _spoti() {
           ;;
         search|s)
           _arguments '(-l --limit)'{-l,--limit}'[maximum number of results]:number:' '*:query:'
+          ;;
+        device|dev)
+          _arguments '--default[save this device as the playback fallback]' '*:device:'
           ;;
         update)
           _arguments '--check[check without installing]'
@@ -185,7 +193,7 @@ complete -c spoti -s h -l help -d 'Display help'
 complete -c spoti -s V -l version -d 'Display version'
 
 function __spoti_needs_command
-  not __fish_seen_subcommand_from setup login logout status config interactive now lyrics pause resume next previous devices device seek volume queue shuffle repeat album artist playlists playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art
+  not __fish_seen_subcommand_from setup login logout status config interactive now open lyrics pause resume next previous devices device seek volume queue shuffle repeat album artist playlists add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art
 end
 complete -c spoti -n __spoti_needs_command -a setup -d 'Save your Spotify application client ID'
 complete -c spoti -n __spoti_needs_command -a login -d 'Log in to Spotify'
@@ -194,6 +202,7 @@ complete -c spoti -n __spoti_needs_command -a status -d 'Show authentication sta
 complete -c spoti -n __spoti_needs_command -a config -d 'View and update configuration'
 complete -c spoti -n __spoti_needs_command -a interactive -d 'Open the interactive spoti TUI'
 complete -c spoti -n __spoti_needs_command -a now -d 'Show current playback'
+complete -c spoti -n __spoti_needs_command -a open -d 'Open the current track in Spotify'
 complete -c spoti -n __spoti_needs_command -a lyrics -d 'Show lyrics for the current or a searched track'
 complete -c spoti -n __spoti_needs_command -a pause -d 'Pause playback'
 complete -c spoti -n __spoti_needs_command -a resume -d 'Resume playback'
@@ -209,6 +218,7 @@ complete -c spoti -n __spoti_needs_command -a repeat -d 'Show or change playback
 complete -c spoti -n __spoti_needs_command -a album -d 'Search for an album'
 complete -c spoti -n __spoti_needs_command -a artist -d 'Search for an artist'
 complete -c spoti -n __spoti_needs_command -a playlists -d 'Browse and optionally play your playlists'
+complete -c spoti -n __spoti_needs_command -a add -d 'Add the current track to a playlist'
 complete -c spoti -n __spoti_needs_command -a playlist -d 'Show a playlist'
 complete -c spoti -n __spoti_needs_command -a liked -d 'Browse and optionally play liked tracks'
 complete -c spoti -n __spoti_needs_command -a like -d 'Like the current track'
@@ -221,12 +231,14 @@ complete -c spoti -n __spoti_needs_command -a completion -d 'Print a shell compl
 complete -c spoti -n __spoti_needs_command -a 'i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art' -d 'Command alias'
 
 complete -c spoti -n '__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from get set reset path unset' -a 'get set reset path unset'
-complete -c spoti -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set unset' -a 'spotifyClientId watchAfterPlay refreshIntervalMs'
+complete -c spoti -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set unset' -a 'spotifyClientId defaultDevice watchAfterPlay refreshIntervalMs'
 complete -c spoti -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'
 complete -c spoti -n '__fish_seen_subcommand_from now np' -s w -l watch -d 'Continuously refresh playback information'
-complete -c spoti -n '__fish_seen_subcommand_from queue q album alb artist art playlist pl' -l first -d 'Select the first result without prompting'
+complete -c spoti -n '__fish_seen_subcommand_from now np' -l short -d 'Print one compact line'
+complete -c spoti -n '__fish_seen_subcommand_from queue q album alb artist art playlist pl add' -l first -d 'Select the first result without prompting'
 complete -c spoti -n '__fish_seen_subcommand_from playlists pls liked recent rec' -s l -l limit -r -d 'Number of items per page'
 complete -c spoti -n '__fish_seen_subcommand_from search s' -s l -l limit -r -d 'Maximum number of results'
+complete -c spoti -n '__fish_seen_subcommand_from device dev' -l default -d 'Save this device as the playback fallback'
 complete -c spoti -n '__fish_seen_subcommand_from update' -l check -d 'Check without installing'
 complete -c spoti -n '__fish_seen_subcommand_from play p' -l first -d 'Play the first result without prompting'
 complete -c spoti -n '__fish_seen_subcommand_from play p' -l watch -d 'Continuously refresh playback information'

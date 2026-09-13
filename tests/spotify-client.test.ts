@@ -374,6 +374,7 @@ describe('SpotifyClient', () => {
       },
       fetcher,
       sleeper,
+      () => 1_000,
     );
 
     const error = await client.get('/search').catch((caught: unknown) => caught);

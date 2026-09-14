@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-09-14
+
+### Fixed
+
+- Start selected tracks through their album context and exact track offset when Spotify silently ignores one-item URI playback requests.
+- Avoid redundant resume requests from bare `spoti play` and `spoti p` when playback is already active.
+
 ## [0.10.0] - 2026-09-13
 
 ### Added

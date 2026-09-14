@@ -34,9 +34,15 @@ export class PlayerService {
     };
   }
 
-  async playTrack(uri: string, signal?: AbortSignal): Promise<void> {
+  async playTrack(
+    uri: string,
+    signal?: AbortSignal,
+    albumUri?: string,
+  ): Promise<void> {
     await this.putWithDeviceFallback('/me/player/play', {
-      body: { uris: [uri] },
+      body: albumUri
+        ? { context_uri: albumUri, offset: { uri } }
+        : { uris: [uri] },
       ...(signal === undefined ? {} : { signal }),
     });
   }

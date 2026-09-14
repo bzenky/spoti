@@ -194,7 +194,11 @@ export function LibraryScreen({
     setError(null);
     setConfirmation(null);
     try {
-      await player.playTrack(selected.track.uri, controller.signal);
+      if (selected.track.albumUri) {
+        await player.playTrack(selected.track.uri, controller.signal, selected.track.albumUri);
+      } else {
+        await player.playTrack(selected.track.uri, controller.signal);
+      }
       if (controller.signal.aborted || version !== requestVersion.current) return;
       setConfirmation(`▶ Playing ${formatTrack(selected.track)}`);
     } catch (caught) {

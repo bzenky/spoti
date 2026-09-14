@@ -34,7 +34,12 @@ const track = {
   name: 'Numb',
   duration_ms: 185_000,
   artists: [{ id: 'artist-id', name: 'Linkin Park' }],
-  album: { name: 'Meteora', images: [] },
+  album: {
+    id: 'album-id',
+    uri: 'spotify:album:album-id',
+    name: 'Meteora',
+    images: [],
+  },
   external_urls: { spotify: 'https://open.spotify.com/track/track-id' },
 };
 
@@ -99,6 +104,23 @@ describe('PlayerService', () => {
     expect(api.put).toHaveBeenNthCalledWith(2, '/me/player/play', {
       body: { uris: [track.uri] },
       query: { device_id: 'device-id' },
+    });
+  });
+
+  it('starts a track from its album context when that context is known', async () => {
+    const api = createApi();
+
+    await new PlayerService(api).playTrack(
+      track.uri,
+      undefined,
+      'spotify:album:album-id',
+    );
+
+    expect(api.put).toHaveBeenCalledWith('/me/player/play', {
+      body: {
+        context_uri: 'spotify:album:album-id',
+        offset: { uri: track.uri },
+      },
     });
   });
 
@@ -486,6 +508,9 @@ describe('SearchService', () => {
     expect(api.get).toHaveBeenCalledWith('/search', {
       query: { q: 'Numb', type: 'track', limit: 5 },
     });
-    expect(results[0]?.uri).toBe(track.uri);
+    expect(results[0]).toMatchObject({
+      uri: track.uri,
+      albumUri: 'spotify:album:album-id',
+    });
   });
 });

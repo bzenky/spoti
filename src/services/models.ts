@@ -10,6 +10,7 @@ export interface Track {
   name: string;
   artists: string[];
   album: string;
+  albumUri?: string;
   durationMs: number;
   externalUrl?: string;
 }

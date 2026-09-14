@@ -471,10 +471,38 @@ describe('CLI application', () => {
     expect(deps.messages).toContain('▶ Playing Numb — Linkin Park');
   });
 
+  it('passes the selected track album context to Spotify playback', async () => {
+    const deps = dependencies();
+    const contextualTrack = { ...track, albumUri: 'spotify:album:album-1' };
+    vi.mocked(deps.search.searchTracks).mockResolvedValue([contextualTrack]);
+
+    await run(['p', 'Numb', '--first'], deps);
+
+    expect(deps.player.playTrack).toHaveBeenCalledWith(
+      contextualTrack.uri,
+      undefined,
+      contextualTrack.albumUri,
+    );
+  });
+
   it('resumes playback when play has no query', async () => {
     const deps = dependencies();
     await run(['play'], deps);
     expect(deps.player.resume).toHaveBeenCalledOnce();
+  });
+
+  it('does not send a redundant resume request when playback is already active', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue({
+      isPlaying: true,
+      progressMs: 10_000,
+      track,
+    });
+
+    await run(['p'], deps);
+
+    expect(deps.player.resume).not.toHaveBeenCalled();
+    expect(deps.messages).toContain('▶ Already playing Numb — Linkin Park');
   });
 
   it('supports command aliases', async () => {

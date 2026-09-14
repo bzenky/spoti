@@ -163,7 +163,11 @@ export function SearchScreen({
     setConfirmation(null);
     try {
       if (selected.category === 'track') {
-        await player.playTrack(selected.item.uri, controller.signal);
+        if (selected.item.albumUri) {
+          await player.playTrack(selected.item.uri, controller.signal, selected.item.albumUri);
+        } else {
+          await player.playTrack(selected.item.uri, controller.signal);
+        }
       } else {
         await player.playContext(selected.item.uri, controller.signal);
       }

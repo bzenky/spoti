@@ -18,15 +18,16 @@ import type {
 
 export function mapTrack(track: SpotifyTrack): Track | null {
   if (!isSpotifyTrack(track) || track.is_local || track.is_playable === false) return null;
-  return mapTrackFields(track, track.album.name);
+  return mapTrackFields(track, track.album.name, track.album.uri);
 }
 
 export function mapSimplifiedTrack(
   track: SpotifySimplifiedTrack,
   albumName: string,
+  albumUri?: string,
 ): Track | null {
   if (!isSpotifyTrack(track) || track.is_local || track.is_playable === false) return null;
-  return mapTrackFields(track, albumName);
+  return mapTrackFields(track, albumName, albumUri);
 }
 
 export function mapPlaybackItem(item: SpotifyPlaybackItem | null): Track | null {
@@ -61,7 +62,7 @@ export function mapAlbumDetail(album: SpotifyAlbum): AlbumDetail {
   return {
     ...base,
     tracks: album.tracks.items
-      .map((track) => mapSimplifiedTrack(track, album.name))
+      .map((track) => mapSimplifiedTrack(track, album.name, album.uri))
       .filter((track): track is Track => track !== null),
   };
 }
@@ -101,7 +102,11 @@ export function normalizeLimit(limit: number, defaultLimit = 20, maximum = 50): 
   return Math.min(maximum, Math.max(1, Math.round(limit)));
 }
 
-function mapTrackFields(track: SpotifySimplifiedTrack, albumName: string): Track {
+function mapTrackFields(
+  track: SpotifySimplifiedTrack,
+  albumName: string,
+  albumUri?: string,
+): Track {
   const externalUrl = track.external_urls?.spotify;
   return {
     id: track.id!,
@@ -109,6 +114,7 @@ function mapTrackFields(track: SpotifySimplifiedTrack, albumName: string): Track
     name: track.name,
     artists: track.artists.map((artist) => artist.name),
     album: albumName,
+    ...(albumUri?.startsWith('spotify:album:') ? { albumUri } : {}),
     durationMs: track.duration_ms,
     ...(externalUrl ? { externalUrl } : {}),
   };

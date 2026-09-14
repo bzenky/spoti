@@ -118,6 +118,10 @@ export function createProgram(dependencies: AppDependencies): Command {
   const styles = dependencies.styles ?? plainOutputStyles;
   const safe = sanitizeOneLineText;
   const safeArtists = (artists: string[]): string => artists.map(safe).join(', ');
+  const playTrack = (track: Pick<Track, 'uri' | 'albumUri'>): Promise<void> =>
+    track.albumUri
+      ? dependencies.player.playTrack(track.uri, undefined, track.albumUri)
+      : dependencies.player.playTrack(track.uri);
   const showProgress = dependencies.progress ?? withProgress;
   const runTask = <Result>(label: string, task: () => Promise<Result>): Promise<Result> =>
     showProgress(label, task);
@@ -159,7 +163,7 @@ export function createProgram(dependencies: AppDependencies): Command {
     if (action === 'play-track') {
       const track = await chooseTrack(detail.tracks);
       if (!track) return 'finished';
-      await dependencies.player.playTrack(track.uri);
+      await playTrack(track);
       dependencies.output.log(`▶ Playing ${safe(track.name)} — ${safeArtists(track.artists)}`);
     }
     return 'finished';
@@ -785,7 +789,7 @@ export function createProgram(dependencies: AppDependencies): Command {
         });
         const track = await browser.select();
         if (!track) return;
-        await dependencies.player.playTrack(track.uri);
+        await playTrack(track);
         dependencies.output.log(
           `▶ Playing ${safe(track.name)} — ${safeArtists(track.artists)}`,
         );
@@ -807,7 +811,7 @@ export function createProgram(dependencies: AppDependencies): Command {
       });
       const selected = await browser.select();
       if (!selected) return;
-      await dependencies.player.playTrack(selected.track.uri);
+      await playTrack(selected.track);
       dependencies.output.log(
         `▶ Playing ${safe(selected.track.name)} — ${safeArtists(selected.track.artists)}`,
       );
@@ -853,7 +857,7 @@ export function createProgram(dependencies: AppDependencies): Command {
       });
       const selected = await browser.select();
       if (!selected) return;
-      await dependencies.player.playTrack(selected.track.uri);
+      await playTrack(selected.track);
       dependencies.output.log(
         `▶ Playing ${safe(selected.track.name)} — ${safeArtists(selected.track.artists)}`,
       );
@@ -931,8 +935,15 @@ export function createProgram(dependencies: AppDependencies): Command {
       if (!query) {
         const config = await dependencies.config.read();
         const shouldWatch = options.watch ?? config.watchAfterPlay;
-        await dependencies.player.resume();
-        dependencies.output.log('▶ Resumed');
+        const playback = await dependencies.player.getCurrentPlayback();
+        if (playback?.isPlaying) {
+          dependencies.output.log(
+            `▶ Already playing ${safe(playback.track.name)} — ${safeArtists(playback.track.artists)}`,
+          );
+        } else {
+          await dependencies.player.resume();
+          dependencies.output.log('▶ Resumed');
+        }
         if (shouldWatch) {
           await startWatching({
             player: dependencies.player,
@@ -961,7 +972,7 @@ export function createProgram(dependencies: AppDependencies): Command {
 
       const config = await dependencies.config.read();
       const shouldWatch = options.watch ?? config.watchAfterPlay;
-      if (selection.type === 'track') await dependencies.player.playTrack(selection.uri);
+      if (selection.type === 'track') await playTrack(selection);
       else await dependencies.player.playContext(selection.uri);
       dependencies.output.log(`▶ Playing ${safe(selection.label)}`);
       if (shouldWatch) {
@@ -999,6 +1010,7 @@ interface PlaybackSelection {
   type: 'track' | SpotifyContextType;
   uri: string;
   label: string;
+  albumUri?: string;
 }
 
 interface SelectPlaybackItemOptions {
@@ -1070,6 +1082,7 @@ async function selectPlaybackItem(
       type: 'track',
       uri: track.uri,
       label: `${sanitizeOneLineText(track.name)} — ${track.artists.map(sanitizeOneLineText).join(', ')}`,
+      ...(track.albumUri ? { albumUri: track.albumUri } : {}),
     };
   }
   return {

@@ -65,7 +65,7 @@ The redirect URI must use HTTPS except for local development, where an explicit 
 
 ## Installation
 
-Once published to npm:
+Install the latest published release from npm:
 
 ```bash
 npm install --global @bzenky/spoti
@@ -429,17 +429,19 @@ npm run build
 
 ## Releases
 
-GitHub Releases are created automatically when a version tag is pushed. The tag must match the version in `package.json`:
+GitHub Releases are created automatically when a version tag is pushed. Maintainers release in this order so npm publication and the GitHub Release cannot drift:
 
-```bash
-npm version patch
-npm run verify
-git push origin main
-git push origin v0.1.1
+```text
+1. Update package.json, package-lock.json, and CHANGELOG.md.
+2. Run npm run verify and npm run smoke:package.
+3. Commit, push main, and wait for cross-platform CI.
+4. Run npm publish --access public and verify the registry version.
+5. Create and push the matching vX.Y.Z tag.
+6. Verify the GitHub Release workflow and attached checksums.
 ```
 
-The release workflow attaches the npm package tarball and a `SHA256SUMS` file, and generates release notes from the Git history. Publishing to npm remains a separate explicit step.
+The tag must exactly match the package version. Never push a release tag before npm publication succeeds. The release workflow independently verifies the project, installs the packed artifact, attaches the npm tarball and a `SHA256SUMS` file, and generates release notes from Git history.
 
 ## Current scope
 
-Version `0.9.0` includes the complete command-driven CLI and Ink TUI, Spotify Connect controls, paginated search and library browsing, secure PKCE authentication, quota-aware request handling, LRCLIB lyrics, update checks, cross-platform CI, and the companion website. Version `0.10.0` adds playlist insertion for the current track, a configurable default playback device, `spoti open`, and compact `spoti now --short` output as the final feature-focused release before `v1.0.0` stabilization.
+The current pre-1.0 feature set includes the complete command-driven CLI and Ink TUI, Spotify Connect controls, paginated search and library browsing, playlist insertion, secure PKCE authentication, quota-aware request handling, LRCLIB lyrics, update checks, shell completions, a configurable default device, compact status output, cross-platform CI, and the companion website. Development toward `v1.0.0` is now focused on stability, packaged-install validation, documentation, and release quality rather than additional features.

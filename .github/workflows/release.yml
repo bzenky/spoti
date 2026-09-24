@@ -35,6 +35,9 @@ jobs:
       - name: Verify project
         run: npm run verify
 
+      - name: Smoke-test packed installation
+        run: npm run smoke:package
+
       - name: Build release package
         run: |
           mkdir release

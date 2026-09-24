@@ -5,7 +5,6 @@ export const LEGACY_SPOTIFY_SCOPES = [
 
 export const SPOTIFY_SCOPES = [
   ...LEGACY_SPOTIFY_SCOPES,
-  'user-read-currently-playing',
   'playlist-read-private',
   'playlist-modify-public',
   'playlist-modify-private',

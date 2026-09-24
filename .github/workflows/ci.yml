@@ -40,3 +40,6 @@ jobs:
 
       - name: Verify
         run: npm run verify
+
+      - name: Smoke-test packed installation
+        run: npm run smoke:package

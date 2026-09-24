@@ -653,7 +653,7 @@ Collect reliability and documentation improvements discovered during daily use.
 
 # 16. Version 1.0
 
-Version `1.0.0` will add a proper interactive TUI using Ink while preserving the existing command-driven CLI.
+Version `1.0.0` stabilizes the command-driven CLI and the Ink TUI introduced in `0.7.0`, with compatibility, packaged-install validation, documentation, and release quality as the remaining focus.
 
 ```text
 spoti <command>      → run a quick command and exit
@@ -663,7 +663,7 @@ spoti interactive    → open the TUI in an interactive terminal
 spoti i              → open the TUI using its short alias
 ```
 
-The `interactive` command replaces the pre-v1 standalone interactive search. Search is available inside the TUI with `/`. When stdin or stdout is not interactive, `spoti interactive` must print command help rather than attempting to start Ink.
+The `interactive` command replaced the earlier standalone interactive search. Search is available inside the TUI with `/`. When stdin or stdout is not interactive, `spoti interactive` must print command help rather than attempting to start Ink.
 
 ## TUI experience
 
@@ -718,7 +718,7 @@ The TUI scope includes:
 
 ## Quota and reliability readiness
 
-Before release:
+Release-readiness requirements:
 
 - distinguish a normal HTTP `429` from Spotify development `QUOTA_EXCEEDED`
 - retain and safely parse Spotify error reasons and messages
@@ -731,9 +731,9 @@ Before release:
 
 ## Companion website
 
-A small static website is useful for discovery and onboarding, but is not a blocker for `1.0.0`. It should be built after the TUI is visually stable so it can include accurate screenshots or a short recording.
+The static companion website provides discovery and onboarding at `spoti.bzenky.dev`. It remains intentionally separate from the npm package and can gain accurate screenshots or a short recording after the stable release.
 
-The first website should remain intentionally small:
+The website remains intentionally small:
 
 - landing page and concise product explanation
 - npm installation and Spotify application setup
@@ -1197,7 +1197,10 @@ At this point the MVP is complete.
 - [x] Audit requests, polling, lazy loading, and session caching
 - [x] Add dedicated quota documentation
 - [x] Validate authentication and token refresh
-- [ ] Validate npm installation and self-update behavior manually on each supported OS
+- [x] Validate npm installation manually on Linux and macOS
+- [x] Smoke-test the packed npm artifact on Linux, macOS, and Windows CI
+- [x] Validate update checks and cross-platform update command construction
+- [ ] Validate a confirmed self-update manually on each supported OS — optional post-v1 follow-up
 - [x] Run the full CLI regression suite
 - [x] Test builds and automated terminal behavior on Linux, macOS, and Windows CI
 - [x] Audit user-facing errors, Spotify attribution, and policy documentation
@@ -1208,7 +1211,7 @@ At this point the MVP is complete.
 
 - [x] Create a static landing and setup site after the TUI design stabilizes
 - [x] Add installation, setup, command, shortcut, and limitations sections
-- [ ] Add an accurate TUI screenshot or recording — the initial site uses a representative terminal mock
+- [ ] Add an accurate TUI screenshot or recording — optional post-v1 website enhancement
 - [x] Link npm, GitHub, issues, releases, privacy information, and attribution
 - [x] Configure Vercel deployment at `spoti.bzenky.dev` without a backend or user tracking
 

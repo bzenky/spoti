@@ -8,11 +8,14 @@ Create a Spotify application in the [Developer Dashboard](https://developer.spot
 http://127.0.0.1:43821/callback
 ```
 
-Set your public application client ID in the environment:
+Save your public application client ID through the normal setup flow:
 
 ```bash
-export SPOTIFY_CLIENT_ID="your-client-id"
+npm run dev -- setup
+npm run dev -- login
 ```
+
+For temporary sessions or CI, `SPOTIFY_CLIENT_ID` remains available as an explicit environment override.
 
 Never commit client IDs, client secrets, access tokens, refresh tokens, authorization codes, or local credential files. `spoti` is a public PKCE client and does not use a client secret.
 
@@ -35,4 +38,5 @@ Before opening a change, run:
 
 ```bash
 npm run verify
+npm run smoke:package
 ```

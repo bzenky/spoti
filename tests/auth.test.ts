@@ -278,9 +278,7 @@ describe('AuthService refresh', () => {
     });
     const service = new AuthService({ credentialStore: store, now: () => 100_000 });
 
-    await expect(service.getAccessToken()).rejects.toThrow(
-      'user-read-currently-playing',
-    );
+    await expect(service.getAccessToken()).rejects.toThrow('playlist-read-private');
   });
 
   it('deduplicates concurrent refresh and preserves an omitted refresh token', async () => {

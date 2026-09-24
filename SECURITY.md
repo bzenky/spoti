@@ -8,8 +8,10 @@ Never include Spotify client secrets, access tokens, refresh tokens, authorizati
 
 ## Supported versions
 
-Until the first stable release, only the latest published `0.x` version receives security fixes.
+Only the latest published version receives security fixes. After `1.0.0`, security fixes target the latest stable `1.x` release unless a newer major version's policy says otherwise.
 
 ## Credential model
 
-`spoti` uses Authorization Code with PKCE and does not use or accept a Spotify client secret. Each user supplies a Spotify application client ID through `SPOTIFY_CLIENT_ID`. Tokens are stored outside the project directory with user-only file permissions.
+`spoti` uses Authorization Code with PKCE and does not use or accept a Spotify client secret. Each user saves a public Spotify application client ID with `spoti setup`; `SPOTIFY_CLIENT_ID` remains available as an explicit environment override.
+
+Tokens are stored outside the project directory. On POSIX systems, the credential directory and file are created with user-only permissions. Run `spoti config path` to locate the adjacent configuration directory on the active platform. Never include the credential file or an npm authentication token in a report.

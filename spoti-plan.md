@@ -1230,6 +1230,18 @@ At this point the MVP is complete.
 
 ---
 
+## Phase 14 — v1 stable release
+
+- [x] Stabilize the documented CLI commands, aliases, configuration, and TUI navigation
+- [x] Complete normal-use testing on Linux and macOS
+- [x] Run source verification on Linux, macOS, and Windows CI
+- [x] Install and exercise the packed npm artifact on Linux, macOS, and Windows CI
+- [x] Audit Spotify scopes, deprecated endpoints, rate limits, and policy documentation
+- [x] Audit package contents, production vulnerabilities, and compatible dependencies
+- [x] Document the stable support policy and npm-before-tag release process
+
+---
+
 # 26. MVP Definition
 
 Do not expand the scope until all of these work:

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-24
+
+### Added
+
+- Cross-platform smoke testing that packs the real npm artifact, installs it into an isolated prefix, and exercises its version, help, completion, and non-interactive TUI behavior on Linux, macOS, and Windows.
+
+### Changed
+
+- Declare the command-driven CLI, Ink TUI, configuration model, and documented command aliases stable for the first major release.
+- Remove the redundant `user-read-currently-playing` OAuth scope because all current playback reads use `/me/player` with `user-read-playback-state`.
+- Update compatible production and development dependencies within their existing version ranges.
+- Align the README, contribution guide, security policy, roadmap, CI, and release workflow with the stable setup and npm-before-tag release process.
+
 ## [0.10.1] - 2026-09-14
 
 ### Fixed

@@ -444,4 +444,4 @@ The tag must exactly match the package version. Never push a release tag before 
 
 ## Current scope
 
-The current pre-1.0 feature set includes the complete command-driven CLI and Ink TUI, Spotify Connect controls, paginated search and library browsing, playlist insertion, secure PKCE authentication, quota-aware request handling, LRCLIB lyrics, update checks, shell completions, a configurable default device, compact status output, cross-platform CI, and the companion website. Development toward `v1.0.0` is now focused on stability, packaged-install validation, documentation, and release quality rather than additional features.
+Version `1.0.0` establishes the command-driven CLI, Ink TUI, configuration model, and documented command aliases as stable. The release includes Spotify Connect controls, paginated search and library browsing, playlist insertion, secure PKCE authentication, quota-aware request handling, LRCLIB lyrics, update checks, shell completions, a configurable default device, compact status output, cross-platform source and packaged-install CI, and the companion website.

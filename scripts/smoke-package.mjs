@@ -12,11 +12,14 @@ const packageJson = JSON.parse(
 const temporaryRoot = await mkdtemp(join(tmpdir(), 'spoti-package-smoke-'));
 const packDirectory = join(temporaryRoot, 'pack');
 const installPrefix = join(temporaryRoot, 'prefix');
-const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const npmCliPath = process.env.npm_execpath;
+if (!npmCliPath) {
+  throw new Error('npm_execpath is required. Run this check through npm run smoke:package.');
+}
 
 try {
   await mkdir(packDirectory);
-  run(npmExecutable, ['pack', '--pack-destination', packDirectory], projectRoot);
+  runNpm(['pack', '--pack-destination', packDirectory], projectRoot);
 
   const archives = (await readdir(packDirectory)).filter((entry) => entry.endsWith('.tgz'));
   if (archives.length !== 1) {
@@ -24,10 +27,9 @@ try {
   }
 
   const archive = join(packDirectory, archives[0]);
-  run(npmExecutable, ['install', '--global', '--prefix', installPrefix, archive], projectRoot);
+  runNpm(['install', '--global', '--prefix', installPrefix, archive], projectRoot);
 
-  const npmRoot = run(
-    npmExecutable,
+  const npmRoot = runNpm(
     ['root', '--global', '--prefix', installPrefix],
     projectRoot,
   ).trim();
@@ -56,6 +58,10 @@ try {
   console.log(`Packed installation smoke test passed for ${packageJson.name}@${version}.`);
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
+}
+
+function runNpm(args, cwd) {
+  return run(process.execPath, [npmCliPath, ...args], cwd);
 }
 
 function run(command, args, cwd) {

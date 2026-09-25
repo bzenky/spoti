@@ -1213,7 +1213,7 @@ At this point the MVP is complete.
 - [x] Add installation, setup, command, shortcut, and limitations sections
 - [ ] Add an accurate TUI screenshot or recording — optional post-v1 website enhancement
 - [x] Link npm, GitHub, issues, releases, privacy information, and attribution
-- [x] Configure Vercel deployment at `spoti.bzenky.dev` without a backend or user tracking
+- [x] Configure Vercel deployment at `spoti.bzenky.dev` without a backend, with a documented Google Analytics integration for anonymous website usage
 
 ---
 

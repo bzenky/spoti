@@ -22,6 +22,7 @@ export interface SearchScreenProps {
   player: SearchPlayer;
   sessionCache?: SearchSessionCache;
   availableRows?: number;
+  onAddToPlaylist?(track: Track): void;
   onBack(): void;
   onExit(): void;
 }
@@ -47,6 +48,7 @@ export function SearchScreen({
   player,
   sessionCache,
   availableRows = 10,
+  onAddToPlaylist,
   onBack,
   onExit,
 }: SearchScreenProps) {
@@ -212,6 +214,13 @@ export function SearchScreen({
       setSelectedIndex((current) => (current + 1) % results.length);
       return;
     }
+    if (input === 'a') {
+      const selected = results?.[selectedIndex];
+      if (selected?.category === 'track' && !loading && !playing) {
+        onAddToPlaylist?.(selected.item);
+        return;
+      }
+    }
     if (key.return) {
       if (results?.length) void playSelected();
       else void runSearch();
@@ -273,7 +282,7 @@ export function SearchScreen({
       {error ? <Text color="red">{error}</Text> : null}
       <Box marginTop={1}>
         <Text dimColor>
-          Type a query · Enter search/play · ↑/↓ select · Tab/←/→ category · Esc back
+          Type a query · Enter search/play · [a] add selected track · ↑/↓ select · Tab/←/→ category · Esc back
         </Text>
       </Box>
     </Box>

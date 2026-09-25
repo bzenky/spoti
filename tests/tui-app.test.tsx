@@ -162,7 +162,7 @@ describe('TuiApp', () => {
     await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
 
     view.stdin.write('a');
-    await vi.waitFor(() => expect(view.lastFrame()).toContain('Add current track to playlist'));
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Add track to playlist'));
     expect(view.lastFrame()).toContain('Workout — Zenky · 3 tracks');
     view.stdin.write('\r');
 
@@ -177,6 +177,49 @@ describe('TuiApp', () => {
       expect(view.lastFrame()).toContain('Added Breaking the Habit to Workout.'),
     );
     expect(view.lastFrame()).toContain('[a] Add');
+    view.unmount();
+  });
+
+  it('adds a track selected in Search to a playlist', async () => {
+    const player = createPlayer();
+    const search = createSearch();
+    const props = createTuiProps(player, search);
+    const playlist = {
+      id: 'playlist-1',
+      uri: 'spotify:playlist:playlist-1',
+      name: 'Workout',
+      description: '',
+      ownerName: 'Zenky',
+      isPublic: false,
+      totalTracks: 3,
+    };
+    vi.mocked(search.searchTracks).mockResolvedValue([playback.track]);
+    vi.mocked(props.playlists.listPlaylistsPage).mockResolvedValue({ items: [playlist], nextToken: null });
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+
+    view.stdin.write('/');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Spotify search'));
+    view.stdin.write('Numb');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Search: Numb'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('› Breaking the Habit'));
+    view.stdin.write('a');
+
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Add track to playlist'));
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout — Zenky · 3 tracks'));
+    view.stdin.write('\r');
+
+    await vi.waitFor(() =>
+      expect(props.playlists.addItems).toHaveBeenCalledWith(
+        playlist.id,
+        [playback.track.uri],
+        expect.any(AbortSignal),
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(view.lastFrame()).toContain('Added Breaking the Habit to Workout.'),
+    );
     view.unmount();
   });
 

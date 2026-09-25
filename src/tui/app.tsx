@@ -1,7 +1,7 @@
 import { Box, Text, useApp, useInput, useWindowSize } from 'ink';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { CurrentPlayback } from '../services/models.js';
+import type { CurrentPlayback, Track } from '../services/models.js';
 import type { PlayerService } from '../services/player.service.js';
 import { DevelopmentQuotaExceededError } from '../utils/errors.js';
 import { sanitizeOneLineText } from '../utils/text.js';
@@ -83,6 +83,8 @@ export function TuiApp({
   const [error, setError] = useState<string | null>(null);
   const [action, setAction] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [playlistPickerTrack, setPlaylistPickerTrack] = useState<Track | null>(null);
+  const [playlistPickerReturnScreen, setPlaylistPickerReturnScreen] = useState<TuiScreen>('player');
   const [observedAt, setObservedAt] = useState(Date.now());
   const [clock, setClock] = useState(Date.now());
   const actionInProgress = useRef(false);
@@ -241,6 +243,8 @@ export function TuiApp({
       if (!playback) {
         setError('Nothing is currently playing to add.');
       } else {
+        setPlaylistPickerTrack(playback.track);
+        setPlaylistPickerReturnScreen('player');
         setActiveScreen('add-to-playlist');
       }
       return;
@@ -381,19 +385,19 @@ export function TuiApp({
               </Box>
             ) : null}
           </>
-        ) : activeScreen === 'add-to-playlist' && playback ? (
+        ) : activeScreen === 'add-to-playlist' && playlistPickerTrack ? (
           <PlaylistPickerScreen
             playlists={playlists}
-            track={playback.track}
+            track={playlistPickerTrack}
             sessionCache={playlistPickerCache.current}
             availableRows={Math.max(1, rows - 8)}
             onAdded={(playlist) => {
               setConfirmation(
-                `Added ${sanitizeOneLineText(playback.track.name)} to ${sanitizeOneLineText(playlist.name)}.`,
+                `Added ${sanitizeOneLineText(playlistPickerTrack.name)} to ${sanitizeOneLineText(playlist.name)}.`,
               );
               setActiveScreen('player');
             }}
-            onBack={() => setActiveScreen('player')}
+            onBack={() => setActiveScreen(playlistPickerReturnScreen)}
             onExit={exit}
           />
         ) : activeScreen === 'lyrics' ? (
@@ -413,6 +417,11 @@ export function TuiApp({
             player={player}
             sessionCache={searchCache.current}
             availableRows={Math.max(1, rows - 8)}
+            onAddToPlaylist={(track) => {
+              setPlaylistPickerTrack(track);
+              setPlaylistPickerReturnScreen('search');
+              setActiveScreen('add-to-playlist');
+            }}
             onBack={() => setActiveScreen('player')}
             onExit={exit}
           />

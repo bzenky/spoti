@@ -24,6 +24,7 @@ export interface PlaylistPickerSessionCache {
 export interface PlaylistPickerScreenProps {
   playlists: TuiPlaylistPicker;
   track: Track;
+  title?: string;
   sessionCache?: PlaylistPickerSessionCache;
   availableRows?: number;
   onAdded(playlist: Playlist): void;
@@ -36,6 +37,7 @@ const PLAYLIST_PAGE_SIZE = 20;
 export function PlaylistPickerScreen({
   playlists,
   track,
+  title = 'Add track to playlist',
   sessionCache,
   availableRows = 10,
   onAdded,
@@ -197,7 +199,7 @@ export function PlaylistPickerScreen({
 
   return (
     <Box flexDirection="column" height="100%" overflow="hidden">
-      <Text bold>Add current track to playlist</Text>
+      <Text bold>{title}</Text>
       <Text dimColor wrap="truncate-end">
         {formatTrack(track)}
       </Text>

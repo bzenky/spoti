@@ -35,7 +35,7 @@
         <div class="hero-copy">
           <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Local-first · open source</p>
           <h1>Your music.<br><span>In your terminal.</span></h1>
-          <p class="lede">A fast, keyboard-driven TUI and CLI for controlling Spotify through Spotify Connect. Search, play, queue, switch devices, browse your library, and follow synced lyrics without leaving the terminal.</p>
+          <p class="lede">A fast, keyboard-driven TUI and CLI for controlling Spotify through Spotify Connect. Search, play, queue, switch devices, manage playlists, browse your library, and follow synced lyrics without leaving the terminal.</p>
           <div class="actions">
             <a class="button button-primary" href="#setup">Get started</a>
             <a class="button button-secondary" href="https://github.com/bzenky/spoti">View on GitHub <span aria-hidden="true">↗</span></a>
@@ -84,7 +84,7 @@
           <article class="feature-card featured">
             <div class="feature-icon" aria-hidden="true">⌨</div>
             <h3>Keyboard-first TUI</h3>
-            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts and direct shortcuts.</p>
+            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts, direct shortcuts, and track-to-playlist actions.</p>
             <code>spoti interactive</code>
           </article>
           <article class="feature-card">
@@ -109,9 +109,11 @@
             <pre class="command-list" aria-label="Example spoti commands"><code><span>$</span> spoti play Fear of the Dark
 <span>$</span> spoti pause
 <span>$</span> spoti seek +30
+<span>$</span> spoti restart
 <span>$</span> spoti volume 50
 <span>$</span> spoti queue "Faint" --first
-<span>$</span> spoti add "Workout" --first
+<span>$</span> spoti playlist-create "Road trip"
+<span>$</span> spoti add "Workout" --search "Numb" --first
 <span>$</span> spoti device "My Computer" --default
 <span>$</span> spoti open
 <span>$</span> spoti lyrics Numb Linkin Park
@@ -136,7 +138,7 @@
               <p class="dim attribution">Lyrics from LRCLIB: https://lrclib.net</p>
               <p class="dim shortcut">[↑/↓] Scroll · [f] Following · [Esc] Back · [Ctrl+X] Exit</p>
             </div>
-            <figcaption id="lyrics-caption">Synchronized lines follow local playback progress. Scroll freely; press <kbd>f</kbd> to resume following.</figcaption>
+            <figcaption id="lyrics-caption">Synchronized lines follow local playback progress. Scroll freely; press <kbd>f</kbd> to resume following. In Search, select a track and press <kbd>a</kbd> to add it to a playlist.</figcaption>
           </figure>
         </div>
       </div>

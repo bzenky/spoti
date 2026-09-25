@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-24
+
+### Added
+
+- `spoti playlist-create <name>` for creating private playlists by default, with `--public` for public playlists.
+- `spoti add <playlist> --search <query>` for selecting a searched track and adding it to an existing playlist; `--first` selects both first matches non-interactively.
+- An `a` action for selected track results in TUI Search, reusing the paginated playlist picker without starting playback.
+- `spoti restart` and its `rst` alias for restarting the current track at `0:00` through the existing playback seek control.
+
+### Changed
+
+- Extend Bash, Zsh, and Fish completions, the README, roadmap, and `spoti.bzenky.dev` static site with playlist-management and restart workflows.
+
 ## [1.0.0] - 2026-09-24
 
 ### Added

@@ -45,6 +45,17 @@ export class PlaylistService {
     return page.items[0] ?? null;
   }
 
+  async createPlaylist(name: string, isPublic = false, signal?: AbortSignal): Promise<Playlist> {
+    const playlistName = name.trim();
+    if (!playlistName) throw new AppError('A playlist name is required.');
+
+    const response = await this.spotify.post<SpotifyPlaylist>('/me/playlists', {
+      body: { name: playlistName, public: isPublic },
+      ...(signal === undefined ? {} : { signal }),
+    });
+    return mapPlaylist(response);
+  }
+
   async getPlaylist(id: string, itemLimit = DEFAULT_ITEM_LIMIT): Promise<PlaylistDetail> {
     const playlist = await this.spotify.get<SpotifyPlaylist>(
       `/playlists/${encodeURIComponent(id)}`,

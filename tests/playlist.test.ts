@@ -136,6 +136,31 @@ describe('PlaylistService', () => {
     ).resolves.toMatchObject({ nextToken: null, total: 41 });
   });
 
+  it('creates a private playlist through the current user endpoint', async () => {
+    const api = createApi();
+    vi.mocked(api.post).mockResolvedValue(playlist);
+    const signal = new AbortController().signal;
+
+    await expect(new PlaylistService(api).createPlaylist('  Road trip  ', false, signal)).resolves.toMatchObject({
+      id: 'playlist/id',
+      name: 'Workout',
+      isPublic: false,
+    });
+    expect(api.post).toHaveBeenCalledWith('/me/playlists', {
+      body: { name: 'Road trip', public: false },
+      signal,
+    });
+  });
+
+  it('rejects an empty playlist name before making a request', async () => {
+    const api = createApi();
+
+    await expect(new PlaylistService(api).createPlaylist('   ')).rejects.toThrow(
+      'A playlist name is required.',
+    );
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
   it('loads details through the non-deprecated items endpoint and skips bad items', async () => {
     const api = createApi();
     vi.mocked(api.get)

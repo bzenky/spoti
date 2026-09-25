@@ -98,6 +98,7 @@ function dependencies() {
       getPlaylistByNumber: vi.fn(),
       getPlaylist: vi.fn(),
       getPlaylistItemsPage: vi.fn(),
+      createPlaylist: vi.fn(),
       addItems: vi.fn(),
     } as unknown as PlaylistService,
     library: {
@@ -401,6 +402,40 @@ describe('CLI application', () => {
 
     await run(['seek', '-10'], deps);
     expect(deps.player.changePosition).toHaveBeenCalledWith(-10_000);
+  });
+
+  it('creates a playlist with the requested visibility', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlist.createPlaylist).mockResolvedValue({ ...playlist, name: 'Road trip', isPublic: true });
+
+    await run(['playlist-create', 'Road', 'trip', '--public'], deps);
+
+    expect(deps.playlist.createPlaylist).toHaveBeenCalledWith('Road trip', true);
+    expect(deps.messages).toContain('✓ Created public playlist Road trip');
+  });
+
+  it('adds a selected searched track to an existing playlist', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.search.searchTracks).mockResolvedValue([track]);
+    vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue(playlist);
+
+    await run(['add', '1', '--search', 'Numb', '--first'], deps);
+
+    expect(deps.search.searchTracks).toHaveBeenCalledWith('Numb');
+    expect(deps.playlist.addItems).toHaveBeenCalledWith(playlist.id, [track.uri]);
+    expect(deps.messages).toContain('✓ Added Numb — Linkin Park to Workout');
+  });
+
+  it('restarts the current track from the beginning through its command and alias', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.player.seek).mockResolvedValue(0);
+
+    await run(['restart'], deps);
+    await run(['rst'], deps);
+
+    expect(deps.player.seek).toHaveBeenCalledTimes(2);
+    expect(deps.player.seek).toHaveBeenLastCalledWith(0);
+    expect(deps.messages).toEqual(['↺ Restarted current track', '↺ Restarted current track']);
   });
 
   it('shows the queue and adds a searched track', async () => {

@@ -21,6 +21,7 @@ const commands = [
   'devices',
   'device',
   'seek',
+  'restart',
   'volume',
   'queue',
   'shuffle',
@@ -28,6 +29,7 @@ const commands = [
   'album',
   'artist',
   'playlists',
+  'playlist-create',
   'add',
   'playlist',
   'liked',
@@ -58,6 +60,7 @@ const aliases = [
   'n',
   'prev',
   'sk',
+  'rst',
   'alb',
   'art',
 ] as const;
@@ -114,6 +117,9 @@ describe('generateCompletionScript', () => {
 
       expectWords(script, ['spotifyClientId', 'defaultDevice', 'watchAfterPlay', 'refreshIntervalMs']);
       expectWords(script, ['on', 'off', 'track', 'context']);
+      expectWords(script, ['playlist-create']);
+      expect(script).toMatch(/(?:--search|-l search)/);
+      expect(script).toMatch(/(?:--public|-l public)/);
       expectWords(script, ['bash', 'zsh', 'fish']);
       expect(script).not.toContain('--json');
     }

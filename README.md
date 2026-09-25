@@ -135,7 +135,7 @@ x       exit from Player or Help
 Ctrl+X  exit from Search, Queue, Devices, or Library
 ```
 
-On Search, type a query and press Enter. Use up/down to select a result, then Enter to play it. Tab or left/right switches between tracks, albums, artists, and playlists. Search results are cached for the active TUI session, stale requests are cancelled when the query changes, and leaving Search cancels an in-flight search or playback request.
+On Search, type a query and press Enter. Use up/down to select a result, then Enter to play it. For a selected track, press `a` to choose a playlist and add the track without starting playback. Tab or left/right switches between tracks, albums, artists, and playlists. Search results are cached for the active TUI session, stale requests are cancelled when the query changes, and leaving Search cancels an in-flight search or playback request.
 
 Queue displays the current item and Spotify's upcoming items. Press `a` to search for a track, use up/down to select it, and press Enter to add it. Press `r` to refresh. Spotify does not expose arbitrary queue removal or position jumping, so the TUI does not offer those actions.
 
@@ -205,6 +205,7 @@ Seek within the current track:
 spoti seek 1:30
 spoti seek +30
 spoti seek -10
+spoti restart # alias: spoti rst
 ```
 
 View the queue or search for a track to add. When Spotify represents an otherwise empty queue by repeating only the current track, `spoti` reports the queue as empty instead of printing duplicate entries:
@@ -230,8 +231,12 @@ spoti artist "Linkin Park"
 spoti playlists
 spoti playlist 1
 spoti playlist "Workout"
+spoti playlist-create "Road trip"
+spoti playlist-create "Release radar" --public
 spoti add
 spoti add 1
+spoti add "Workout" --search "Numb"
+spoti add "Workout" --search "Numb" --first
 spoti add "Workout" --first
 spoti play track "Numb"
 spoti play album "Meteora"
@@ -240,7 +245,7 @@ spoti play playlist "Workout"
 spoti play playlist 1
 ```
 
-`spoti add` adds the currently playing track to an existing playlist. In an interactive terminal, omit the playlist to browse lazily loaded pages; otherwise pass a displayed number or playlist name. The TUI offers the same flow with `a` from Player. This feature requires Spotify playlist-modification scopes, so existing users upgrading to this version must run `spoti login` once to authorize the new minimum permissions.
+`spoti playlist-create <name>` creates a private playlist by default; pass `--public` to create a public one. `spoti add` adds the currently playing track to an existing playlist. Pass `--search <query>` to select a searched track instead; `--first` chooses the first track and matching playlist without prompting. In an interactive terminal, omit the playlist to browse lazily loaded pages; otherwise pass a displayed number or playlist name. The TUI offers the same flow with `a` from Player or for a selected track in Search. These features require Spotify playlist-modification scopes, so existing users upgrading to this version must run `spoti login` once to authorize the permissions.
 
 User playlists preserve Spotify’s order so their global displayed numbers remain stable across pages. A displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`, including numbers beyond the first page.
 
@@ -290,7 +295,7 @@ Common aliases include:
 ```text
 i     interactive  p     play       pa    pause
 ly    lyrics       r     resume       np    now        q     queue      s     search
-vol   volume       sk    seek        alb   album
+vol   volume       sk    seek        rst  restart     alb   album
 art   artist       dev   device      devs  devices
 pl    playlist     pls   playlists   rep   repeat
 rec   recent       n     next        prev  previous

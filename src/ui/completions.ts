@@ -6,7 +6,7 @@ _spoti_completion() {
   cur="\${COMP_WORDS[COMP_CWORD]}"
   command="\${COMP_WORDS[1]}"
 
-  local commands="setup login logout status config interactive now open lyrics pause resume next previous devices device seek volume queue shuffle repeat album artist playlists add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art"
+  local commands="setup login logout status config interactive now open lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art"
   local global_options="-h --help -V --version"
 
   if (( COMP_CWORD == 1 )); then
@@ -30,8 +30,14 @@ _spoti_completion() {
     now|np)
       COMPREPLY=( $(compgen -W "-w --watch --short -h --help" -- "$cur") )
       ;;
-    queue|q|album|alb|artist|art|playlist|pl|lyrics|ly|add)
+    queue|q|album|alb|artist|art|playlist|pl|lyrics|ly)
       COMPREPLY=( $(compgen -W "--first -h --help" -- "$cur") )
+      ;;
+    add)
+      COMPREPLY=( $(compgen -W "--search --first -h --help" -- "$cur") )
+      ;;
+    playlist-create)
+      COMPREPLY=( $(compgen -W "--public -h --help" -- "$cur") )
       ;;
     playlists|pls|liked|recent|rec|search|s)
       COMPREPLY=( $(compgen -W "-l --limit -h --help" -- "$cur") )
@@ -84,6 +90,8 @@ _spoti() {
     'device:transfer playback to a Spotify Connect device'
     'seek:seek within the current track'
     'sk:alias for seek'
+    'restart:restart the current track from the beginning'
+    'rst:alias for restart'
     'volume:show, set, or adjust the active device volume'
     'queue:show the playback queue or add a searched track'
     'shuffle:show or change the playback shuffle state'
@@ -93,7 +101,8 @@ _spoti() {
     'artist:search for and show an artist'
     'art:alias for artist'
     'playlists:browse and optionally play your Spotify playlists'
-    'add:add the current track to a playlist'
+    'playlist-create:create a Spotify playlist'
+    'add:add the current or a searched track to a playlist'
     'playlist:show one of your Spotify playlists'
     'liked:browse and optionally play your liked tracks'
     'like:add the current track to your Spotify library'
@@ -155,8 +164,14 @@ _spoti() {
         now|np)
           _arguments '(-w --watch)'{-w,--watch}'[continuously refresh playback information]' '--short[print one compact line]'
           ;;
-        queue|q|album|alb|artist|art|playlist|pl|lyrics|ly|add)
+        queue|q|album|alb|artist|art|playlist|pl|lyrics|ly)
           _arguments '--first[select the first result without prompting]' '*:query:'
+          ;;
+        add)
+          _arguments '--search[search for a track to add]:query:' '--first[select first matches without prompting]' '*:playlist:'
+          ;;
+        playlist-create)
+          _arguments '--public[make the playlist public]' '1:playlist name:'
           ;;
         playlists|pls|liked|recent|rec)
           _arguments '(-l --limit)'{-l,--limit}'[number of items per page]:number:'
@@ -193,7 +208,7 @@ complete -c spoti -s h -l help -d 'Display help'
 complete -c spoti -s V -l version -d 'Display version'
 
 function __spoti_needs_command
-  not __fish_seen_subcommand_from setup login logout status config interactive now open lyrics pause resume next previous devices device seek volume queue shuffle repeat album artist playlists add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art
+  not __fish_seen_subcommand_from setup login logout status config interactive now open lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art
 end
 complete -c spoti -n __spoti_needs_command -a setup -d 'Save your Spotify application client ID'
 complete -c spoti -n __spoti_needs_command -a login -d 'Log in to Spotify'
@@ -211,6 +226,7 @@ complete -c spoti -n __spoti_needs_command -a previous -d 'Return to the previou
 complete -c spoti -n __spoti_needs_command -a devices -d 'List Spotify Connect devices'
 complete -c spoti -n __spoti_needs_command -a device -d 'Transfer playback to a device'
 complete -c spoti -n __spoti_needs_command -a seek -d 'Seek within the current track'
+complete -c spoti -n __spoti_needs_command -a restart -d 'Restart the current track from the beginning'
 complete -c spoti -n __spoti_needs_command -a volume -d 'Show, set, or adjust volume'
 complete -c spoti -n __spoti_needs_command -a queue -d 'Show or add to the queue'
 complete -c spoti -n __spoti_needs_command -a shuffle -d 'Show or change playback shuffle state'
@@ -218,7 +234,8 @@ complete -c spoti -n __spoti_needs_command -a repeat -d 'Show or change playback
 complete -c spoti -n __spoti_needs_command -a album -d 'Search for an album'
 complete -c spoti -n __spoti_needs_command -a artist -d 'Search for an artist'
 complete -c spoti -n __spoti_needs_command -a playlists -d 'Browse and optionally play your playlists'
-complete -c spoti -n __spoti_needs_command -a add -d 'Add the current track to a playlist'
+complete -c spoti -n __spoti_needs_command -a playlist-create -d 'Create a Spotify playlist'
+complete -c spoti -n __spoti_needs_command -a add -d 'Add the current or a searched track to a playlist'
 complete -c spoti -n __spoti_needs_command -a playlist -d 'Show a playlist'
 complete -c spoti -n __spoti_needs_command -a liked -d 'Browse and optionally play liked tracks'
 complete -c spoti -n __spoti_needs_command -a like -d 'Like the current track'
@@ -228,14 +245,17 @@ complete -c spoti -n __spoti_needs_command -a update -d 'Check for or install up
 complete -c spoti -n __spoti_needs_command -a search -d 'Search Spotify tracks'
 complete -c spoti -n __spoti_needs_command -a play -d 'Play a track, album, artist, or playlist'
 complete -c spoti -n __spoti_needs_command -a completion -d 'Print a shell completion script'
-complete -c spoti -n __spoti_needs_command -a 'i p pa r np ly q s vol dev devs pl pls rep rec n prev sk alb art' -d 'Command alias'
+complete -c spoti -n __spoti_needs_command -a 'i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art' -d 'Command alias'
 
 complete -c spoti -n '__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from get set reset path unset' -a 'get set reset path unset'
 complete -c spoti -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set unset' -a 'spotifyClientId defaultDevice watchAfterPlay refreshIntervalMs'
 complete -c spoti -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'
 complete -c spoti -n '__fish_seen_subcommand_from now np' -s w -l watch -d 'Continuously refresh playback information'
 complete -c spoti -n '__fish_seen_subcommand_from now np' -l short -d 'Print one compact line'
-complete -c spoti -n '__fish_seen_subcommand_from queue q album alb artist art playlist pl add' -l first -d 'Select the first result without prompting'
+complete -c spoti -n '__fish_seen_subcommand_from queue q album alb artist art playlist pl' -l first -d 'Select the first result without prompting'
+complete -c spoti -n '__fish_seen_subcommand_from add' -l first -d 'Select first matches without prompting'
+complete -c spoti -n '__fish_seen_subcommand_from add' -l search -r -d 'Search for a track to add'
+complete -c spoti -n '__fish_seen_subcommand_from playlist-create' -l public -d 'Make the playlist public'
 complete -c spoti -n '__fish_seen_subcommand_from playlists pls liked recent rec' -s l -l limit -r -d 'Number of items per page'
 complete -c spoti -n '__fish_seen_subcommand_from search s' -s l -l limit -r -d 'Maximum number of results'
 complete -c spoti -n '__fish_seen_subcommand_from device dev' -l default -d 'Save this device as the playback fallback'

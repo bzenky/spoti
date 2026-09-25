@@ -51,6 +51,7 @@ export const LYRICS_SHORTCUTS: readonly ShortcutHelp[] = [
 export const SEARCH_SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: 'Type', description: 'Edit the query' },
   { keys: 'Enter', description: 'Search or play the selected result' },
+  { keys: 'a', description: 'Add the selected track to a playlist' },
   { keys: '↑ / ↓', description: 'Select a result' },
   { keys: 'Tab / ← / →', description: 'Change category' },
   { keys: 'Esc', description: 'Cancel and return to Player' },

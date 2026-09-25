@@ -490,6 +490,15 @@ export function createProgram(dependencies: AppDependencies): Command {
     });
 
   program
+    .command('restart')
+    .alias('rst')
+    .description('Restart the current track from the beginning')
+    .action(async () => {
+      await dependencies.player.seek(0);
+      dependencies.output.log('↺ Restarted current track');
+    });
+
+  program
     .command('volume')
     .alias('vol')
     .description('Show, set, or adjust the active device volume')
@@ -680,14 +689,45 @@ export function createProgram(dependencies: AppDependencies): Command {
     });
 
   program
+    .command('playlist-create')
+    .description('Create a Spotify playlist')
+    .argument('<name...>', 'playlist name')
+    .option('--public', 'make the playlist public')
+    .action(async (nameParts: string[], options: { public?: boolean }) => {
+      const playlist = await dependencies.playlist.createPlaylist(nameParts.join(' '), options.public);
+      dependencies.output.log(
+        `✓ Created ${options.public ? 'public' : 'private'} playlist ${safe(playlist.name)}`,
+      );
+    });
+
+  program
     .command('add')
-    .description('Add the current track to one of your playlists')
+    .description('Add the current or a searched track to one of your playlists')
     .argument('[playlist...]', 'playlist number or name')
-    .option('--first', 'use the first matching playlist without prompting')
-    .action(async (playlistParts: string[], options: { first?: boolean }) => {
-      const playback = await dependencies.player.getCurrentPlayback();
-      if (!playback) {
-        throw new AppError('Nothing is currently playing, so there is no track to add.');
+    .option('--search <query>', 'search for a track to add')
+    .option('--first', 'use the first matching track and playlist without prompting')
+    .action(async (playlistParts: string[], options: { first?: boolean; search?: string }) => {
+      const searchQuery = options.search?.trim();
+      let track: Track | null;
+      if (searchQuery) {
+        const matches = await runTask('Searching tracks…', () =>
+          dependencies.search.searchTracks(searchQuery),
+        );
+        if (matches.length === 0) {
+          reportNoResults(dependencies.output, 'tracks', searchQuery);
+          return;
+        }
+        track = options.first || !isInteractive ? matches[0] ?? null : await chooseTrack(matches);
+      } else {
+        const playback = await dependencies.player.getCurrentPlayback();
+        track = playback?.track ?? null;
+      }
+      if (!track) {
+        throw new AppError(
+          searchQuery
+            ? 'Track selection cancelled.'
+            : 'Nothing is currently playing, so there is no track to add.',
+        );
       }
 
       const query = playlistParts.join(' ').trim();
@@ -734,9 +774,9 @@ export function createProgram(dependencies: AppDependencies): Command {
         dependencies.output.log('Selection cancelled.');
         return;
       }
-      await dependencies.playlist.addItems(selected.id, [playback.track.uri]);
+      await dependencies.playlist.addItems(selected.id, [track.uri]);
       dependencies.output.log(
-        `✓ Added ${safe(playback.track.name)} — ${safeArtists(playback.track.artists)} to ${safe(selected.name)}`,
+        `✓ Added ${safe(track.name)} — ${safeArtists(track.artists)} to ${safe(selected.name)}`,
       );
     });
 

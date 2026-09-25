@@ -1242,6 +1242,17 @@ At this point the MVP is complete.
 
 ---
 
+## Phase 15 — v1.1 playlist management
+
+- [x] Create public or private playlists through `POST /me/playlists`
+- [x] Add a searched track to an existing playlist from the CLI
+- [x] Add a selected TUI Search track to an existing playlist
+- [x] Reuse the paginated playlist picker and existing minimum playlist-modification scopes
+- [x] Add CLI, service, TUI, completion, and documentation coverage
+- [x] Add `spoti restart` and the `rst` alias as a convenient seek-to-zero command
+
+---
+
 # 26. MVP Definition
 
 Do not expand the scope until all of these work:

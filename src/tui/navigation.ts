@@ -69,6 +69,8 @@ export const QUEUE_SHORTCUTS: readonly ShortcutHelp[] = [
 export const DEVICE_SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: '↑ / ↓', description: 'Select a Spotify Connect device' },
   { keys: 'Enter', description: 'Transfer playback or retry' },
+  { keys: 's', description: 'Set or clear the selected default device' },
+  { keys: 'i', description: 'Show or hide device IDs' },
   { keys: 'r', description: 'Refresh devices' },
   { keys: 'Esc', description: 'Return to Player' },
 ];

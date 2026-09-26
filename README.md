@@ -139,7 +139,7 @@ On Search, type a query and press Enter. Use up/down to select a result, then En
 
 Queue displays the current item and Spotify's upcoming items. Press `a` to search for a track, use up/down to select it, and press Enter to add it. Press `r` to refresh. Spotify does not expose arbitrary queue removal or position jumping, so the TUI does not offer those actions.
 
-Devices lists controllable Spotify Connect devices with active status, type, and volume. Use up/down and Enter to transfer playback, or `r` to refresh.
+Devices lists all Spotify Connect devices with active status, type, volume, and the saved default. The active device is selected automatically. Use up/down and Enter to transfer playback; pressing Enter on the active device is a safe no-op. Press `s` to set or clear the selected default device, `i` to show or hide device IDs when names are duplicated, and `r` to refresh. Restricted devices or entries without a usable ID remain visible with an explanation but cannot be selected for transfer.
 
 Library uses Tab or left/right to switch among Playlists, Liked, and Recent. Use up/down and Enter to open a playlist or play a track; `n` and `p` navigate lazily loaded pages. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
 
@@ -189,11 +189,14 @@ spoti lyrics Numb --first
 Manage playback devices:
 
 ```bash
+spoti launch # alias: spoti app
 spoti devices
 spoti device 2
 spoti device "My Computer"
 spoti device "My Computer" --default
 ```
+
+`spoti launch` asks your operating system to open the locally installed Spotify app through its `spotify:` URI handler. It cannot wake Spotify on remote devices, but can make your current computer available to Spotify Connect before you run `spoti devices` or `spoti interactive`.
 
 Use the displayed one-based number, exact device name, or Spotify device ID. Add `--default` to save the selected device name as the fallback when no device is active. You can also manage it directly with `spoti config set defaultDevice "My Computer"` and `spoti config unset defaultDevice`. An already-active device always takes precedence over the saved default.
 

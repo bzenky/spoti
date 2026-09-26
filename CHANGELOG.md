@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-26
+
+### Added
+
+- `spoti launch` and its `spoti app` alias for opening the locally installed Spotify application through the operating system's `spotify:` URI handler.
+- Devices-screen controls to set or clear the selected default device and show or hide Spotify device IDs.
+
+### Changed
+
+- Preselect the active device in the TUI and make transfer to that device a safe no-op.
+- Keep restricted or ID-less Spotify Connect devices visible in the TUI, with an explanation when they cannot be controlled.
+- Extend the README, website, TUI Help, Bash, Zsh, and Fish completions with the local-launch and improved device-management workflows.
+
 ## [1.1.0] - 2026-09-24
 
 ### Added

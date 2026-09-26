@@ -117,6 +117,7 @@
             <p>Ordinary multi-word searches do not need quotes. Add <code>--first</code> when you want deterministic, non-interactive selection.</p>
             <pre class="command-list" aria-label="Example spoti commands"><code><span>$</span> spoti play Fear of the Dark
 <span>$</span> spoti pause
+<span>$</span> spoti launch
 <span>$</span> spoti seek +30
 <span>$</span> spoti restart
 <span>$</span> spoti volume 50
@@ -207,7 +208,7 @@
         <div class="notice-grid">
           <article>
             <h3><span aria-hidden="true">◉</span> Spotify Connect</h3>
-            <p>spoti controls an existing Spotify client or Connect device. It does not stream or download audio, so an available playback device is required.</p>
+            <p>spoti controls an existing Spotify client or Connect device. It does not stream or download audio, so an available playback device is required. Run <code>spoti launch</code> to open the local Spotify app; remote devices must still be opened separately. The Devices screen preselects the active device, shows defaults and unavailable devices, and can reveal device IDs for duplicate names.</p>
           </article>
           <article>
             <h3><span aria-hidden="true">◆</span> Premium &amp; quota</h3>

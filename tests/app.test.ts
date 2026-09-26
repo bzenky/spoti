@@ -301,6 +301,29 @@ describe('CLI application', () => {
     expect(deps.messages).toContain('✓ Opened Numb in Spotify');
   });
 
+  it('launches the local Spotify app through the spotify URI handler', async () => {
+    const deps = dependencies();
+
+    await run(['launch'], deps);
+    await run(['app'], deps);
+
+    expect(deps.openExternal).toHaveBeenCalledTimes(2);
+    expect(deps.openExternal).toHaveBeenLastCalledWith('spotify:');
+    expect(deps.messages).toEqual([
+      '✓ Requested local Spotify app launch',
+      '✓ Requested local Spotify app launch',
+    ]);
+  });
+
+  it('reports a friendly local-app launch error', async () => {
+    const deps = dependencies();
+    deps.openExternal.mockRejectedValueOnce(new Error('No handler'));
+
+    await expect(run(['launch'], deps)).rejects.toThrow(
+      'Unable to open the local Spotify app.',
+    );
+  });
+
   it('reports when there is no current track to open', async () => {
     const deps = dependencies();
     vi.mocked(deps.player.getCurrentPlayback).mockResolvedValue(null);

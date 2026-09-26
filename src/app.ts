@@ -345,6 +345,24 @@ export function createProgram(dependencies: AppDependencies): Command {
     });
 
   program
+    .command('launch')
+    .alias('app')
+    .description('Open the local Spotify app')
+    .action(async () => {
+      if (!dependencies.openExternal) {
+        throw new AppError('Opening the local Spotify app is unavailable in this environment.');
+      }
+      try {
+        await dependencies.openExternal('spotify:');
+      } catch {
+        throw new AppError(
+          'Unable to open the local Spotify app. Install Spotify and ensure spotify: links are associated with it.',
+        );
+      }
+      dependencies.output.log('✓ Requested local Spotify app launch');
+    });
+
+  program
     .command('lyrics')
     .alias('ly')
     .description('Show lyrics for the current track or a searched track')

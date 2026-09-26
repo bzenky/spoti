@@ -14,6 +14,7 @@ const commands = [
   'interactive',
   'now',
   'open',
+  'launch',
   'pause',
   'resume',
   'next',
@@ -44,6 +45,7 @@ const commands = [
 
 const aliases = [
   'i',
+  'app',
   'p',
   'pa',
   'r',

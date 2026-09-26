@@ -6,7 +6,7 @@ _spoti_completion() {
   cur="\${COMP_WORDS[COMP_CWORD]}"
   command="\${COMP_WORDS[1]}"
 
-  local commands="setup login logout status config interactive now open lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art"
+  local commands="setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art"
   local global_options="-h --help -V --version"
 
   if (( COMP_CWORD == 1 )); then
@@ -81,6 +81,7 @@ _spoti() {
     'interactive:open the interactive spoti TUI'
     'now:show the current Spotify playback'
     'open:open the current track in Spotify'
+    'launch:open the local Spotify app'
     'lyrics:show lyrics for the current track or a searched track'
     'pause:pause playback'
     'resume:resume playback'
@@ -113,6 +114,7 @@ _spoti() {
     'play:play a track, album, artist, or playlist'
     'completion:print a static shell completion script'
     'i:alias for interactive'
+    'app:alias for launch'
     'p:alias for play'
     'pa:alias for pause'
     'r:alias for resume'
@@ -208,7 +210,7 @@ complete -c spoti -s h -l help -d 'Display help'
 complete -c spoti -s V -l version -d 'Display version'
 
 function __spoti_needs_command
-  not __fish_seen_subcommand_from setup login logout status config interactive now open lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art
+  not __fish_seen_subcommand_from setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art
 end
 complete -c spoti -n __spoti_needs_command -a setup -d 'Save your Spotify application client ID'
 complete -c spoti -n __spoti_needs_command -a login -d 'Log in to Spotify'
@@ -218,6 +220,7 @@ complete -c spoti -n __spoti_needs_command -a config -d 'View and update configu
 complete -c spoti -n __spoti_needs_command -a interactive -d 'Open the interactive spoti TUI'
 complete -c spoti -n __spoti_needs_command -a now -d 'Show current playback'
 complete -c spoti -n __spoti_needs_command -a open -d 'Open the current track in Spotify'
+complete -c spoti -n __spoti_needs_command -a launch -d 'Open the local Spotify app'
 complete -c spoti -n __spoti_needs_command -a lyrics -d 'Show lyrics for the current or a searched track'
 complete -c spoti -n __spoti_needs_command -a pause -d 'Pause playback'
 complete -c spoti -n __spoti_needs_command -a resume -d 'Resume playback'
@@ -245,7 +248,7 @@ complete -c spoti -n __spoti_needs_command -a update -d 'Check for or install up
 complete -c spoti -n __spoti_needs_command -a search -d 'Search Spotify tracks'
 complete -c spoti -n __spoti_needs_command -a play -d 'Play a track, album, artist, or playlist'
 complete -c spoti -n __spoti_needs_command -a completion -d 'Print a shell completion script'
-complete -c spoti -n __spoti_needs_command -a 'i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art' -d 'Command alias'
+complete -c spoti -n __spoti_needs_command -a 'i app p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art' -d 'Command alias'
 
 complete -c spoti -n '__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from get set reset path unset' -a 'get set reset path unset'
 complete -c spoti -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set unset' -a 'spotifyClientId defaultDevice watchAfterPlay refreshIntervalMs'

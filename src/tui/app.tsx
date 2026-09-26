@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { CurrentPlayback, Track } from '../services/models.js';
 import type { PlayerService } from '../services/player.service.js';
+import type { ConfigStore } from '../storage/config.js';
 import { DevelopmentQuotaExceededError } from '../utils/errors.js';
 import { sanitizeOneLineText } from '../utils/text.js';
 import { formatDuration } from '../utils/time.js';
@@ -51,6 +52,7 @@ export interface TuiAppProps {
   search: TuiSearch;
   queue: TuiQueue;
   device: TuiDevice;
+  config: Pick<ConfigStore, 'read' | 'set' | 'resetKey'>;
   playlists: TuiPlaylistLibrary & TuiPlaylistPicker;
   library: TuiLikedLibrary;
   recent: TuiRecentLibrary;
@@ -66,6 +68,7 @@ export function TuiApp({
   search,
   queue,
   device,
+  config,
   playlists,
   library,
   recent,
@@ -436,6 +439,7 @@ export function TuiApp({
         ) : activeScreen === 'devices' ? (
           <DevicesScreen
             device={device}
+            config={config}
             availableRows={Math.max(1, rows - 8)}
             onBack={() => setActiveScreen('player')}
             onExit={exit}

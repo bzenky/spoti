@@ -1253,6 +1253,17 @@ At this point the MVP is complete.
 
 ---
 
+## Phase 16 — device experience and local Spotify launch
+
+- [x] Add `spoti launch` and the `app` alias to request opening the local Spotify app through its `spotify:` URI handler
+- [x] Document that remote Spotify Connect devices cannot be launched through the Spotify Web API
+- [x] Add completion, website, and command error coverage
+- [x] Preselect the active device in the TUI and make transfer to it a safe no-op
+- [x] Show the configured default and let the TUI set or clear it through the existing config store
+- [x] Keep restricted or ID-less devices visible with an explanation, and add an on-demand device-ID view
+
+---
+
 # 26. MVP Definition
 
 Do not expand the scope until all of these work:

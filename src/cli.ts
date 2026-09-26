@@ -58,7 +58,7 @@ const program = createProgram({
   startTui: async () => {
     if ('NO_COLOR' in process.env) process.env.FORCE_COLOR = '0';
     const { startTui } = await import('./tui/index.js');
-    await startTui({ player, search, queue, device, playlists: playlist, library, recent, lyrics });
+    await startTui({ player, search, queue, device, config, playlists: playlist, library, recent, lyrics });
   },
 });
 

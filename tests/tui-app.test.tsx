@@ -57,8 +57,18 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
       addItem: vi.fn().mockResolvedValue(undefined),
     },
     device: {
-      getControllableDevices: vi.fn().mockResolvedValue([]),
+      getDevices: vi.fn().mockResolvedValue([]),
       transferPlayback: vi.fn().mockResolvedValue(undefined),
+    },
+    config: {
+      read: vi.fn().mockResolvedValue({
+        spotifyClientId: null,
+        defaultDevice: null,
+        watchAfterPlay: false,
+        refreshIntervalMs: 1_000,
+      }),
+      set: vi.fn().mockResolvedValue(undefined),
+      resetKey: vi.fn().mockResolvedValue(undefined),
     },
     playlists: {
       listPlaylistsPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),

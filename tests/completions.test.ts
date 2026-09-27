@@ -31,6 +31,7 @@ const commands = [
   'artist',
   'playlists',
   'playlist-create',
+  'playlist-edit',
   'add',
   'playlist',
   'liked',
@@ -83,19 +84,19 @@ describe('generateCompletionScript', () => {
       'bash',
       '# bash completion for spoti',
       'complete -F _spoti_completion spoti',
-      ['--help', '--version', '--first', '--watch', '--no-watch', '--limit', '--check', '--short', '--default'],
+      ['--help', '--version', '--first', '--watch', '--no-watch', '--limit', '--check', '--short', '--default', '--name', '--description', '--public', '--private'],
     ],
     [
       'zsh',
       '#compdef spoti',
       `_spoti "$@"`,
-      ['--help', '--version', '--first', '--watch', '--no-watch', '--limit', '--check', '--short', '--default'],
+      ['--help', '--version', '--first', '--watch', '--no-watch', '--limit', '--check', '--short', '--default', '--name', '--description', '--public', '--private'],
     ],
     [
       'fish',
       '# fish completion for spoti',
       'complete -c spoti',
-      ['-l help', '-l version', '-l first', '-l watch', '-l no-watch', '-l limit', '-l check', '-l short', '-l default'],
+      ['-l help', '-l version', '-l first', '-l watch', '-l no-watch', '-l limit', '-l check', '-l short', '-l default', '-l name', '-l description', '-l public', '-l private'],
     ],
   ] as const)(
     'generates a self-contained %s script',
@@ -122,6 +123,8 @@ describe('generateCompletionScript', () => {
       expectWords(script, ['playlist-create']);
       expect(script).toMatch(/(?:--search|-l search)/);
       expect(script).toMatch(/(?:--public|-l public)/);
+      expect(script).toMatch(/(?:--private|-l private)/);
+      expect(script).toMatch(/(?:--description|-l description)/);
       expectWords(script, ['bash', 'zsh', 'fish']);
       expect(script).not.toContain('--json');
     }

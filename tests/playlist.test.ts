@@ -57,7 +57,7 @@ describe('PlaylistService', () => {
     vi.mocked(api.get).mockResolvedValue(page([playlist]));
 
     await expect(new PlaylistService(api).listPlaylists()).resolves.toMatchObject([
-      { name: 'Workout', ownerName: 'owner-id', isPublic: false },
+      { name: 'Workout', ownerId: 'owner-id', ownerName: 'owner-id', isPublic: false },
     ]);
     expect(api.get).toHaveBeenCalledWith('/me/playlists', {
       query: { limit: 20, offset: 0 },
@@ -161,6 +161,38 @@ describe('PlaylistService', () => {
     expect(api.post).not.toHaveBeenCalled();
   });
 
+  it('updates playlist details through the current playlist endpoint', async () => {
+    const api = createApi();
+    const signal = new AbortController().signal;
+
+    await new PlaylistService(api).updatePlaylistDetails(
+      'playlist/id',
+      { name: '  Road trip  ', description: '', isPublic: true },
+      signal,
+    );
+
+    expect(api.put).toHaveBeenCalledWith('/playlists/playlist%2Fid', {
+      body: { name: 'Road trip', description: '', public: true },
+      signal,
+    });
+  });
+
+  it('rejects invalid playlist detail updates before making a request', async () => {
+    const api = createApi();
+    const service = new PlaylistService(api);
+
+    await expect(service.updatePlaylistDetails('', { name: 'Playlist' })).rejects.toThrow(
+      'playlist ID is required',
+    );
+    await expect(service.updatePlaylistDetails('playlist', {})).rejects.toThrow(
+      'At least one playlist detail must be provided',
+    );
+    await expect(service.updatePlaylistDetails('playlist', { name: '   ' })).rejects.toThrow(
+      'playlist name cannot be empty',
+    );
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
   it('loads details through the non-deprecated items endpoint and skips bad items', async () => {
     const api = createApi();
     vi.mocked(api.get)
@@ -234,6 +266,34 @@ describe('PlaylistService', () => {
       body: { uris: ['spotify:track:track-id'] },
       signal,
     });
+  });
+
+  it('removes items through the current playlist items endpoint', async () => {
+    const api = createApi();
+    const signal = new AbortController().signal;
+
+    await new PlaylistService(api).removeItems('playlist/id', [' spotify:track:track-id '], signal);
+
+    expect(api.delete).toHaveBeenCalledWith('/playlists/playlist%2Fid/items', {
+      body: { items: [{ uri: 'spotify:track:track-id' }] },
+      signal,
+    });
+  });
+
+  it('rejects invalid playlist removals before making a request', async () => {
+    const api = createApi();
+    const service = new PlaylistService(api);
+
+    await expect(service.removeItems('', ['spotify:track:1'])).rejects.toThrow(
+      'playlist ID is required',
+    );
+    await expect(service.removeItems('playlist', [])).rejects.toThrow(
+      'At least one Spotify item URI is required',
+    );
+    await expect(
+      service.removeItems('playlist', Array.from({ length: 101 }, (_, index) => `spotify:track:${index}`)),
+    ).rejects.toThrow('at most 100');
+    expect(api.delete).not.toHaveBeenCalled();
   });
 
   it('rejects invalid playlist additions before making a request', async () => {

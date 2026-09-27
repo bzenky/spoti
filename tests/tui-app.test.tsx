@@ -73,7 +73,11 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
     playlists: {
       listPlaylistsPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
       getPlaylistItemsPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
+      updatePlaylistDetails: vi.fn().mockResolvedValue(undefined),
       addItems: vi.fn().mockResolvedValue(undefined),
+    },
+    auth: {
+      getCurrentUser: vi.fn().mockResolvedValue({ id: 'user-1', displayName: 'Zenky' }),
     },
     library: {
       getLikedTracksPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),

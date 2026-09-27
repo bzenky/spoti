@@ -6,6 +6,7 @@ import type { Page, OffsetToken, RecentCursorToken } from '../src/services/pagin
 import {
   LibraryScreen,
   type LibraryPlayer,
+  type TuiLibraryAuth,
   type TuiLikedLibrary,
   type TuiPlaylistLibrary,
   type TuiRecentLibrary,
@@ -25,6 +26,7 @@ const playlist: Playlist = {
   uri: 'spotify:playlist:playlist-1',
   name: 'Workout',
   description: '',
+  ownerId: 'user-1',
   ownerName: 'Zenky',
   isPublic: false,
   totalTracks: 2,
@@ -32,6 +34,7 @@ const playlist: Playlist = {
 
 interface Dependencies {
   playlists: TuiPlaylistLibrary;
+  auth: TuiLibraryAuth;
   library: TuiLikedLibrary;
   recent: TuiRecentLibrary;
   player: LibraryPlayer;
@@ -43,7 +46,9 @@ function dependencies(): Dependencies {
     playlists: {
       listPlaylistsPage: vi.fn().mockResolvedValue({ items: [playlist], nextToken: null }),
       getPlaylistItemsPage: vi.fn().mockResolvedValue({ items: [track], nextToken: null }),
+      updatePlaylistDetails: vi.fn().mockResolvedValue(undefined),
     },
+    auth: { getCurrentUser: vi.fn().mockResolvedValue({ id: 'user-1', displayName: 'Zenky' }) },
     library: {
       getLikedTracksPage: vi.fn().mockResolvedValue({
         items: [{ addedAt: '2026-09-05T00:00:00Z', track }],
@@ -65,6 +70,7 @@ function renderLibrary(deps: Dependencies) {
   return render(
     <LibraryScreen
       playlists={deps.playlists}
+      auth={deps.auth}
       library={deps.library}
       recent={deps.recent}
       player={deps.player}
@@ -173,6 +179,50 @@ describe('LibraryScreen', () => {
     expect(deps.onBack).not.toHaveBeenCalled();
     view.stdin.write('\u001B');
     await vi.waitFor(() => expect(deps.onBack).toHaveBeenCalledOnce());
+    view.unmount();
+  });
+
+  it('edits the details of a playlist owned by the current user', async () => {
+    const deps = dependencies();
+    const view = renderLibrary(deps);
+
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+    view.stdin.write('e');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Edit playlist'));
+    view.stdin.write('n');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('New playlist name: Workout'));
+    for (let index = 0; index < ' 2026'.length; index += 1) view.stdin.write(' 2026'[index] ?? '');
+    view.stdin.write('\r');
+
+    await vi.waitFor(() =>
+      expect(deps.playlists.updatePlaylistDetails).toHaveBeenCalledWith(
+        playlist.id,
+        { name: 'Workout 2026' },
+        expect.any(AbortSignal),
+      ),
+    );
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('✓ Playlist updated.'));
+    expect(view.lastFrame()).toContain('Workout 2026');
+    view.unmount();
+  });
+
+  it('does not offer edit access for a playlist owned by someone else', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlists.listPlaylistsPage).mockResolvedValue({
+      items: [{ ...playlist, ownerId: 'another-user' }],
+      nextToken: null,
+    });
+    const view = renderLibrary(deps);
+
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+    view.stdin.write('e');
+
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('You can edit only playlists you own.'));
+    expect(deps.playlists.updatePlaylistDetails).not.toHaveBeenCalled();
     view.unmount();
   });
 

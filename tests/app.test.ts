@@ -46,6 +46,7 @@ const playlist: Playlist = {
   uri: 'spotify:playlist:playlist-1',
   name: 'Workout',
   description: 'Training tracks',
+  ownerId: 'user-1',
   ownerName: 'Bruno',
   isPublic: false,
   totalTracks: 1,
@@ -99,6 +100,7 @@ function dependencies() {
       getPlaylist: vi.fn(),
       getPlaylistItemsPage: vi.fn(),
       createPlaylist: vi.fn(),
+      updatePlaylistDetails: vi.fn(),
       addItems: vi.fn(),
     } as unknown as PlaylistService,
     library: {
@@ -435,6 +437,80 @@ describe('CLI application', () => {
 
     expect(deps.playlist.createPlaylist).toHaveBeenCalledWith('Road trip', true);
     expect(deps.messages).toContain('✓ Created public playlist Road trip');
+  });
+
+  it('edits an owned playlist selected by its numeric position', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue(playlist);
+    vi.mocked(deps.auth.getCurrentUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Bruno',
+    });
+
+    await run([
+      'playlist-edit',
+      '1',
+      '--name',
+      'Running mix',
+      '--description',
+      'Fast songs',
+      '--public',
+    ], deps);
+
+    expect(deps.playlist.getPlaylistByNumber).toHaveBeenCalledWith(1);
+    expect(deps.auth.getCurrentUser).toHaveBeenCalledOnce();
+    expect(deps.playlist.updatePlaylistDetails).toHaveBeenCalledWith(playlist.id, {
+      name: 'Running mix',
+      description: 'Fast songs',
+      isPublic: true,
+    });
+    expect(deps.messages).toContain('✓ Updated playlist Running mix');
+  });
+
+  it('edits an owned playlist selected by a matching name', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlist.listPlaylists).mockResolvedValue([playlist]);
+    deps.choosePlaylist.mockResolvedValue(playlist);
+    vi.mocked(deps.auth.getCurrentUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Bruno',
+    });
+
+    await run(['playlist-edit', 'work', '--private'], deps);
+
+    expect(deps.playlist.listPlaylists).toHaveBeenCalledWith(50);
+    expect(deps.playlist.updatePlaylistDetails).toHaveBeenCalledWith(playlist.id, {
+      isPublic: false,
+    });
+  });
+
+  it('rejects playlist edits for playlists the current user does not own', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue({
+      ...playlist,
+      ownerId: 'another-user',
+    });
+    vi.mocked(deps.auth.getCurrentUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Bruno',
+    });
+
+    await expect(run(['playlist-edit', '1', '--name', 'New name'], deps)).rejects.toThrow(
+      'You can only edit playlists you own: Workout.',
+    );
+    expect(deps.playlist.updatePlaylistDetails).not.toHaveBeenCalled();
+  });
+
+  it('requires playlist edit options and rejects conflicting visibility options', async () => {
+    const deps = dependencies();
+
+    await expect(run(['playlist-edit', '1'], deps)).rejects.toThrow(
+      'Provide at least one update option',
+    );
+    await expect(run(['playlist-edit', '1', '--public', '--private'], deps)).rejects.toThrow(
+      '--public and --private cannot be used together.',
+    );
+    expect(deps.playlist.getPlaylistByNumber).not.toHaveBeenCalled();
   });
 
   it('adds a selected searched track to an existing playlist', async () => {

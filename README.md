@@ -141,7 +141,7 @@ Queue displays the current item and Spotify's upcoming items. Press `a` to searc
 
 Devices lists all Spotify Connect devices with active status, type, volume, and the saved default. The active device is selected automatically. Use up/down and Enter to transfer playback; pressing Enter on the active device is a safe no-op. Press `s` to set or clear the selected default device, `i` to show or hide device IDs when names are duplicated, and `r` to refresh. Restricted devices or entries without a usable ID remain visible with an explanation but cannot be selected for transfer.
 
-Library uses Tab or left/right to switch among Playlists, Liked, and Recent. Use up/down and Enter to open a playlist or play a track; `n` and `p` navigate lazily loaded pages. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
+Library uses Tab or left/right to switch among Playlists, Liked, and Recent. Use up/down and Enter to open a playlist or play a track; `n` and `p` navigate lazily loaded pages. In a playlist you own, press `e` to edit its name, description, or public/private visibility. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
 
 Press `y` from Player to open lyrics for the current track. When synchronized lyrics are available, the TUI follows and highlights the current line; use up/down to scroll manually and `f` to resume following. Lyrics are loaded live from LRCLIB and are not stored persistently.
 
@@ -236,6 +236,8 @@ spoti playlist 1
 spoti playlist "Workout"
 spoti playlist-create "Road trip"
 spoti playlist-create "Release radar" --public
+spoti playlist-edit "Road trip" --name "Road trip 2026"
+spoti playlist-edit "Road trip" --description "Songs for the drive" --private
 spoti add
 spoti add 1
 spoti add "Workout" --search "Numb"
@@ -248,7 +250,7 @@ spoti play playlist "Workout"
 spoti play playlist 1
 ```
 
-`spoti playlist-create <name>` creates a private playlist by default; pass `--public` to create a public one. `spoti add` adds the currently playing track to an existing playlist. Pass `--search <query>` to select a searched track instead; `--first` chooses the first track and matching playlist without prompting. In an interactive terminal, omit the playlist to browse lazily loaded pages; otherwise pass a displayed number or playlist name. The TUI offers the same flow with `a` from Player or for a selected track in Search. These features require Spotify playlist-modification scopes, so existing users upgrading to this version must run `spoti login` once to authorize the permissions.
+`spoti playlist-create <name>` creates a private playlist by default; pass `--public` to create a public one. `spoti playlist-edit <playlist>` updates a playlist you own: provide `--name`, `--description`, `--public`, or `--private` (the visibility options cannot be combined). `spoti add` adds the currently playing track to an existing playlist. Pass `--search <query>` to select a searched track instead; `--first` chooses the first track and matching playlist without prompting. In an interactive terminal, omit the playlist to browse lazily loaded pages; otherwise pass a displayed number or playlist name. The TUI offers the same flow with `a` from Player or for a selected track in Search. These features require Spotify playlist-modification scopes, so existing users upgrading to this version must run `spoti login` once to authorize the permissions.
 
 User playlists preserve Spotify’s order so their global displayed numbers remain stable across pages. A displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`, including numbers beyond the first page.
 

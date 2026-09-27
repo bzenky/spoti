@@ -53,6 +53,7 @@ export interface Playlist {
   uri: string;
   name: string;
   description: string;
+  ownerId: string;
   ownerName: string;
   isPublic: boolean | null;
   totalTracks: number;
@@ -62,6 +63,12 @@ export interface Playlist {
 
 export interface PlaylistDetail extends Playlist {
   tracks: Track[];
+}
+
+export interface PlaylistDetailsChanges {
+  name?: string;
+  description?: string;
+  isPublic?: boolean;
 }
 
 export interface SavedTrack {

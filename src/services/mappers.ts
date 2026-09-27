@@ -89,6 +89,7 @@ export function mapPlaylist(
     uri: playlist.uri,
     name: playlist.name,
     description: playlist.description ?? '',
+    ownerId: playlist.owner.id,
     ownerName: playlist.owner.display_name ?? playlist.owner.id,
     isPublic: playlist.public,
     totalTracks: playlist.items.total,

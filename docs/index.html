@@ -57,26 +57,14 @@
         </div>
 
         <figure class="terminal-wrap" aria-labelledby="player-caption">
-          <div class="terminal-bar" aria-hidden="true">
-            <span></span><span></span><span></span>
-            <p>spoti — interactive</p>
-          </div>
-          <div class="terminal" role="img" aria-label="spoti Player screen showing Breaking the Habit by Linkin Park, playback progress, volume, shuffle, repeat, device, navigation, and keyboard controls">
-            <div class="tui-border" aria-hidden="true">
-              <div class="tui-brand">spoti</div>
-              <div class="tui-nav"><b>[1] Player</b> <span>[y] Lyrics</span> <span>[/] Search</span> <span>[q] Queue</span> <span>[d] Devices</span> <span>[l] Library</span> <span>[?] Help</span></div>
-              <div class="tui-player">
-                <p><i>▶</i> <strong>Breaking the Habit</strong></p>
-                <p class="dim">Linkin Park · Meteora</p>
-                <p class="progress"><span>━━━━━━━━━━━━</span>──────────────────────</p>
-                <p>1:14 / 3:16</p>
-                <p class="stats">Volume: 42% &nbsp; Shuffle: On &nbsp; Repeat: Track</p>
-                <p class="dim">Device: Notebook</p>
-              </div>
-              <div class="tui-help dim">[space] Play/Pause&nbsp; [n/p] Track&nbsp; [←/→] Seek&nbsp; [-/+] Volume&nbsp; [s] Shuffle&nbsp; [r] Repeat&nbsp; [y] Lyrics&nbsp; [?] Help&nbsp; [x/Esc] Exit</div>
-            </div>
-          </div>
-          <figcaption id="player-caption">Full-screen when you want it. Scriptable when you don’t.</figcaption>
+          <img
+            class="tui-screenshot"
+            src="images/spoti-interactive.png"
+            alt="spoti interactive Player screen playing Numb by Linkin Park, showing progress, volume, shuffle, repeat, device, navigation, and keyboard controls"
+            width="812"
+            height="487"
+          >
+          <figcaption id="player-caption">The real interactive Player screen. Full-screen when you want it. Scriptable when you don’t.</figcaption>
         </figure>
       </div>
     </section>
@@ -123,6 +111,7 @@
 <span>$</span> spoti volume 50
 <span>$</span> spoti queue "Faint" --first
 <span>$</span> spoti playlist-create "Road trip"
+<span>$</span> spoti playlist-edit "Road trip" --name "Road trip 2026"
 <span>$</span> spoti add "Workout" --search "Numb" --first
 <span>$</span> spoti device "My Computer" --default
 <span>$</span> spoti open

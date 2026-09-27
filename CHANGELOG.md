@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-27
+
+### Added
+
+- `spoti playlist-edit <playlist>` for changing the name, description, or public/private visibility of playlists owned by the authenticated user.
+- Owner-only playlist-detail editing in the TUI Library screen through the `e` shortcut, including inline name and description entry plus confirmed visibility changes.
+- A real interactive TUI screenshot on `spoti.bzenky.dev`.
+
+### Fixed
+
+- Keep TUI Search results scrollable in short terminal layouts instead of clipping entries below the screen footer.
+
+### Changed
+
+- Extend Bash, Zsh, and Fish completions, TUI Help, README, and the website with playlist-editing workflows.
+- Retire the completed project roadmap in favor of future GitHub issues and release discussions.
+
 ## [1.2.0] - 2026-09-26
 
 ### Added

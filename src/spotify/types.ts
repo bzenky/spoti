@@ -92,6 +92,16 @@ export interface SpotifyPlaylist extends SpotifySimplifiedPlaylist {
   followers?: { total: number };
 }
 
+export interface SpotifyPlaylistDetailsUpdate {
+  name?: string;
+  description?: string;
+  public?: boolean;
+}
+
+export interface SpotifyRemovePlaylistItemsRequest {
+  items: Array<{ uri: string }>;
+}
+
 export interface SpotifyEpisode {
   type: 'episode';
   id?: string | null;

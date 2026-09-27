@@ -42,6 +42,7 @@ const CATEGORY_LABELS: Record<SearchCategory, string> = {
   artist: 'Artists',
   playlist: 'Playlists',
 };
+const SEARCH_CHROME_ROWS = 7;
 
 export function SearchScreen({
   search,
@@ -233,7 +234,8 @@ export function SearchScreen({
     if (isUnmodifiedKey(input, key)) editQuery(`${query}${input}`);
   });
 
-  const visibleResults = createListWindow(results ?? [], selectedIndex, availableRows);
+  const resultRows = Math.max(1, availableRows - SEARCH_CHROME_ROWS);
+  const visibleResults = createListWindow(results ?? [], selectedIndex, resultRows);
 
   return (
     <Box flexDirection="column" height="100%" overflow="hidden">
@@ -251,7 +253,7 @@ export function SearchScreen({
       <Box marginTop={1} overflow="hidden">
         <Text wrap="truncate-start">Search: {sanitizeOneLineText(query)}▌</Text>
       </Box>
-      <Box marginTop={1} flexDirection="column">
+      <Box marginTop={1} flexDirection="column" flexGrow={1} minHeight={0} overflow="hidden">
         {loading ? <Text color="yellow">Searching {CATEGORY_LABELS[category].toLowerCase()}…</Text> : null}
         {!loading && results?.length === 0 ? (
           <Text dimColor>No {CATEGORY_LABELS[category].toLowerCase()} found.</Text>

@@ -79,6 +79,7 @@ export const LIBRARY_SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: 'Tab / ← / →', description: 'Switch Playlists, Liked, and Recent' },
   { keys: '↑ / ↓', description: 'Select an item' },
   { keys: 'Enter', description: 'Open a playlist or play a track' },
+  { keys: 'e', description: 'Edit an owned playlist' },
   { keys: 'n / p', description: 'Load next page or reuse previous page' },
   { keys: 'Esc', description: 'Go back one level' },
 ];

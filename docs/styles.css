@@ -103,6 +103,7 @@ h1 span { color: var(--green); }
 
 .terminal-wrap, .mini-terminal { position: relative; z-index: 1; margin: 0; border: 1px solid #344139; border-radius: .65rem; background: #080b09; box-shadow: 0 35px 80px rgba(0, 0, 0, .45), 0 0 0 1px rgba(84, 229, 133, .035); overflow: hidden; }
 .terminal-wrap { transform: perspective(1200px) rotateY(-1.5deg) rotateX(1deg); }
+.tui-screenshot { display: block; width: 100%; height: auto; background: #0c0013; }
 .terminal-bar { position: relative; display: flex; gap: .46rem; align-items: center; height: 42px; padding: 0 1rem; border-bottom: 1px solid #29332d; background: #131a16; }
 .terminal-bar span { width: .64rem; height: .64rem; border-radius: 50%; background: #526058; }
 .terminal-bar span:first-child { background: #d76b61; }

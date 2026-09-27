@@ -11,6 +11,7 @@ import { DevicesScreen, type TuiDevice } from './devices-screen.js';
 import {
   LibraryScreen,
   type LibrarySessionCache,
+  type TuiLibraryAuth,
   type TuiLikedLibrary,
   type TuiPlaylistLibrary,
   type TuiRecentLibrary,
@@ -54,6 +55,7 @@ export interface TuiAppProps {
   device: TuiDevice;
   config: Pick<ConfigStore, 'read' | 'set' | 'resetKey'>;
   playlists: TuiPlaylistLibrary & TuiPlaylistPicker;
+  auth: TuiLibraryAuth;
   library: TuiLikedLibrary;
   recent: TuiRecentLibrary;
   lyrics: TuiLyrics;
@@ -70,6 +72,7 @@ export function TuiApp({
   device,
   config,
   playlists,
+  auth,
   library,
   recent,
   lyrics,
@@ -447,6 +450,7 @@ export function TuiApp({
         ) : (
           <LibraryScreen
             playlists={playlists}
+            auth={auth}
             library={library}
             recent={recent}
             player={player}

@@ -6,7 +6,7 @@ _spoti_completion() {
   cur="\${COMP_WORDS[COMP_CWORD]}"
   command="\${COMP_WORDS[1]}"
 
-  local commands="setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art"
+  local commands="setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art"
   local global_options="-h --help -V --version"
 
   if (( COMP_CWORD == 1 )); then
@@ -38,6 +38,9 @@ _spoti_completion() {
       ;;
     playlist-create)
       COMPREPLY=( $(compgen -W "--public -h --help" -- "$cur") )
+      ;;
+    playlist-edit)
+      COMPREPLY=( $(compgen -W "--name --description --public --private -h --help" -- "$cur") )
       ;;
     playlists|pls|liked|recent|rec|search|s)
       COMPREPLY=( $(compgen -W "-l --limit -h --help" -- "$cur") )
@@ -103,6 +106,7 @@ _spoti() {
     'art:alias for artist'
     'playlists:browse and optionally play your Spotify playlists'
     'playlist-create:create a Spotify playlist'
+    'playlist-edit:edit the details of a playlist you own'
     'add:add the current or a searched track to a playlist'
     'playlist:show one of your Spotify playlists'
     'liked:browse and optionally play your liked tracks'
@@ -175,6 +179,9 @@ _spoti() {
         playlist-create)
           _arguments '--public[make the playlist public]' '1:playlist name:'
           ;;
+        playlist-edit)
+          _arguments '--name[set the playlist name]:name:' '--description[set the playlist description]:description:' '(--public --private)'--public[make the playlist public]' '(--public --private)'--private[make the playlist private]' '*:playlist:'
+          ;;
         playlists|pls|liked|recent|rec)
           _arguments '(-l --limit)'{-l,--limit}'[number of items per page]:number:'
           ;;
@@ -210,7 +217,7 @@ complete -c spoti -s h -l help -d 'Display help'
 complete -c spoti -s V -l version -d 'Display version'
 
 function __spoti_needs_command
-  not __fish_seen_subcommand_from setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art
+  not __fish_seen_subcommand_from setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art
 end
 complete -c spoti -n __spoti_needs_command -a setup -d 'Save your Spotify application client ID'
 complete -c spoti -n __spoti_needs_command -a login -d 'Log in to Spotify'
@@ -238,6 +245,7 @@ complete -c spoti -n __spoti_needs_command -a album -d 'Search for an album'
 complete -c spoti -n __spoti_needs_command -a artist -d 'Search for an artist'
 complete -c spoti -n __spoti_needs_command -a playlists -d 'Browse and optionally play your playlists'
 complete -c spoti -n __spoti_needs_command -a playlist-create -d 'Create a Spotify playlist'
+complete -c spoti -n __spoti_needs_command -a playlist-edit -d 'Edit the details of a playlist you own'
 complete -c spoti -n __spoti_needs_command -a add -d 'Add the current or a searched track to a playlist'
 complete -c spoti -n __spoti_needs_command -a playlist -d 'Show a playlist'
 complete -c spoti -n __spoti_needs_command -a liked -d 'Browse and optionally play liked tracks'
@@ -259,6 +267,10 @@ complete -c spoti -n '__fish_seen_subcommand_from queue q album alb artist art p
 complete -c spoti -n '__fish_seen_subcommand_from add' -l first -d 'Select first matches without prompting'
 complete -c spoti -n '__fish_seen_subcommand_from add' -l search -r -d 'Search for a track to add'
 complete -c spoti -n '__fish_seen_subcommand_from playlist-create' -l public -d 'Make the playlist public'
+complete -c spoti -n '__fish_seen_subcommand_from playlist-edit' -l name -r -d 'Set the playlist name'
+complete -c spoti -n '__fish_seen_subcommand_from playlist-edit' -l description -r -d 'Set the playlist description'
+complete -c spoti -n '__fish_seen_subcommand_from playlist-edit' -l public -d 'Make the playlist public'
+complete -c spoti -n '__fish_seen_subcommand_from playlist-edit' -l private -d 'Make the playlist private'
 complete -c spoti -n '__fish_seen_subcommand_from playlists pls liked recent rec' -s l -l limit -r -d 'Number of items per page'
 complete -c spoti -n '__fish_seen_subcommand_from search s' -s l -l limit -r -d 'Maximum number of results'
 complete -c spoti -n '__fish_seen_subcommand_from device dev' -l default -d 'Save this device as the playback fallback'

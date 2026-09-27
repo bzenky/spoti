@@ -719,6 +719,73 @@ export function createProgram(dependencies: AppDependencies): Command {
     });
 
   program
+    .command('playlist-edit')
+    .description('Edit the details of a playlist you own')
+    .argument('<query...>', 'playlist number or name')
+    .option('--name <name>', 'set the playlist name')
+    .option('--description <description>', 'set the playlist description')
+    .option('--public', 'make the playlist public')
+    .option('--private', 'make the playlist private')
+    .action(
+      async (
+        queryParts: string[],
+        options: { name?: string; description?: string; public?: boolean; private?: boolean },
+      ) => {
+        if (options.public && options.private) {
+          throw new ConfigurationError('--public and --private cannot be used together.');
+        }
+        if (
+          options.name === undefined &&
+          options.description === undefined &&
+          !options.public &&
+          !options.private
+        ) {
+          throw new ConfigurationError(
+            'Provide at least one update option: --name, --description, --public, or --private.',
+          );
+        }
+
+        const query = queryParts.join(' ').trim();
+        let playlist: Playlist | null | undefined;
+        if (/^\d+$/.test(query)) {
+          playlist = await runTask('Loading playlist…', () =>
+            dependencies.playlist.getPlaylistByNumber(Number(query)),
+          );
+          if (!playlist) throw playlistNumberOutOfRange(query);
+        } else {
+          const allPlaylists = await runTask('Loading playlists…', () =>
+            dependencies.playlist.listPlaylists(50),
+          );
+          const matches = allPlaylists.filter((playlist) =>
+            playlist.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+          );
+          if (matches.length === 0) {
+            dependencies.output.log(`No playlists found for "${safe(query)}".`);
+            return;
+          }
+          playlist = await choosePlaylist(matches);
+        }
+        if (!playlist) {
+          dependencies.output.log('Selection cancelled.');
+          return;
+        }
+
+        const user = await dependencies.auth.getCurrentUser();
+        if (playlist.ownerId !== user.id) {
+          throw new AppError(`You can only edit playlists you own: ${safe(playlist.name)}.`);
+        }
+
+        const changes = {
+          ...(options.name === undefined ? {} : { name: options.name }),
+          ...(options.description === undefined ? {} : { description: options.description }),
+          ...(options.public || options.private ? { isPublic: options.public ? true : false } : {}),
+        };
+        await dependencies.playlist.updatePlaylistDetails(playlist.id, changes);
+        dependencies.output.log(`✓ Updated playlist ${safe(changes.name ?? playlist.name)}`);
+      },
+    );
+
+  program
     .command('add')
     .description('Add the current or a searched track to one of your playlists')
     .argument('[playlist...]', 'playlist number or name')

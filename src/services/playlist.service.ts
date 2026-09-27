@@ -3,11 +3,13 @@ import { AppError } from '../utils/errors.js';
 import type {
   SpotifyPaging,
   SpotifyPlaylist,
+  SpotifyPlaylistDetailsUpdate,
   SpotifyPlaylistItem,
+  SpotifyRemovePlaylistItemsRequest,
   SpotifySimplifiedPlaylist,
 } from '../spotify/types.js';
 import { mapPlaybackItem, mapPlaylist, normalizeLimit } from './mappers.js';
-import type { Playlist, PlaylistDetail, Track } from './models.js';
+import type { Playlist, PlaylistDetail, PlaylistDetailsChanges, Track } from './models.js';
 import { nextOffsetToken, type OffsetToken, type Page } from './pagination.js';
 
 const DEFAULT_PLAYLIST_LIMIT = 20;
@@ -64,6 +66,25 @@ export class PlaylistService {
     return { ...mapPlaylist(playlist), tracks };
   }
 
+  async updatePlaylistDetails(
+    id: string,
+    changes: PlaylistDetailsChanges,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const playlistId = id.trim();
+    if (!playlistId) throw new AppError('A Spotify playlist ID is required.');
+
+    const body = this.normalizePlaylistDetailsChanges(changes);
+    if (Object.keys(body).length === 0) {
+      throw new AppError('At least one playlist detail must be provided.');
+    }
+
+    await this.spotify.put<void>(`/playlists/${encodeURIComponent(playlistId)}`, {
+      body,
+      ...(signal === undefined ? {} : { signal }),
+    });
+  }
+
   async getPlaylistItems(id: string, limit = DEFAULT_ITEM_LIMIT): Promise<Track[]> {
     return (await this.getPlaylistItemsPage(id, undefined, limit)).items;
   }
@@ -79,6 +100,24 @@ export class PlaylistService {
 
     await this.spotify.post<void>(`/playlists/${encodeURIComponent(playlistId)}/items`, {
       body: { uris: items },
+      ...(signal === undefined ? {} : { signal }),
+    });
+  }
+
+  async removeItems(id: string, uris: string[], signal?: AbortSignal): Promise<void> {
+    const playlistId = id.trim();
+    const items = uris.map((uri) => uri.trim()).filter(Boolean);
+    if (!playlistId) throw new AppError('A Spotify playlist ID is required.');
+    if (items.length === 0) throw new AppError('At least one Spotify item URI is required.');
+    if (items.length > 100) {
+      throw new AppError('Spotify accepts at most 100 playlist items per request.');
+    }
+
+    const body: SpotifyRemovePlaylistItemsRequest = {
+      items: items.map((uri) => ({ uri })),
+    };
+    await this.spotify.delete<void>(`/playlists/${encodeURIComponent(playlistId)}/items`, {
+      body,
       ...(signal === undefined ? {} : { signal }),
     });
   }
@@ -102,5 +141,21 @@ export class PlaylistService {
         .filter((track): track is Track => track !== null),
       nextToken: nextOffsetToken(response),
     };
+  }
+
+  private normalizePlaylistDetailsChanges(
+    changes: PlaylistDetailsChanges,
+  ): SpotifyPlaylistDetailsUpdate {
+    const body: SpotifyPlaylistDetailsUpdate = {};
+
+    if (changes.name !== undefined) {
+      const name = changes.name.trim();
+      if (!name) throw new AppError('A playlist name cannot be empty.');
+      body.name = name;
+    }
+    if (changes.description !== undefined) body.description = changes.description;
+    if (changes.isPublic !== undefined) body.public = changes.isPublic;
+
+    return body;
   }
 }

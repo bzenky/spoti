@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { AuthService } from '../services/auth.service.js';
 import type { LibraryService } from '../services/library.service.js';
-import type { Playlist, PlaylistDetailsChanges, Track } from '../services/models.js';
+import type { Artist, Playlist, PlaylistDetailsChanges, TopItemsRange, Track } from '../services/models.js';
 import type { OffsetToken, RecentCursorToken } from '../services/pagination.js';
 import type { PlayerService } from '../services/player.service.js';
 import type { PlaylistService } from '../services/playlist.service.js';
@@ -11,16 +11,19 @@ import type { RecentService } from '../services/recent.service.js';
 import { sanitizeOneLineText } from '../utils/text.js';
 import { createListWindow } from './viewport.js';
 
-export type LibraryCategory = 'playlists' | 'liked' | 'recent';
+export type LibraryCategory = 'playlists' | 'liked' | 'recent' | 'top-tracks' | 'top-artists';
 
 export type TuiPlaylistLibrary = Pick<
   PlaylistService,
   'getPlaylistItemsPage' | 'listPlaylistsPage' | 'updatePlaylistDetails' | 'moveItem'
 >;
 export type TuiLibraryAuth = Pick<AuthService, 'getCurrentUser'>;
-export type TuiLikedLibrary = Pick<LibraryService, 'getLikedTracksPage'>;
+export type TuiLikedLibrary = Pick<
+  LibraryService,
+  'getLikedTracksPage' | 'getTopTracksPage' | 'getTopArtistsPage'
+>;
 export type TuiRecentLibrary = Pick<RecentService, 'getRecentlyPlayedPage'>;
-export type LibraryPlayer = Pick<PlayerService, 'playTrack'>;
+export type LibraryPlayer = Pick<PlayerService, 'playContext' | 'playTrack'>;
 
 export interface LibraryScreenProps {
   playlists: TuiPlaylistLibrary;
@@ -41,6 +44,7 @@ type Location =
 type PageToken = OffsetToken | RecentCursorToken;
 type DisplayRow =
   | { kind: 'playlist'; playlist: Playlist }
+  | { kind: 'artist'; artist: Artist }
   | { kind: 'track'; track: Track; detail?: string };
 
 interface CachedPage {
@@ -55,12 +59,21 @@ interface PageSession {
 
 export type LibrarySessionCache = Map<string, PageSession>;
 
-const CATEGORIES: readonly LibraryCategory[] = ['playlists', 'liked', 'recent'];
+const CATEGORIES: readonly LibraryCategory[] = [
+  'playlists',
+  'liked',
+  'recent',
+  'top-tracks',
+  'top-artists',
+];
 const LABELS: Record<LibraryCategory, string> = {
   playlists: 'Playlists',
   liked: 'Liked',
   recent: 'Recent',
+  'top-tracks': 'Top tracks',
+  'top-artists': 'Top artists',
 };
+const TOP_RANGES: readonly TopItemsRange[] = ['short_term', 'medium_term', 'long_term'];
 const LIBRARY_PAGE_SIZE = 20;
 const PLAYLIST_TRACK_PAGE_SIZE = 50;
 
@@ -77,6 +90,7 @@ export function LibraryScreen({
 }: LibraryScreenProps) {
   const [location, setLocation] = useState<Location>({ kind: 'category', category: 'playlists' });
   const [pageIndex, setPageIndex] = useState(0);
+  const [topRange, setTopRange] = useState<TopItemsRange>('medium_term');
   const [page, setPage] = useState<CachedPage | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -93,7 +107,7 @@ export function LibraryScreen({
   const request = useRef<AbortController | null>(null);
   const requestVersion = useRef(0);
 
-  const locationKey = getLocationKey(location);
+  const locationKey = getLocationKey(location, topRange);
 
   const cancelRequest = useCallback(() => {
     requestVersion.current += 1;
@@ -138,6 +152,7 @@ export function LibraryScreen({
           playlists,
           library,
           recent,
+          topRange,
           controller.signal,
         );
         if (controller.signal.aborted || !active || version !== requestVersion.current) return;
@@ -162,7 +177,7 @@ export function LibraryScreen({
       request.current?.abort();
       request.current = null;
     };
-  }, [library, location, locationKey, pageIndex, playlists, recent, retryVersion, sessions]);
+  }, [library, location, locationKey, pageIndex, playlists, recent, retryVersion, sessions, topRange]);
 
   const changeCategory = useCallback(
     (direction: -1 | 1) => {
@@ -172,9 +187,9 @@ export function LibraryScreen({
       if (!category) return;
       const nextLocation: Location = { kind: 'category', category };
       setLocation(nextLocation);
-      setPageIndex(getSession(sessions, getLocationKey(nextLocation)).index);
+      setPageIndex(getSession(sessions, getLocationKey(nextLocation, topRange)).index);
     },
-    [loading, location, playing, sessions],
+    [loading, location, playing, sessions, topRange],
   );
 
   const goBack = useCallback(() => {
@@ -187,11 +202,11 @@ export function LibraryScreen({
     if (location.kind === 'playlist') {
       const nextLocation: Location = { kind: 'category', category: 'playlists' };
       setLocation(nextLocation);
-      setPageIndex(getSession(sessions, getLocationKey(nextLocation)).index);
+      setPageIndex(getSession(sessions, getLocationKey(nextLocation, topRange)).index);
       return;
     }
     onBack();
-  }, [cancelRequest, location.kind, onBack, sessions]);
+  }, [cancelRequest, location.kind, onBack, sessions, topRange]);
 
   const updateCachedPlaylist = useCallback((updated: Playlist) => {
     for (const session of sessions.values()) {
@@ -282,7 +297,7 @@ export function LibraryScreen({
 
   const playSelected = useCallback(async () => {
     const selected = page?.rows[selectedIndex];
-    if (!selected || selected.kind !== 'track' || playing) return;
+    if (!selected || (selected.kind !== 'track' && selected.kind !== 'artist') || playing) return;
 
     cancelRequest();
     const controller = new AbortController();
@@ -292,13 +307,19 @@ export function LibraryScreen({
     setError(null);
     setConfirmation(null);
     try {
-      if (selected.track.albumUri) {
+      if (selected.kind === 'artist') {
+        await player.playContext(selected.artist.uri, controller.signal);
+      } else if (selected.track.albumUri) {
         await player.playTrack(selected.track.uri, controller.signal, selected.track.albumUri);
       } else {
         await player.playTrack(selected.track.uri, controller.signal);
       }
       if (controller.signal.aborted || version !== requestVersion.current) return;
-      setConfirmation(`▶ Playing ${formatTrack(selected.track)}`);
+      setConfirmation(
+        selected.kind === 'artist'
+          ? `▶ Playing ${sanitizeOneLineText(selected.artist.name)}`
+          : `▶ Playing ${formatTrack(selected.track)}`,
+      );
     } catch (caught) {
       if (controller.signal.aborted || version !== requestVersion.current) return;
       setError(`Unable to start playback: ${formatError(caught)}`);
@@ -401,6 +422,19 @@ export function LibraryScreen({
       changeCategory(-1);
       return;
     }
+    if (
+      location.kind === 'category' &&
+      (location.category === 'top-tracks' || location.category === 'top-artists') &&
+      input === 't'
+    ) {
+      const currentRange = TOP_RANGES.indexOf(topRange);
+      const nextRange = TOP_RANGES[(currentRange + 1) % TOP_RANGES.length];
+      if (nextRange) {
+        setTopRange(nextRange);
+        setPageIndex(getSession(sessions, getLocationKey(location, nextRange)).index);
+      }
+      return;
+    }
     if (key.upArrow && page?.rows.length) {
       setSelectedIndex((current) => (current - 1 + page.rows.length) % page.rows.length);
       return;
@@ -422,7 +456,7 @@ export function LibraryScreen({
       if (selected?.kind === 'playlist') {
         const nextLocation: Location = { kind: 'playlist', playlist: selected.playlist };
         setLocation(nextLocation);
-        setPageIndex(getSession(sessions, getLocationKey(nextLocation)).index);
+        setPageIndex(getSession(sessions, getLocationKey(nextLocation, topRange)).index);
       } else {
         void playSelected();
       }
@@ -452,6 +486,9 @@ export function LibraryScreen({
       ) : (
         <Text dimColor>Playlist tracks</Text>
       )}
+      {location.kind === 'category' && location.category.startsWith('top-') ? (
+        <Text dimColor>{rangeLabel(topRange)}</Text>
+      ) : null}
 
       <Box marginTop={1} flexDirection="column">
         {loading ? <Text color="yellow">Loading {getLocationLabel(location).toLowerCase()}…</Text> : null}
@@ -528,7 +565,7 @@ export function LibraryScreen({
         <Text dimColor>
           {editMode
             ? 'Type to edit · Enter save · Esc cancel'
-            : <>Enter {location.kind === 'playlist' ? 'play' : location.category === 'playlists' ? 'open/play' : 'play'} · ↑/↓ select · n/p page{location.kind === 'category' ? ' · Tab/←/→ category' : ' · e edit, then m move track'} · Esc back</>}
+          : <>Enter {location.kind === 'playlist' ? 'play' : location.category === 'playlists' ? 'open/play' : 'play'} · ↑/↓ select · n/p page{location.kind === 'category' ? ` · Tab/←/→ category${location.category.startsWith('top-') ? ' · t time range' : ''}` : ' · e edit, then m move track'} · Esc back</>}
         </Text>
       </Box>
     </Box>
@@ -543,8 +580,12 @@ function getSession(sessions: Map<string, PageSession>, key: string): PageSessio
   return session;
 }
 
-function getLocationKey(location: Location): string {
-  return location.kind === 'category' ? location.category : `playlist:${location.playlist.id}`;
+function getLocationKey(location: Location, topRange: TopItemsRange): string {
+  if (location.kind === 'playlist') return `playlist:${location.playlist.id}`;
+  if (location.category === 'top-tracks' || location.category === 'top-artists') {
+    return `${location.category}:${topRange}`;
+  }
+  return location.category;
 }
 
 function getLocationLabel(location: Location): string {
@@ -557,6 +598,7 @@ async function loadPage(
   playlists: TuiPlaylistLibrary,
   library: TuiLikedLibrary,
   recent: TuiRecentLibrary,
+  topRange: TopItemsRange,
   signal: AbortSignal,
 ): Promise<CachedPage> {
   if (location.kind === 'playlist') {
@@ -590,6 +632,24 @@ async function loadPage(
       nextToken: loaded.nextToken,
     };
   }
+  if (location.category === 'top-tracks') {
+    const loaded = await library.getTopTracksPage(
+      token as OffsetToken | undefined,
+      topRange,
+      LIBRARY_PAGE_SIZE,
+      signal,
+    );
+    return { rows: loaded.items.map((track) => ({ kind: 'track', track })), nextToken: loaded.nextToken };
+  }
+  if (location.category === 'top-artists') {
+    const loaded = await library.getTopArtistsPage(
+      token as OffsetToken | undefined,
+      topRange,
+      LIBRARY_PAGE_SIZE,
+      signal,
+    );
+    return { rows: loaded.items.map((artist) => ({ kind: 'artist', artist })), nextToken: loaded.nextToken };
+  }
   const loaded = await recent.getRecentlyPlayedPage(
     token as RecentCursorToken | undefined,
     LIBRARY_PAGE_SIZE,
@@ -602,7 +662,9 @@ async function loadPage(
 }
 
 function getRowKey(row: DisplayRow): string {
-  return row.kind === 'playlist' ? `playlist:${row.playlist.id}` : `track:${row.track.id}`;
+  if (row.kind === 'playlist') return `playlist:${row.playlist.id}`;
+  if (row.kind === 'artist') return `artist:${row.artist.id}`;
+  return `track:${row.track.id}`;
 }
 
 function formatRow(row: DisplayRow): string {
@@ -610,8 +672,15 @@ function formatRow(row: DisplayRow): string {
     const count = `${row.playlist.totalTracks} ${row.playlist.totalTracks === 1 ? 'track' : 'tracks'}`;
     return `${sanitizeOneLineText(row.playlist.name)} — ${sanitizeOneLineText(row.playlist.ownerName)} · ${count}`;
   }
+  if (row.kind === 'artist') return sanitizeOneLineText(row.artist.name);
   const detail = row.detail ? ` · ${sanitizeOneLineText(row.detail)}` : '';
   return `${formatTrack(row.track)}${detail}`;
+}
+
+function rangeLabel(range: TopItemsRange): string {
+  if (range === 'short_term') return 'Last 4 weeks';
+  if (range === 'long_term') return 'About 1 year';
+  return 'About 6 months';
 }
 
 function formatTrack(track: Track): string {

@@ -3,9 +3,11 @@ import type {
   SpotifyPaging,
   SpotifyPlaybackState,
   SpotifySavedTrack,
+  SpotifyFullArtist,
+  SpotifyTrack,
 } from '../spotify/types.js';
-import { mapPlaybackItem, mapTrack, normalizeLimit } from './mappers.js';
-import type { SavedTrack, Track } from './models.js';
+import { mapArtist, mapPlaybackItem, mapTrack, normalizeLimit } from './mappers.js';
+import type { Artist, SavedTrack, TopItemsRange, Track } from './models.js';
 import { nextOffsetToken, type OffsetToken, type Page } from './pagination.js';
 
 const DEFAULT_LIBRARY_LIMIT = 20;
@@ -35,6 +37,40 @@ export class LibraryService {
     return {
       items,
       nextToken: nextOffsetToken(response),
+    };
+  }
+
+  async getTopTracksPage(
+    token?: OffsetToken,
+    range: TopItemsRange = 'medium_term',
+    limit = DEFAULT_LIBRARY_LIMIT,
+    signal?: AbortSignal,
+  ): Promise<Page<Track, OffsetToken>> {
+    const response = await this.spotify.get<SpotifyPaging<SpotifyTrack>>('/me/top/tracks', {
+      query: { limit: normalizeLimit(limit), offset: normalizeOffset(token?.offset), time_range: range },
+      ...(signal === undefined ? {} : { signal }),
+    });
+    return {
+      items: response.items.map(mapTrack).filter((track): track is Track => track !== null),
+      nextToken: nextOffsetToken(response),
+      total: response.total,
+    };
+  }
+
+  async getTopArtistsPage(
+    token?: OffsetToken,
+    range: TopItemsRange = 'medium_term',
+    limit = DEFAULT_LIBRARY_LIMIT,
+    signal?: AbortSignal,
+  ): Promise<Page<Artist, OffsetToken>> {
+    const response = await this.spotify.get<SpotifyPaging<SpotifyFullArtist>>('/me/top/artists', {
+      query: { limit: normalizeLimit(limit), offset: normalizeOffset(token?.offset), time_range: range },
+      ...(signal === undefined ? {} : { signal }),
+    });
+    return {
+      items: response.items.map(mapArtist),
+      nextToken: nextOffsetToken(response),
+      total: response.total,
     };
   }
 

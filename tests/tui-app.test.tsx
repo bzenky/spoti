@@ -81,6 +81,8 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
     },
     library: {
       getLikedTracksPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
+      getTopTracksPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
+      getTopArtistsPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
     },
     recent: {
       getRecentlyPlayedPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),

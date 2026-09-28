@@ -76,10 +76,11 @@ export const DEVICE_SHORTCUTS: readonly ShortcutHelp[] = [
 ];
 
 export const LIBRARY_SHORTCUTS: readonly ShortcutHelp[] = [
-  { keys: 'Tab / ← / →', description: 'Switch Playlists, Liked, and Recent' },
+  { keys: 'Tab / ← / →', description: 'Switch Library categories' },
   { keys: '↑ / ↓', description: 'Select an item' },
   { keys: 'Enter', description: 'Open a playlist or play a track' },
   { keys: 'e', description: 'Edit an owned playlist' },
+  { keys: 't', description: 'Cycle Top items: ~4 weeks, ~6 months, ~1 year' },
   { keys: 'n / p', description: 'Load next page or reuse previous page' },
   { keys: 'Esc', description: 'Go back one level' },
 ];

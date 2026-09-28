@@ -11,4 +11,5 @@ export const SPOTIFY_SCOPES = [
   'user-library-read',
   'user-library-modify',
   'user-read-recently-played',
+  'user-top-read',
 ] as const;

@@ -6,7 +6,7 @@ _spoti_completion() {
   cur="\${COMP_WORDS[COMP_CWORD]}"
   command="\${COMP_WORDS[1]}"
 
-  local commands="setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit playlist-move add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art"
+  local commands="setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit playlist-move add playlist liked like unlike recent top tt ta update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art"
   local global_options="-h --help -V --version"
 
   if (( COMP_CWORD == 1 )); then
@@ -47,6 +47,12 @@ _spoti_completion() {
       ;;
     playlists|pls|liked|recent|rec|search|s)
       COMPREPLY=( $(compgen -W "-l --limit -h --help" -- "$cur") )
+      ;;
+    top)
+      COMPREPLY=( $(compgen -W "tracks artists --range -r --limit -l -h --help" -- "$cur") )
+      ;;
+    tt|ta)
+      COMPREPLY=( $(compgen -W "--range -r --limit -l -h --help" -- "$cur") )
       ;;
     device|dev)
       COMPREPLY=( $(compgen -W "--default -h --help" -- "$cur") )
@@ -117,6 +123,9 @@ _spoti() {
     'like:add the current track to your Spotify library'
     'unlike:remove the current track from your Spotify library'
     'recent:browse and optionally play recently played tracks'
+    'top:browse and optionally play your top tracks or artists'
+    'tt:browse and optionally play your top tracks'
+    'ta:browse and optionally play your top artists'
     'update:check for or install the latest spoti version'
     'search:search Spotify tracks'
     'play:play a track, album, artist, or playlist'
@@ -192,6 +201,12 @@ _spoti() {
         playlists|pls|liked|recent|rec)
           _arguments '(-l --limit)'{-l,--limit}'[number of items per page]:number:'
           ;;
+        top)
+          _arguments '1:type:(tracks artists)' '(-r --range)'{-r,--range}'[short, medium, or long term]:range:(short medium long)' '(-l --limit)'{-l,--limit}'[number of items per page]:number:'
+          ;;
+        tt|ta)
+          _arguments '(-r --range)'{-r,--range}'[short, medium, or long term]:range:(short medium long)' '(-l --limit)'{-l,--limit}'[number of items per page]:number:'
+          ;;
         search|s)
           _arguments '(-l --limit)'{-l,--limit}'[maximum number of results]:number:' '*:query:'
           ;;
@@ -224,7 +239,7 @@ complete -c spoti -s h -l help -d 'Display help'
 complete -c spoti -s V -l version -d 'Display version'
 
 function __spoti_needs_command
-  not __fish_seen_subcommand_from setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit playlist-move add playlist liked like unlike recent update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art
+  not __fish_seen_subcommand_from setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit playlist-move add playlist liked like unlike recent top tt ta update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art
 end
 complete -c spoti -n __spoti_needs_command -a setup -d 'Save your Spotify application client ID'
 complete -c spoti -n __spoti_needs_command -a login -d 'Log in to Spotify'
@@ -260,11 +275,14 @@ complete -c spoti -n __spoti_needs_command -a liked -d 'Browse and optionally pl
 complete -c spoti -n __spoti_needs_command -a like -d 'Like the current track'
 complete -c spoti -n __spoti_needs_command -a unlike -d 'Unlike the current track'
 complete -c spoti -n __spoti_needs_command -a recent -d 'Browse and optionally play recently played tracks'
+complete -c spoti -n __spoti_needs_command -a top -d 'Browse and optionally play your top tracks or artists'
+complete -c spoti -n __spoti_needs_command -a tt -d 'Browse and optionally play your top tracks'
+complete -c spoti -n __spoti_needs_command -a ta -d 'Browse and optionally play your top artists'
 complete -c spoti -n __spoti_needs_command -a update -d 'Check for or install updates'
 complete -c spoti -n __spoti_needs_command -a search -d 'Search Spotify tracks'
 complete -c spoti -n __spoti_needs_command -a play -d 'Play a track, album, artist, or playlist'
 complete -c spoti -n __spoti_needs_command -a completion -d 'Print a shell completion script'
-complete -c spoti -n __spoti_needs_command -a 'i app p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art' -d 'Command alias'
+complete -c spoti -n __spoti_needs_command -a 'i app p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art tt ta' -d 'Command alias'
 
 complete -c spoti -n '__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from get set reset path unset' -a 'get set reset path unset'
 complete -c spoti -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set unset' -a 'spotifyClientId defaultDevice watchAfterPlay refreshIntervalMs'
@@ -281,6 +299,11 @@ complete -c spoti -n '__fish_seen_subcommand_from playlist-edit' -l public -d 'M
 complete -c spoti -n '__fish_seen_subcommand_from playlist-edit' -l private -d 'Make the playlist private'
 complete -c spoti -n '__fish_seen_subcommand_from playlists pls liked recent rec' -s l -l limit -r -d 'Number of items per page'
 complete -c spoti -n '__fish_seen_subcommand_from search s' -s l -l limit -r -d 'Maximum number of results'
+complete -c spoti -n '__fish_seen_subcommand_from top' -a 'tracks artists'
+complete -c spoti -n '__fish_seen_subcommand_from top' -s r -l range -r -d 'short, medium, or long term'
+complete -c spoti -n '__fish_seen_subcommand_from top' -s l -l limit -r -d 'Number of items per page'
+complete -c spoti -n '__fish_seen_subcommand_from tt ta' -s r -l range -r -d 'short, medium, or long term'
+complete -c spoti -n '__fish_seen_subcommand_from tt ta' -s l -l limit -r -d 'Number of items per page'
 complete -c spoti -n '__fish_seen_subcommand_from device dev' -l default -d 'Save this device as the playback fallback'
 complete -c spoti -n '__fish_seen_subcommand_from update' -l check -d 'Check without installing'
 complete -c spoti -n '__fish_seen_subcommand_from play p' -l first -d 'Play the first result without prompting'

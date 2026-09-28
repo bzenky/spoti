@@ -4,7 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.0] - 2026-09-28
+
+### Added
+
+- `spoti top tracks|artists` and Top tracks / Top artists categories in the Library TUI, with short-, medium-, and long-term ranges.
+- `spoti tt` and `spoti ta` shortcuts for browsing top tracks and top artists directly.
+- The Spotify `user-top-read` scope for accessing affinity rankings.
+
+### Changed
+
+- Document Top rankings, range windows, and CLI shortcuts in the README, website, and shell completions.
 
 ## [1.4.0] - 2026-09-28
 

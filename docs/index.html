@@ -81,7 +81,7 @@
           <article class="feature-card featured">
             <div class="feature-icon" aria-hidden="true">⌨</div>
             <h3>Keyboard-first TUI</h3>
-            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts, direct shortcuts, and track-to-playlist actions.</p>
+            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts, top tracks and artists, and playlist actions.</p>
             <code>spoti interactive</code>
           </article>
           <article class="feature-card">
@@ -102,7 +102,7 @@
           <div class="example-copy">
             <p class="eyebrow">CLI examples</p>
             <h2>Small commands.<br>Full control.</h2>
-            <p>Ordinary multi-word searches do not need quotes. Add <code>--first</code> when you want deterministic, non-interactive selection.</p>
+            <p>Ordinary multi-word searches do not need quotes. Add <code>--first</code> when you want deterministic, non-interactive selection. Use <code>spoti top tracks|artists</code> to browse affinity rankings; <code>--range short|medium|long</code> selects roughly four weeks, six months, or one year. The <code>tt</code> and <code>ta</code> shortcuts open top tracks and top artists directly.</p>
             <pre class="command-list" aria-label="Example spoti commands"><code><span>$</span> spoti play Fear of the Dark
 <span>$</span> spoti pause
 <span>$</span> spoti launch
@@ -113,6 +113,9 @@
 <span>$</span> spoti playlist-create "Road trip"
 <span>$</span> spoti playlist-edit "Road trip" --name "Road trip 2026"
 <span>$</span> spoti playlist-move "Road trip" 12 3
+<span>$</span> spoti top tracks --range short
+<span>$</span> spoti tt --range long
+<span>$</span> spoti ta
 <span>$</span> spoti add "Workout" --search "Numb" --first
 <span>$</span> spoti device "My Computer" --default
 <span>$</span> spoti open

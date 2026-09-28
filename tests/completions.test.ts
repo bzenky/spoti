@@ -38,6 +38,7 @@ const commands = [
   'like',
   'unlike',
   'recent',
+  'top',
   'update',
   'search',
   'play',
@@ -66,6 +67,8 @@ const aliases = [
   'rst',
   'alb',
   'art',
+  'tt',
+  'ta',
 ] as const;
 
 const configSubcommands = ['get', 'set', 'reset', 'path', 'unset'] as const;

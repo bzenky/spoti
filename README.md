@@ -141,7 +141,7 @@ Queue displays the current item and Spotify's upcoming items. Press `a` to searc
 
 Devices lists all Spotify Connect devices with active status, type, volume, and the saved default. The active device is selected automatically. Use up/down and Enter to transfer playback; pressing Enter on the active device is a safe no-op. Press `s` to set or clear the selected default device, `i` to show or hide device IDs when names are duplicated, and `r` to refresh. Restricted devices or entries without a usable ID remain visible with an explanation but cannot be selected for transfer.
 
-Library uses Tab or left/right to switch among Playlists, Liked, and Recent. Use up/down and Enter to open a playlist or play a track; `n` and `p` navigate lazily loaded pages. In a playlist you own, press `e` to edit its details or move the selected track to a one-based position. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
+Library uses Tab or left/right to switch among Playlists, Liked, Recent, Top tracks, and Top artists. Use up/down and Enter to open a playlist or play the selected track or artist; `n` and `p` navigate lazily loaded pages. In Top tracks or Top artists, press `t` to cycle between the last 4 weeks, about 6 months, and about 1 year. In a playlist you own, press `e` to edit its details or move the selected track to a one-based position. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
 
 Press `y` from Player to open lyrics for the current track. When synchronized lyrics are available, the TUI follows and highlights the current line; use up/down to scroll manually and `f` to resume following. Lyrics are loaded live from LRCLIB and are not stored persistently.
 
@@ -268,9 +268,11 @@ spoti like
 spoti unlike
 spoti recent
 spoti recent --limit 10
+spoti top tracks
+spoti top artists --range short
 ```
 
-`spoti like` and `spoti unlike` operate on the currently playing track. Episodes, advertisements, local files, and unavailable items are ignored safely. Artist albums, `spoti playlists`, `spoti liked`, and `spoti recent` use paginated browsers: enter a displayed number to select it, `n` for the next page, `p` for the previous page, or press Enter to go back or leave playback unchanged. Pages are requested only when needed, and previously visited pages are cached for the duration of the command. Short Spotify rate limits are retried automatically with bounded backoff; when `Retry-After` exceeds five seconds, `spoti` exits immediately with a human-readable retry time instead of holding the terminal on a spinner. For collection commands, `--limit` controls the page size from 1 to 50; artist album pages use Spotify’s maximum of 10. Non-interactive runs display only the first page and never start playback implicitly.
+`spoti like` and `spoti unlike` operate on the currently playing track. Episodes, advertisements, local files, and unavailable items are ignored safely. `spoti top tracks|artists` browses Spotify's affinity rankings, which estimate your top items over a time window rather than report exact play counts. Use `--range short|medium|long` (default `medium`): short covers about 4 weeks, medium about 6 months, and long about 1 year. The CLI page title shows the selected range. Artist albums, `spoti playlists`, `spoti liked`, `spoti recent`, and `spoti top` use paginated browsers: enter a displayed number to select it, `n` for the next page, `p` for the previous page, or press Enter to go back or leave playback unchanged. Pages are requested only when needed, and previously visited pages are cached for the duration of the command. Short Spotify rate limits are retried automatically with bounded backoff; when `Retry-After` exceeds five seconds, `spoti` exits immediately with a human-readable retry time instead of holding the terminal on a spinner. For collection commands, `--limit` controls the page size from 1 to 50; artist album pages use Spotify’s maximum of 10. Non-interactive runs display only the first page and never start playback implicitly.
 
 Check for updates or install the latest npm release:
 
@@ -305,6 +307,7 @@ vol   volume       sk    seek        rst  restart     alb   album
 art   artist       dev   device      devs  devices
 pl    playlist     pls   playlists   rep   repeat
 rec   recent       n     next        prev  previous
+tt    top tracks   ta    top artists
 ```
 
 ### Shell completions
@@ -396,7 +399,7 @@ or, when `XDG_CONFIG_HOME` is not set:
 ~/.config/spoti/credentials.json
 ```
 
-On POSIX systems, the credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically using the environment client ID when present, otherwise the client ID saved by `spoti setup`. Version `0.10.0` adds the minimum permissions needed to modify public and private playlists. Existing installations will be asked to run `spoti login` once after upgrading. Previous releases already request permissions for private playlist listing, liked-track access, library modification, and recently played tracks. Never provide or store a Spotify client secret in `spoti`.
+On POSIX systems, the credentials file is created with user-only permissions (`0600`). Access tokens refresh automatically using the environment client ID when present, otherwise the client ID saved by `spoti setup`. New installs request the minimum scopes for supported features; when a feature adds a new scope, existing installations are asked to run `spoti login` again to authorize it. Top tracks and artists require Spotify's `user-top-read` scope. Never provide or store a Spotify client secret in `spoti`.
 
 ## Spotify API policy
 

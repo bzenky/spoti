@@ -12,6 +12,7 @@ import type {
   RecentlyPlayedTrack,
   SavedTrack,
   SpotifyContextType,
+  TopItemsRange,
   Track,
 } from './services/models.js';
 import type { PlayerService } from './services/player.service.js';
@@ -34,6 +35,7 @@ import {
   formatAlbum,
   formatAlbumDetail,
   formatArtistDetail,
+  formatArtist,
   formatLyrics,
   formatPlayback,
   formatPlaybackShort,
@@ -1030,6 +1032,84 @@ export function createProgram(dependencies: AppDependencies): Command {
         `▶ Playing ${safe(selected.track.name)} — ${safeArtists(selected.track.artists)}`,
       );
     });
+
+  const browseTopItems =
+    (type: 'tracks' | 'artists') =>
+    async (options: { range: string; limit: number }) => {
+      const ranges: Record<string, TopItemsRange> = {
+        short: 'short_term',
+        medium: 'medium_term',
+        long: 'long_term',
+      };
+      const rangeLabels: Record<string, string> = {
+        short: 'short term (~4 weeks)',
+        medium: 'medium term (~6 months)',
+        long: 'long term (~1 year)',
+      };
+      const range = ranges[options.range.toLocaleLowerCase()];
+      if (!range) {
+        throw new ConfigurationError('Choose a top-items range: short, medium, or long.');
+      }
+
+      if (type === 'tracks') {
+        const browser = createCollectionBrowser<Track, OffsetToken>({
+          title: `Top tracks · ${rangeLabels[options.range.toLocaleLowerCase()]}`,
+          loadPage: (token) =>
+            runTask('Loading top tracks…', () =>
+              dependencies.library.getTopTracksPage(token, range, options.limit),
+            ),
+          formatItem: (track, index) => formatTrack(track, index, styles),
+        });
+        const selected = await browser.select();
+        if (!selected) return;
+        await playTrack(selected);
+        dependencies.output.log(`▶ Playing ${safe(selected.name)} — ${safeArtists(selected.artists)}`);
+        return;
+      }
+
+      const browser = createCollectionBrowser<Artist, OffsetToken>({
+        title: `Top artists · ${rangeLabels[options.range.toLocaleLowerCase()]}`,
+        loadPage: (token) =>
+          runTask('Loading top artists…', () =>
+            dependencies.library.getTopArtistsPage(token, range, options.limit),
+          ),
+        formatItem: (artist, index) => formatArtist(artist, index, styles),
+      });
+      const selected = await browser.select();
+      if (!selected) return;
+      await dependencies.player.playContext(selected.uri);
+      dependencies.output.log(`▶ Playing artist ${safe(selected.name)}`);
+    };
+
+  const addTopItemOptions = (command: Command) =>
+    command
+      .option(
+        '-r, --range <range>',
+        'affinity window: short (~4 weeks), medium (~6 months), or long (~1 year)',
+        'medium',
+      )
+      .option('-l, --limit <number>', 'number of items per page', parseCollectionLimit, 20);
+
+  addTopItemOptions(
+    program
+      .command('top')
+      .description('Browse and optionally play your top Spotify tracks or artists')
+      .argument('<type>', 'tracks or artists'),
+  ).action(async (typeValue: string, options: { range: string; limit: number }) => {
+    const type = typeValue.toLocaleLowerCase();
+    if (type !== 'tracks' && type !== 'artists') {
+      throw new ConfigurationError('Choose top items by type: tracks or artists.');
+    }
+    await browseTopItems(type)(options);
+  });
+
+  addTopItemOptions(
+    program.command('tt').description('Browse and optionally play your top tracks'),
+  ).action(browseTopItems('tracks'));
+
+  addTopItemOptions(
+    program.command('ta').description('Browse and optionally play your top artists'),
+  ).action(browseTopItems('artists'));
 
   program
     .command('update')

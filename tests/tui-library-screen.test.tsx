@@ -47,6 +47,7 @@ function dependencies(): Dependencies {
       listPlaylistsPage: vi.fn().mockResolvedValue({ items: [playlist], nextToken: null }),
       getPlaylistItemsPage: vi.fn().mockResolvedValue({ items: [track], nextToken: null }),
       updatePlaylistDetails: vi.fn().mockResolvedValue(undefined),
+      moveItem: vi.fn().mockResolvedValue(undefined),
     },
     auth: { getCurrentUser: vi.fn().mockResolvedValue({ id: 'user-1', displayName: 'Zenky' }) },
     library: {
@@ -54,6 +55,8 @@ function dependencies(): Dependencies {
         items: [{ addedAt: '2026-09-05T00:00:00Z', track }],
         nextToken: null,
       }),
+      getTopTracksPage: vi.fn().mockResolvedValue({ items: [track], nextToken: null }),
+      getTopArtistsPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
     },
     recent: {
       getRecentlyPlayedPage: vi.fn().mockResolvedValue({
@@ -61,7 +64,10 @@ function dependencies(): Dependencies {
         nextToken: null,
       }),
     },
-    player: { playTrack: vi.fn().mockResolvedValue(undefined) },
+    player: {
+      playContext: vi.fn().mockResolvedValue(undefined),
+      playTrack: vi.fn().mockResolvedValue(undefined),
+    },
     onBack: vi.fn(),
   };
 }

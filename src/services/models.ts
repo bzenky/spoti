@@ -82,5 +82,7 @@ export interface RecentlyPlayedTrack {
   contextUri?: string;
 }
 
+export type TopItemsRange = 'short_term' | 'medium_term' | 'long_term';
+
 export type RepeatMode = 'off' | 'track' | 'context';
 export type SpotifyContextType = 'album' | 'artist' | 'playlist';

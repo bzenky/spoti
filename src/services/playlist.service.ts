@@ -7,6 +7,7 @@ import type {
   SpotifyPlaylistItem,
   SpotifyRemovePlaylistItemsRequest,
   SpotifySimplifiedPlaylist,
+  SpotifyUpdatePlaylistItemsRequest,
 } from '../spotify/types.js';
 import { mapPlaybackItem, mapPlaylist, normalizeLimit } from './mappers.js';
 import type { Playlist, PlaylistDetail, PlaylistDetailsChanges, Track } from './models.js';
@@ -117,6 +118,34 @@ export class PlaylistService {
       items: items.map((uri) => ({ uri })),
     };
     await this.spotify.delete<void>(`/playlists/${encodeURIComponent(playlistId)}/items`, {
+      body,
+      ...(signal === undefined ? {} : { signal }),
+    });
+  }
+
+  async moveItem(id: string, from: number, to: number, signal?: AbortSignal): Promise<void> {
+    const playlistId = id.trim();
+    if (!playlistId) throw new AppError('A Spotify playlist ID is required.');
+    if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from < 1 || to < 1) {
+      throw new AppError('Playlist positions must be positive whole numbers.');
+    }
+
+    const playlist = await this.spotify.get<SpotifyPlaylist>(
+      `/playlists/${encodeURIComponent(playlistId)}`,
+      signal === undefined ? undefined : { signal },
+    );
+    if (from > playlist.items.total || to > playlist.items.total) {
+      throw new AppError(`Playlist positions must be between 1 and ${playlist.items.total}.`);
+    }
+    if (from === to) return;
+
+    const body: SpotifyUpdatePlaylistItemsRequest = {
+      range_start: from - 1,
+      insert_before: from < to ? to : to - 1,
+      range_length: 1,
+      snapshot_id: playlist.snapshot_id,
+    };
+    await this.spotify.put<void>(`/playlists/${encodeURIComponent(playlistId)}/items`, {
       body,
       ...(signal === undefined ? {} : { signal }),
     });

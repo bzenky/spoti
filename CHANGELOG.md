@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-28
+
+### Added
+
+- `spoti playlist-move <playlist> <from> <to>` and a Library TUI workflow for moving tracks within playlists you own.
+
 ## [1.3.0] - 2026-09-27
 
 ### Added

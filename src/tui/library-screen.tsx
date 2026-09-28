@@ -15,7 +15,7 @@ export type LibraryCategory = 'playlists' | 'liked' | 'recent';
 
 export type TuiPlaylistLibrary = Pick<
   PlaylistService,
-  'getPlaylistItemsPage' | 'listPlaylistsPage' | 'updatePlaylistDetails'
+  'getPlaylistItemsPage' | 'listPlaylistsPage' | 'updatePlaylistDetails' | 'moveItem'
 >;
 export type TuiLibraryAuth = Pick<AuthService, 'getCurrentUser'>;
 export type TuiLikedLibrary = Pick<LibraryService, 'getLikedTracksPage'>;
@@ -82,7 +82,7 @@ export function LibraryScreen({
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editMode, setEditMode] = useState<'menu' | 'name' | 'description' | 'visibility' | null>(null);
+  const [editMode, setEditMode] = useState<'menu' | 'name' | 'description' | 'visibility' | 'move-target' | null>(null);
   const [draft, setDraft] = useState('');
   const draftRef = useRef('');
   const [error, setError] = useState<string | null>(null);
@@ -246,6 +246,40 @@ export function LibraryScreen({
     }
   }, [auth, loading, location, playing, saving]);
 
+  const moveSelectedTrack = useCallback(async (to: number) => {
+    if (location.kind !== 'playlist' || saving) return;
+    const row = page?.rows[selectedIndex];
+    if (!row || row.kind !== 'track') return;
+    const from = pageIndex * PLAYLIST_TRACK_PAGE_SIZE + selectedIndex + 1;
+    const controller = new AbortController();
+    request.current = controller;
+    setSaving(true);
+    setError(null);
+    try {
+      const user = await auth.getCurrentUser();
+      if (location.playlist.ownerId !== user.id) {
+        setError('You can edit only playlists you own.');
+        return;
+      }
+      await playlists.moveItem(location.playlist.id, from, to, controller.signal);
+      if (controller.signal.aborted) return;
+      sessions.delete(locationKey);
+      setPage(null);
+      setPageIndex(0);
+      setEditMode(null);
+      draftRef.current = '';
+      setDraft('');
+      setRetryVersion((current) => current + 1);
+      setConfirmation(`✓ Moved ${formatTrack(row.track)} to position ${to}.`);
+    } catch (caught) {
+      if (controller.signal.aborted) return;
+      setError(`Unable to move playlist item: ${formatError(caught)}`);
+    } finally {
+      if (request.current === controller) request.current = null;
+      setSaving(false);
+    }
+  }, [auth, location, locationKey, page, pageIndex, playlists, saving, selectedIndex, sessions]);
+
   const playSelected = useCallback(async () => {
     const selected = page?.rows[selectedIndex];
     if (!selected || selected.kind !== 'track' || playing) return;
@@ -306,6 +340,10 @@ export function LibraryScreen({
         setEditMode('description');
       } else if (input === 'v' && location.kind === 'playlist') {
         setEditMode('visibility');
+      } else if (input === 'm' && location.kind === 'playlist') {
+        draftRef.current = '';
+        setDraft('');
+        setEditMode('move-target');
       }
       return;
     }
@@ -314,6 +352,23 @@ export function LibraryScreen({
         void savePlaylistChanges({ isPublic: !(location.playlist.isPublic ?? false) });
       } else if (input === 'n') {
         setEditMode(null);
+      }
+      return;
+    }
+    if (editMode === 'move-target') {
+      if (key.return) {
+        const target = Number(draftRef.current);
+        if (!/^\d+$/.test(draftRef.current) || !Number.isSafeInteger(target) || target < 1) {
+          setError('Enter a positive playlist position.');
+          return;
+        }
+        void moveSelectedTrack(target);
+      } else if (key.backspace || key.delete) {
+        draftRef.current = draftRef.current.slice(0, -1);
+        setDraft(draftRef.current);
+      } else if (/^\d$/.test(input)) {
+        draftRef.current += input;
+        setDraft(draftRef.current);
       }
       return;
     }
@@ -437,7 +492,7 @@ export function LibraryScreen({
       {editMode === 'menu' ? (
         <Box flexDirection="column">
           <Text bold>Edit playlist</Text>
-          <Text dimColor>[n] Name · [d] Description · [v] Visibility · [Esc] Cancel</Text>
+          <Text dimColor>[n] Name · [d] Description · [v] Visibility · [m] Move selected track · [Esc] Cancel</Text>
         </Box>
       ) : null}
       {editMode === 'name' ? (
@@ -457,6 +512,12 @@ export function LibraryScreen({
           <Text>Make this playlist {location.playlist.isPublic ? 'private' : 'public'}? [y/N]</Text>
         </Box>
       ) : null}
+      {editMode === 'move-target' ? (
+        <Box flexDirection="column">
+          <Text>Move selected track to position: {draft}</Text>
+          <Text dimColor>Enter move · Esc cancel</Text>
+        </Box>
+      ) : null}
       {!loading && !error ? (
         <Text dimColor>
           Page {pageIndex + 1} · {hasPrevious ? 'p previous' : 'p unavailable'} ·{' '}
@@ -467,7 +528,7 @@ export function LibraryScreen({
         <Text dimColor>
           {editMode
             ? 'Type to edit · Enter save · Esc cancel'
-            : <>Enter {location.kind === 'playlist' ? 'play' : location.category === 'playlists' ? 'open/play' : 'play'} · ↑/↓ select · n/p page{location.kind === 'category' ? ' · Tab/←/→ category' : ' · e edit'} · Esc back</>}
+            : <>Enter {location.kind === 'playlist' ? 'play' : location.category === 'playlists' ? 'open/play' : 'play'} · ↑/↓ select · n/p page{location.kind === 'category' ? ' · Tab/←/→ category' : ' · e edit, then m move track'} · Esc back</>}
         </Text>
       </Box>
     </Box>

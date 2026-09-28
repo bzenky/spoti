@@ -90,6 +90,7 @@ export interface SpotifySimplifiedPlaylist {
 
 export interface SpotifyPlaylist extends SpotifySimplifiedPlaylist {
   followers?: { total: number };
+  snapshot_id: string;
 }
 
 export interface SpotifyPlaylistDetailsUpdate {
@@ -100,6 +101,13 @@ export interface SpotifyPlaylistDetailsUpdate {
 
 export interface SpotifyRemovePlaylistItemsRequest {
   items: Array<{ uri: string }>;
+}
+
+export interface SpotifyUpdatePlaylistItemsRequest {
+  range_start: number;
+  insert_before: number;
+  range_length: 1;
+  snapshot_id: string;
 }
 
 export interface SpotifyEpisode {

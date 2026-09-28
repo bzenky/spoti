@@ -786,6 +786,49 @@ export function createProgram(dependencies: AppDependencies): Command {
     );
 
   program
+    .command('playlist-move')
+    .description('Move a track within a playlist you own')
+    .argument('<playlist>', 'playlist number or quoted name')
+    .argument('<from>', 'current one-based track position')
+    .argument('<to>', 'new one-based track position')
+    .action(async (query: string, fromValue: string, toValue: string) => {
+      const from = Number(fromValue);
+      const to = Number(toValue);
+      if (!/^\d+$/.test(fromValue) || !/^\d+$/.test(toValue) || !Number.isSafeInteger(from) || !Number.isSafeInteger(to)) {
+        throw new ConfigurationError('Playlist positions must be positive whole numbers.');
+      }
+
+      let playlist: Playlist | null | undefined;
+      if (/^\d+$/.test(query)) {
+        playlist = await runTask('Loading playlist…', () =>
+          dependencies.playlist.getPlaylistByNumber(Number(query)),
+        );
+        if (!playlist) throw playlistNumberOutOfRange(query);
+      } else {
+        const matches = (await runTask('Loading playlists…', () =>
+          dependencies.playlist.listPlaylists(50),
+        )).filter((item) => item.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+        if (matches.length === 0) {
+          dependencies.output.log(`No playlists found for "${safe(query)}".`);
+          return;
+        }
+        playlist = matches.length === 1 ? matches[0] : await choosePlaylist(matches);
+      }
+      if (!playlist) {
+        dependencies.output.log('Selection cancelled.');
+        return;
+      }
+      const user = await dependencies.auth.getCurrentUser();
+      if (playlist.ownerId !== user.id) {
+        throw new AppError(`You can only edit playlists you own: ${safe(playlist.name)}.`);
+      }
+      await runTask('Moving playlist item…', () =>
+        dependencies.playlist.moveItem(playlist.id, from, to),
+      );
+      dependencies.output.log(`✓ Moved item ${from} to ${to} in ${safe(playlist.name)}`);
+    });
+
+  program
     .command('add')
     .description('Add the current or a searched track to one of your playlists')
     .argument('[playlist...]', 'playlist number or name')

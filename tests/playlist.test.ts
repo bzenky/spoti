@@ -36,6 +36,7 @@ const playlist = {
   description: 'Heavy songs',
   public: false,
   collaborative: false,
+  snapshot_id: 'snapshot-1',
   owner: { id: 'owner-id', display_name: null },
   images: null,
   items: { total: 3 },
@@ -278,6 +279,38 @@ describe('PlaylistService', () => {
       body: { items: [{ uri: 'spotify:track:track-id' }] },
       signal,
     });
+  });
+
+  it('moves a playlist item using the current snapshot and one-based positions', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue(playlist);
+    const signal = new AbortController().signal;
+
+    await new PlaylistService(api).moveItem('playlist/id', 1, 3, signal);
+
+    expect(api.get).toHaveBeenCalledWith('/playlists/playlist%2Fid', { signal });
+    expect(api.put).toHaveBeenCalledWith('/playlists/playlist%2Fid/items', {
+      body: {
+        range_start: 0,
+        insert_before: 3,
+        range_length: 1,
+        snapshot_id: 'snapshot-1',
+      },
+      signal,
+    });
+  });
+
+  it('validates playlist move positions and skips no-op moves', async () => {
+    const api = createApi();
+    const service = new PlaylistService(api);
+    vi.mocked(api.get).mockResolvedValue(playlist);
+
+    await expect(service.moveItem('', 1, 2)).rejects.toThrow('playlist ID is required');
+    await expect(service.moveItem('playlist', 0, 2)).rejects.toThrow('positive whole numbers');
+    await expect(service.moveItem('playlist', 1, 4)).rejects.toThrow('between 1 and 3');
+    await service.moveItem('playlist', 2, 2);
+
+    expect(api.put).not.toHaveBeenCalled();
   });
 
   it('rejects invalid playlist removals before making a request', async () => {

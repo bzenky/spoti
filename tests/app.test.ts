@@ -101,6 +101,7 @@ function dependencies() {
       getPlaylistItemsPage: vi.fn(),
       createPlaylist: vi.fn(),
       updatePlaylistDetails: vi.fn(),
+      moveItem: vi.fn(),
       addItems: vi.fn(),
     } as unknown as PlaylistService,
     library: {
@@ -482,6 +483,37 @@ describe('CLI application', () => {
     expect(deps.playlist.updatePlaylistDetails).toHaveBeenCalledWith(playlist.id, {
       isPublic: false,
     });
+  });
+
+  it('moves a track within an owned playlist selected by number', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue(playlist);
+    vi.mocked(deps.auth.getCurrentUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Bruno',
+    });
+
+    await run(['playlist-move', '1', '12', '3'], deps);
+
+    expect(deps.playlist.moveItem).toHaveBeenCalledWith(playlist.id, 12, 3);
+    expect(deps.messages).toContain('✓ Moved item 12 to 3 in Workout');
+  });
+
+  it('rejects playlist moves for playlists the current user does not own', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue({
+      ...playlist,
+      ownerId: 'another-user',
+    });
+    vi.mocked(deps.auth.getCurrentUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Bruno',
+    });
+
+    await expect(run(['playlist-move', '1', '2', '1'], deps)).rejects.toThrow(
+      'You can only edit playlists you own: Workout.',
+    );
+    expect(deps.playlist.moveItem).not.toHaveBeenCalled();
   });
 
   it('rejects playlist edits for playlists the current user does not own', async () => {

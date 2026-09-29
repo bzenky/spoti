@@ -1,6 +1,6 @@
 {
   "name": "@bzenky/spoti",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "A local-first command-line client for controlling Spotify",
   "type": "module",
   "bin": {
@@ -47,6 +47,7 @@
   "dependencies": {
     "commander": "^15.0.0",
     "ink": "^7.1.1",
+    "ink-picture": "^2.1.0",
     "open": "^11.0.2",
     "picocolors": "^1.1.1",
     "react": "^19.2.8",

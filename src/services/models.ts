@@ -11,6 +11,7 @@ export interface Track {
   artists: string[];
   album: string;
   albumUri?: string;
+  imageUrl?: string;
   durationMs: number;
   externalUrl?: string;
 }

@@ -111,6 +111,8 @@ spoti interactive
 
 The TUI opens on current playback, updates progress locally every second, and refreshes Spotify state every ten seconds only while the Player screen is active. Use:
 
+The Player displays Spotify album artwork in terminals with inline image support. Other terminals keep the existing text-only playback view.
+
 ```text
 1       Player
 /       Search

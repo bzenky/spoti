@@ -38,7 +38,7 @@ const track = {
     id: 'album-id',
     uri: 'spotify:album:album-id',
     name: 'Meteora',
-    images: [],
+    images: [{ url: 'https://i.scdn.co/image/artwork', width: 640, height: 640 }],
   },
   external_urls: { spotify: 'https://open.spotify.com/track/track-id' },
 };
@@ -76,7 +76,12 @@ describe('PlayerService', () => {
       volumePercent: 67,
       shuffleState: true,
       repeatMode: 'context',
-      track: { name: 'Numb', artists: ['Linkin Park'], album: 'Meteora' },
+      track: {
+        name: 'Numb',
+        artists: ['Linkin Park'],
+        album: 'Meteora',
+        imageUrl: 'https://i.scdn.co/image/artwork',
+      },
     });
   });
 

@@ -1,4 +1,5 @@
 import { Box, Text, useApp, useInput, useWindowSize } from 'ink';
+import Image, { useTerminalInfo, type ImageProtocolName } from 'ink-picture';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { CurrentPlayback, Track } from '../services/models.js';
@@ -81,7 +82,9 @@ export function TuiApp({
 }: TuiAppProps) {
   const { exit } = useApp();
   const windowSize = useWindowSize();
+  const terminalInfo = useTerminalInfo();
   const { columns, rows } = terminalSize ?? windowSize;
+  const imageProtocol = getImageProtocol(terminalInfo);
   const [activeScreen, setActiveScreen] = useState<TuiScreen>('player');
   const [playback, setPlayback] = useState<CurrentPlayback | null>(null);
   const [loading, setLoading] = useState(true);
@@ -371,6 +374,7 @@ export function TuiApp({
                 progressMs={progressMs}
                 contentWidth={columns - 4}
                 compact={rows < 16}
+                {...(columns >= 64 && rows >= 18 && imageProtocol ? { imageProtocol } : {})}
               />
             ) : (
               <Text dimColor>Nothing is currently playing.</Text>
@@ -485,29 +489,60 @@ function PlaybackView({
   progressMs,
   contentWidth,
   compact,
+  imageProtocol,
 }: {
   playback: CurrentPlayback;
   progressMs: number;
   contentWidth: number;
   compact: boolean;
+  imageProtocol?: ImageProtocolName;
 }) {
   const status = playback.isPlaying ? '▶' : '⏸';
   const artists = playback.track.artists.map(sanitizeOneLineText).join(', ');
-
+  const spotifyUrl = playback.track.externalUrl ??
+    `https://open.spotify.com/track/${encodeURIComponent(playback.track.id)}`;
   return (
     <Box flexDirection="column">
-      <Text wrap="truncate-end">
-        <Text color={playback.isPlaying ? 'green' : 'yellow'}>{status}</Text>{' '}
-        <Text bold>{sanitizeOneLineText(playback.track.name)}</Text>
-      </Text>
-      <Text dimColor wrap="truncate-end">
-        {artists} · {sanitizeOneLineText(playback.track.album)}
-      </Text>
-      <Box marginTop={1}>
-        <Text>
-          {formatPlaybackProgress(progressMs, playback.track.durationMs, contentWidth)}
-        </Text>
-      </Box>
+      {imageProtocol && playback.track.imageUrl && !compact ? (
+        <Box flexDirection="row" columnGap={2}>
+          <Box flexDirection="column">
+            <Image
+              src={playback.track.imageUrl}
+              width={16}
+              height={8}
+              objectFit="contain"
+              protocol={imageProtocol}
+              alt="Album artwork"
+            />
+            <Text dimColor>
+              Spotify · <SpotifyLink label="Open item" url={spotifyUrl} />
+            </Text>
+          </Box>
+          <Box flexDirection="column" flexGrow={1}>
+            <PlaybackDetails
+              status={status}
+              isPlaying={playback.isPlaying}
+              trackName={playback.track.name}
+              artists={artists}
+              album={playback.track.album}
+              progressMs={progressMs}
+              durationMs={playback.track.durationMs}
+              contentWidth={Math.max(20, contentWidth - 20)}
+            />
+          </Box>
+        </Box>
+      ) : (
+        <PlaybackDetails
+          status={status}
+          isPlaying={playback.isPlaying}
+          trackName={playback.track.name}
+          artists={artists}
+          album={playback.track.album}
+          progressMs={progressMs}
+          durationMs={playback.track.durationMs}
+          contentWidth={contentWidth}
+        />
+      )}
       {!compact ? (
         <Box marginTop={1} flexWrap="wrap" columnGap={2}>
           <Text>
@@ -524,6 +559,53 @@ function PlaybackView({
       ) : null}
     </Box>
   );
+}
+
+function PlaybackDetails({
+  status,
+  isPlaying,
+  trackName,
+  artists,
+  album,
+  progressMs,
+  durationMs,
+  contentWidth,
+}: {
+  status: string;
+  isPlaying: boolean;
+  trackName: string;
+  artists: string;
+  album: string;
+  progressMs: number;
+  durationMs: number;
+  contentWidth: number;
+}) {
+  return (
+    <>
+      <Text wrap="truncate-end">
+        <Text color={isPlaying ? 'green' : 'yellow'}>{status}</Text>{' '}
+        <Text bold>{sanitizeOneLineText(trackName)}</Text>
+      </Text>
+      <Text dimColor wrap="truncate-end">
+        {artists} · {sanitizeOneLineText(album)}
+      </Text>
+      <Box marginTop={1}>
+        <Text>{formatPlaybackProgress(progressMs, durationMs, contentWidth)}</Text>
+      </Box>
+    </>
+  );
+}
+
+function SpotifyLink({ label, url }: { label: string; url: string }) {
+  const hyperlink = `\u001b]8;;${url}\u001b\\${label}\u001b]8;;\u001b\\`;
+  return <Text color="green" underline>{hyperlink}</Text>;
+}
+
+function getImageProtocol(terminalInfo: ReturnType<typeof useTerminalInfo>): ImageProtocolName | undefined {
+  if (terminalInfo.supportsKittyGraphics) return 'kitty';
+  if (terminalInfo.supportsITerm2Graphics) return 'iterm2';
+  if (terminalInfo.supportsSixelGraphics) return 'sixel';
+  return undefined;
 }
 
 function preserveTrackReference(

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-09-29
+
+### Added
+
+- Album artwork in the interactive Player on terminals with inline image support, with a link back to the playing Spotify item.
+
 ## [1.5.0] - 2026-09-28
 
 ### Added

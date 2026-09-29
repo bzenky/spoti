@@ -18,7 +18,7 @@ import type {
 
 export function mapTrack(track: SpotifyTrack): Track | null {
   if (!isSpotifyTrack(track) || track.is_local || track.is_playable === false) return null;
-  return mapTrackFields(track, track.album.name, track.album.uri);
+  return mapTrackFields(track, track.album.name, track.album.uri, track.album.images[0]?.url);
 }
 
 export function mapSimplifiedTrack(
@@ -107,6 +107,7 @@ function mapTrackFields(
   track: SpotifySimplifiedTrack,
   albumName: string,
   albumUri?: string,
+  imageUrl?: string,
 ): Track {
   const externalUrl = track.external_urls?.spotify;
   return {
@@ -116,6 +117,7 @@ function mapTrackFields(
     artists: track.artists.map((artist) => artist.name),
     album: albumName,
     ...(albumUri?.startsWith('spotify:album:') ? { albumUri } : {}),
+    ...(imageUrl ? { imageUrl } : {}),
     durationMs: track.duration_ms,
     ...(externalUrl ? { externalUrl } : {}),
   };

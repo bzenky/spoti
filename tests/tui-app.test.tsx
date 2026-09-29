@@ -19,6 +19,7 @@ const playback: CurrentPlayback = {
     name: 'Breaking the Habit',
     artists: ['Linkin Park'],
     album: 'Meteora',
+    imageUrl: 'https://i.scdn.co/image/artwork',
     durationMs: 196_000,
   },
 };
@@ -107,6 +108,8 @@ describe('TuiApp', () => {
 
     const frame = view.lastFrame() ?? '';
     expect(frame).toContain('Linkin Park · Meteora');
+    expect(frame).not.toContain('Artwork unavailable');
+    expect(frame).not.toContain('Open in Spotify');
     expect(frame).toContain('Volume: 42%');
     expect(frame).toContain('Shuffle: On');
     expect(frame).toContain('Repeat: Track');

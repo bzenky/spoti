@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-09-30
+
+### Added
+
+- Playback controls in the interactive Lyrics screen: play/pause, next/previous track, seek, volume, shuffle, repeat, and manual playback refresh.
+- Playback status, action feedback, and playback errors alongside lyrics.
+
+### Changed
+
+- Use Enter to retry lyrics loading errors, reserving `r` for repeat consistently with Player.
+- Extend TUI Help and shortcut hints with Lyrics playback controls.
+
 ## [1.6.0] - 2026-09-29
 
 ### Added

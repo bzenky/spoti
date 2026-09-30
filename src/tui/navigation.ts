@@ -43,9 +43,10 @@ export const PLAYER_SHORTCUTS: readonly ShortcutHelp[] = [
 export const LYRICS_SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: '↑ / ↓', description: 'Scroll lyrics manually' },
   { keys: 'f', description: 'Resume following synced lyrics' },
-  { keys: 'Enter / r', description: 'Retry after an LRCLIB error' },
+  { keys: 'Enter', description: 'Retry after an LRCLIB error' },
   { keys: 'Esc', description: 'Return to Player' },
   { keys: 'Ctrl+X', description: 'Exit spoti from Lyrics' },
+  ...PLAYER_SHORTCUTS.filter((shortcut) => shortcut.keys !== 'a'),
 ];
 
 export const SEARCH_SHORTCUTS: readonly ShortcutHelp[] = [

@@ -12,6 +12,9 @@ export interface LyricsScreenProps {
   lyrics: TuiLyrics;
   track: Track | null;
   progressMs: number;
+  playbackStatus?: string;
+  playbackAction?: string | null;
+  playbackError?: string | null;
   availableRows: number;
   onBack(): void;
   onExit(): void;
@@ -34,6 +37,9 @@ export function LyricsScreen({
   lyrics,
   track,
   progressMs,
+  playbackStatus,
+  playbackAction,
+  playbackError,
   availableRows,
   onBack,
   onExit,
@@ -91,7 +97,8 @@ export function LyricsScreen({
   const currentLineIndex = syncedLines.length > 0 ? findCurrentLine(syncedLines, progressMs) : -1;
   const followedIndex = currentLineIndex >= 0 ? currentLineIndex : 0;
   const selectedIndex = following && syncedLines.length > 0 ? followedIndex : scrollIndex;
-  const lyricRows = Math.max(1, availableRows - 7);
+  const lyricRows = Math.max(1, availableRows - 7
+    - Number(Boolean(playbackStatus)) - Number(Boolean(playbackAction)) - Number(Boolean(playbackError)));
   const visibleLines = createListWindow(displayedLines, selectedIndex, lyricRows);
 
   useInput((input, key) => {
@@ -106,7 +113,7 @@ export function LyricsScreen({
       return;
     }
     if (key.ctrl || key.meta) return;
-    if ((input === 'r' || key.return) && state.status === 'error') {
+    if (key.return && state.status === 'error') {
       void loadLyrics();
       return;
     }
@@ -136,15 +143,18 @@ export function LyricsScreen({
           {safeText(track.name, 'Unknown track')} — {safeArtists(track.artists)}
         </Text>
       ) : null}
+      {playbackStatus ? <Text dimColor wrap="truncate-end">{playbackStatus}</Text> : null}
+      {playbackAction ? <Text color="yellow" wrap="truncate-end">{playbackAction}</Text> : null}
+      {playbackError ? <Text color="red" wrap="truncate-end">{playbackError}</Text> : null}
       <Box marginTop={1} flexDirection="column" minHeight={0} overflow="hidden">
         {!track ? (
           <Text dimColor>
-            Nothing is currently playing. Start playback in Spotify, then return to Player and refresh.
+            Nothing is currently playing. Start playback in Spotify, then press Ctrl+R to refresh.
           </Text>
         ) : state.status === 'loading' ? (
           <Text color="yellow">Loading lyrics from LRCLIB…</Text>
         ) : state.status === 'error' ? (
-          <Text color="red">{state.message} Press Enter or [r] to retry.</Text>
+          <Text color="red">{state.message} Press Enter to retry.</Text>
         ) : state.status === 'loaded' && state.lyrics === null ? (
           <Text dimColor>No lyrics found for this track.</Text>
         ) : state.status === 'loaded' && state.lyrics?.instrumental ? (

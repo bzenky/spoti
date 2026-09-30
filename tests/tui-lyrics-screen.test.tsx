@@ -121,13 +121,13 @@ describe('LyricsScreen', () => {
     const service = createService();
     const view = renderScreen(service, { track: null });
 
-    expect(view.lastFrame()).toContain('Start playback in Spotify, then return to Player and refresh.');
+    expect(view.lastFrame()).toContain('Start playback in Spotify, then press Ctrl+R to refresh.');
     expect(service.getLyrics).not.toHaveBeenCalled();
     expect(view.lastFrame()).toContain('Lyrics from LRCLIB: https://lrclib.net');
     view.unmount();
   });
 
-  it('keeps sanitized errors visible and retries with r', async () => {
+  it('keeps sanitized errors visible and retries with Enter, reserving r for repeat', async () => {
     const service = createService();
     vi.mocked(service.getLyrics)
       .mockRejectedValueOnce(new Error('LRCLIB failed\ntry again\u001B[31m'))
@@ -135,9 +135,12 @@ describe('LyricsScreen', () => {
     const view = renderScreen(service);
 
     await vi.waitFor(() => expect(view.lastFrame()).toContain('LRCLIB failed try again'));
-    expect(view.lastFrame()).toContain('Press Enter or [r] to retry.');
+    expect(view.lastFrame()).toContain('Press Enter to retry.');
     expect(view.lastFrame()).not.toContain('LRCLIB failed\ntry again');
     view.stdin.write('r');
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(service.getLyrics).toHaveBeenCalledOnce();
+    view.stdin.write('\r');
 
     await vi.waitFor(() => expect(service.getLyrics).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(view.lastFrame()).toContain('Recovered lyrics'));

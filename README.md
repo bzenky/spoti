@@ -145,7 +145,7 @@ Devices lists all Spotify Connect devices with active status, type, volume, and 
 
 Library uses Tab or left/right to switch among Playlists, Liked, Recent, Top tracks, and Top artists. Use up/down and Enter to open a playlist or play the selected track or artist; `n` and `p` navigate lazily loaded pages. In Top tracks or Top artists, press `t` to cycle between the last 4 weeks, about 6 months, and about 1 year. In a playlist you own, press `e` to edit its details or move the selected track to a one-based position. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
 
-Press `y` from Player to open lyrics for the current track. When synchronized lyrics are available, the TUI follows and highlights the current line; use up/down to scroll manually and `f` to resume following. Lyrics are loaded live from LRCLIB and are not stored persistently.
+Press `y` from Player to open lyrics for the current track. When synchronized lyrics are available, the TUI follows and highlights the current line; use up/down to scroll manually and `f` to resume following. The Player playback shortcuts also work in Lyrics: Space to play/pause, `n`/`p` to change tracks, left/right to seek, `-`/`+` for volume, `s` for shuffle, `r` for repeat, and Ctrl+R to refresh playback. Press Enter to retry a lyrics loading error. Lyrics are loaded live from LRCLIB and are not stored persistently.
 
 All command-driven usage remains available. The `interactive` command requires an interactive stdin and stdout; outside a TTY it prints its command help instead of starting Ink.
 

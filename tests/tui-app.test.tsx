@@ -293,6 +293,82 @@ describe('TuiApp', () => {
     view.unmount();
   });
 
+  it('controls playback from Lyrics without reloading lyrics or stealing scroll keys', async () => {
+    const player = createPlayer();
+    const props = createTuiProps(player, createSearch());
+    vi.mocked(props.lyrics.getLyrics).mockResolvedValue({
+      id: 1, trackName: playback.track.name, artistName: 'Linkin Park',
+      albumName: 'Meteora', durationSeconds: 196, instrumental: false,
+      plainLyrics: null,
+      syncedLyrics: '[01:00]First line\n[01:10]Second line\n[01:20]Third line',
+    });
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+    view.stdin.write('y');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('▶ Second line'));
+
+    view.stdin.write(' ');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Paused'));
+    expect(player.pause).toHaveBeenCalledOnce();
+    view.stdin.write('\u001B[C');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('▶ Third line'));
+    expect(player.seek).toHaveBeenCalledWith(expect.any(Number));
+    view.stdin.write('\u001B[D');
+    await vi.waitFor(() => expect(player.seek).toHaveBeenCalledTimes(2));
+    view.stdin.write('-');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Volume: 37%'));
+    view.stdin.write('+');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Volume: 42%'));
+    view.stdin.write('s');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Shuffle: Off'));
+    view.stdin.write('r');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Repeat: Context'));
+    view.stdin.write('\u001B[A');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Resume follow'));
+    view.stdin.write('f');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('[f] Following'));
+    view.stdin.write(' ');
+    await vi.waitFor(() => expect(player.resume).toHaveBeenCalledOnce());
+    expect(props.lyrics.getLyrics).toHaveBeenCalledOnce();
+    view.unmount();
+  });
+
+  it.each(['n', 'p'] as const)('loads the new lyrics after %s changes tracks', async (input) => {
+    const player = createPlayer();
+    vi.mocked(player.getCurrentPlayback).mockResolvedValueOnce(playback).mockResolvedValue({
+      ...playback, track: { ...playback.track, id: 'track-2', uri: 'spotify:track:track-2', name: 'Faint' },
+    });
+    const props = createTuiProps(player, createSearch());
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+    view.stdin.write('y');
+    await vi.waitFor(() => expect(props.lyrics.getLyrics).toHaveBeenCalledOnce());
+    view.stdin.write(input);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Faint'));
+    expect(player[input === 'n' ? 'next' : 'previous']).toHaveBeenCalledOnce();
+    expect(props.lyrics.getLyrics).toHaveBeenCalledTimes(2);
+    view.unmount();
+  });
+
+  it('shows playback action errors on Lyrics and keeps r available during a lyrics error', async () => {
+    const player = createPlayer();
+    vi.mocked(player.pause).mockRejectedValue(new Error('Playback failed'));
+    const props = createTuiProps(player, createSearch());
+    vi.mocked(props.lyrics.getLyrics).mockRejectedValue(new Error('LRCLIB failed'));
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+    view.stdin.write('y');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Press Enter to retry.'));
+    view.stdin.write('r');
+    await vi.waitFor(() => expect(player.setRepeat).toHaveBeenCalledWith('context'));
+    expect(props.lyrics.getLyrics).toHaveBeenCalledOnce();
+    view.stdin.write(' ');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Playback failed'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(props.lyrics.getLyrics).toHaveBeenCalledTimes(2));
+    view.unmount();
+  });
+
   it('opens Lyrics for the current track and fetches it once with an AbortSignal', async () => {
     const player = createPlayer();
     const props = createTuiProps(player, createSearch());
@@ -708,7 +784,7 @@ describe('TuiApp', () => {
     view.unmount();
   });
 
-  it('keeps quota-paused Lyrics polling stopped until a manual Player retry', async () => {
+  it.each(['player', 'lyrics'] as const)('keeps quota-paused Lyrics polling stopped until a manual %s retry', async (screen) => {
     const player = createPlayer();
     vi.mocked(player.getCurrentPlayback)
       .mockResolvedValueOnce(playback)
@@ -724,14 +800,32 @@ describe('TuiApp', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2);
 
-    view.stdin.write('\u001B');
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2);
+    if (screen === 'player') {
+      view.stdin.write('\u001B');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(player.getCurrentPlayback).toHaveBeenCalledTimes(2);
+    } else {
+      expect(view.lastFrame()).toContain('development quota exceeded');
+    }
     view.stdin.write('\u0012');
 
     await vi.waitFor(() => expect(player.getCurrentPlayback).toHaveBeenCalledTimes(3));
     view.unmount();
   });
+
+  it.each([{ columns: 32, rows: 10 }, { columns: 40, rows: 12 }])(
+    'keeps Lyrics within a $columns×$rows terminal', async (terminalSize) => {
+      const player = createPlayer();
+      const view = render(<TuiApp {...createTuiProps(player, createSearch())} terminalSize={terminalSize} />);
+      await vi.waitFor(() => expect(player.getCurrentPlayback).toHaveBeenCalledOnce());
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Lyrics'));
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(terminalSize.rows);
+      view.stdin.write(' ');
+      await vi.waitFor(() => expect(player.pause).toHaveBeenCalledOnce());
+      view.unmount();
+    },
+  );
 
   it('renders a minimum-size fallback and compact navigation without overflowing rows', async () => {
     const player = createPlayer();

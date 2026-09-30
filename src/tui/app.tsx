@@ -224,29 +224,29 @@ export function TuiApp({
   );
 
   useInput((input, key) => {
-    if (input === 'x') {
+    if (input === 'x' && activeScreen !== 'lyrics') {
       exit();
       return;
     }
-    if (key.escape) {
+    if (key.escape && activeScreen !== 'lyrics') {
       if (activeScreen === 'player') exit();
       else setActiveScreen('player');
       return;
     }
-    if (key.ctrl && input === 'r' && activeScreen === 'player') {
+    if (key.ctrl && input === 'r' && playbackPollingActive) {
       if (!actionInProgress.current) void refresh(true);
       return;
     }
     if (key.ctrl || key.meta) return;
 
-    const destination = getNavigationScreen(input);
+    const destination = activeScreen === 'lyrics' ? undefined : getNavigationScreen(input);
     if (destination) {
       setActiveScreen(destination);
       return;
     }
-    if (activeScreen !== 'player') return;
+    if (!playbackPollingActive) return;
 
-    if (input === 'a') {
+    if (input === 'a' && activeScreen === 'player') {
       setError(null);
       setConfirmation(null);
       if (!playback) {
@@ -334,7 +334,7 @@ export function TuiApp({
         (current) => ({ ...current, repeatMode: mode }),
       );
     }
-  }, { isActive: activeScreen === 'player' || activeScreen === 'help' });
+  }, { isActive: playbackPollingActive || activeScreen === 'help' });
 
   const progressMs = getDisplayedProgress(playback, observedAt, clock);
 
@@ -415,6 +415,11 @@ export function TuiApp({
             lyrics={lyrics}
             track={playback?.track ?? null}
             progressMs={progressMs}
+            playbackStatus={playback
+              ? `${playback.isPlaying ? 'Playing' : 'Paused'} · ${formatDuration(progressMs)} / ${formatDuration(playback.track.durationMs)} · Volume: ${playback.volumePercent ?? 'Unavailable'}${playback.volumePercent === undefined ? '' : '%'} · Shuffle: ${playback.shuffleState ? 'On' : 'Off'} · Repeat: ${formatRepeatMode(playback.repeatMode)}`
+              : 'Playback unavailable. Press Ctrl+R to refresh.'}
+            playbackAction={action}
+            playbackError={error}
             availableRows={Math.max(1, rows - 8)}
             onBack={() => setActiveScreen('player')}
             onExit={exit}
@@ -474,7 +479,9 @@ export function TuiApp({
             : activeScreen === 'help'
               ? '[Esc] Back to Player  [x] Exit'
               : activeScreen === 'lyrics'
-                ? '[↑/↓] Scroll  [f] Follow  [Esc] Back  [Ctrl+X] Exit'
+                ? rows < 16
+                  ? '[space] [n/p] [←/→] [-/+] [s] [r]'
+                  : '[space] Play/Pause  [n/p] Track  [←/→] Seek  [-/+] Volume  [s] Shuffle  [r] Repeat  [Ctrl+R] Refresh'
                 : activeScreen === 'add-to-playlist'
                   ? '[↑/↓] Select  [Enter] Add  [n/p] Page  [Esc] Cancel  [Ctrl+X] Exit'
                   : '[Esc] Back  [Ctrl+X] Exit'}

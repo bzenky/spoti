@@ -346,7 +346,7 @@ describe('TuiApp', () => {
     view.stdin.write(input);
     await vi.waitFor(() => expect(view.lastFrame()).toContain('Faint'));
     expect(player[input === 'n' ? 'next' : 'previous']).toHaveBeenCalledOnce();
-    expect(props.lyrics.getLyrics).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(props.lyrics.getLyrics).toHaveBeenCalledTimes(2));
     view.unmount();
   });
 

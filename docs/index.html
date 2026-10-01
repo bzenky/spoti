@@ -76,7 +76,7 @@
             width="812"
             height="487"
           >
-          <figcaption id="player-caption">The real interactive Player screen. Full-screen when you want it. Scriptable when you don’t.</figcaption>
+          <figcaption id="player-caption">The real interactive Player screen in text-only mode. Supported terminals also display album artwork with a link to the playing Spotify item.</figcaption>
         </figure>
       </div>
     </section>
@@ -93,7 +93,7 @@
           <article class="feature-card featured">
             <div class="feature-icon" aria-hidden="true">⌨</div>
             <h3>Keyboard-first TUI</h3>
-            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts, top tracks and artists, and playlist actions.</p>
+            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts, album artwork in supported terminals, top tracks and artists, and playlist actions.</p>
             <code>spoti interactive</code>
           </article>
           <article class="feature-card">
@@ -105,7 +105,7 @@
           <article class="feature-card">
             <div class="feature-icon" aria-hidden="true">♪</div>
             <h3>Synced lyrics</h3>
-            <p>Follow the current line in the TUI or fetch lyrics for the playing track and search results from LRCLIB.</p>
+            <p>Follow the current line and control playback directly from Lyrics in the TUI, or fetch lyrics for the playing track and search results from LRCLIB.</p>
             <code>spoti lyrics</code>
           </article>
         </div>
@@ -142,9 +142,10 @@
               <span></span><span></span><span></span>
               <p>spoti — lyrics</p>
             </div>
-            <div class="lyrics-screen" role="img" aria-label="spoti Lyrics screen with a synchronized current line and LRCLIB attribution">
+            <div class="lyrics-screen" role="img" aria-label="Illustrative spoti Lyrics screen with a synchronized current line, playback controls, and LRCLIB attribution">
               <b class="tui-brand">spoti</b>
               <p class="tui-nav"><span>[1] Player</span> <b>[y] Lyrics</b> <span>[/] Search</span> <span>[q] Queue</span></p>
+              <p class="dim">▶ Playing · Volume: 80% · Shuffle: Off · Repeat: Off</p>
               <div class="lyrics-body">
                 <strong>Lyrics</strong>
                 <p class="dim">Current track — Example Artist</p>
@@ -153,9 +154,11 @@
                 <p class="dim">&nbsp;&nbsp;And the screen keeps time with you</p>
               </div>
               <p class="dim attribution">Lyrics from LRCLIB: https://lrclib.net</p>
+              <p class="dim shortcut">[Space] Play/Pause · [n/p] Track · [←/→] Seek</p>
+              <p class="dim shortcut">[-/+] Volume · [s] Shuffle · [r] Repeat · [Ctrl+R] Refresh</p>
               <p class="dim shortcut">[↑/↓] Scroll · [f] Following · [Esc] Back · [Ctrl+X] Exit</p>
             </div>
-            <figcaption id="lyrics-caption">Synchronized lines follow local playback progress. Scroll freely; press <kbd>f</kbd> to resume following. In Search, select a track and press <kbd>a</kbd> to add it to a playlist.</figcaption>
+            <figcaption id="lyrics-caption">Control playback without leaving Lyrics: <kbd>Space</kbd> to play/pause, <kbd>n</kbd>/<kbd>p</kbd> to change tracks, <kbd>←</kbd>/<kbd>→</kbd> to seek, <kbd>-</kbd>/<kbd>+</kbd> for volume, <kbd>s</kbd> for shuffle, and <kbd>r</kbd> for repeat. Press <kbd>Ctrl+R</kbd> to refresh playback or <kbd>Enter</kbd> to retry a lyrics loading error. Scroll freely; press <kbd>f</kbd> to resume following synchronized lines. In Search, select a track and press <kbd>a</kbd> to add it to a playlist.</figcaption>
           </figure>
         </div>
       </div>

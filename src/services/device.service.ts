@@ -62,7 +62,7 @@ export class DeviceService {
       const selected = Number.isSafeInteger(index) ? availableDevices[index] : undefined;
       if (!selected) {
         throw new AppError(
-          `Device number ${displayQuery} is out of range. Run: spoti devices`,
+          `Device number ${displayQuery} is out of range. Run: spoti device`,
         );
       }
       if (!selected.id || selected.isRestricted) {

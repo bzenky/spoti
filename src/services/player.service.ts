@@ -184,7 +184,7 @@ export class PlayerService {
     if (!device?.id) {
       if (devices.length > 1) {
         throw new AppError(
-          'Multiple Spotify devices are available, but none is active.\n\nRun: spoti devices\nThen select one with: spoti device <number>',
+          'Multiple Spotify devices are available, but none is active.\n\nRun: spoti device\nThen select one with: spoti device <number>',
         );
       }
       throw new NoActiveDeviceError();

@@ -387,7 +387,7 @@ describe('CLI application', () => {
     vi.mocked(deps.device.getDevices).mockResolvedValue([device]);
     vi.mocked(deps.device.findDevice).mockResolvedValue(device);
 
-    await run(['devices'], deps);
+    await run(['device'], deps);
     expect(deps.messages).toContain('1. Laptop · Computer · active · 50%');
 
     await run(['device', 'Laptop', '--default'], deps);

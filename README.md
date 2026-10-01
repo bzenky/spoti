@@ -192,15 +192,15 @@ Manage playback devices:
 
 ```bash
 spoti launch # alias: spoti app
-spoti devices
+spoti device
 spoti device 2
 spoti device "My Computer"
 spoti device "My Computer" --default
 ```
 
-`spoti launch` asks your operating system to open the locally installed Spotify app through its `spotify:` URI handler. It cannot wake Spotify on remote devices, but can make your current computer available to Spotify Connect before you run `spoti devices` or `spoti interactive`.
+`spoti device` with no selector lists available Spotify Connect devices. `spoti launch` asks your operating system to open the locally installed Spotify app through its `spotify:` URI handler. It cannot wake Spotify on remote devices, but can make your current computer available to Spotify Connect before you run `spoti device` or `spoti interactive`.
 
-Use the displayed one-based number, exact device name, or Spotify device ID. Add `--default` to save the selected device name as the fallback when no device is active. You can also manage it directly with `spoti config set defaultDevice "My Computer"` and `spoti config unset defaultDevice`. An already-active device always takes precedence over the saved default.
+Pass the displayed one-based number, exact device name, or Spotify device ID to transfer playback. Add `--default` to save the selected device as the fallback when no device is active. You can also manage it directly with `spoti config set defaultDevice "My Computer"` and `spoti config unset defaultDevice`. An already-active device always takes precedence over the saved default.
 
 When playback reports no active device, `spoti play` and `spoti resume` retry the one active controllable device if Spotify reports one, or the only controllable device when exactly one is available. If several inactive devices are available, `spoti` asks you to select one explicitly.
 
@@ -306,11 +306,13 @@ Common aliases include:
 i     interactive  p     play       pa    pause
 ly    lyrics       r     resume       np    now        q     queue      s     search
 vol   volume       sk    seek        rst  restart     alb   album
-art   artist       dev   device      devs  devices
+art   artist       dev   device
 pl    playlist     pls   playlists   rep   repeat
 rec   recent       n     next        prev  previous
 tt    top tracks   ta    top artists
 ```
+
+`devices` and `devs` also remain aliases for `device`.
 
 ### Shell completions
 

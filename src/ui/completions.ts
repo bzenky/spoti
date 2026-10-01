@@ -6,7 +6,7 @@ _spoti_completion() {
   cur="\${COMP_WORDS[COMP_CWORD]}"
   command="\${COMP_WORDS[1]}"
 
-  local commands="setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit playlist-move add playlist liked like unlike recent top tt ta update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art"
+  local commands="setup login logout status config interactive now open launch lyrics pause resume next previous device seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit playlist-move add playlist liked like unlike recent top tt ta update search play completion i p pa r np ly q s vol devices dev devs pl pls rep rec n prev sk rst app alb art"
   local global_options="-h --help -V --version"
 
   if (( COMP_CWORD == 1 )); then
@@ -54,7 +54,7 @@ _spoti_completion() {
     tt|ta)
       COMPREPLY=( $(compgen -W "--range -r --limit -l -h --help" -- "$cur") )
       ;;
-    device|dev)
+    device|devices|dev|devs)
       COMPREPLY=( $(compgen -W "--default -h --help" -- "$cur") )
       ;;
     update)
@@ -99,8 +99,7 @@ _spoti() {
     'resume:resume playback'
     'next:skip to the next track'
     'previous:return to the previous track'
-    'devices:list available Spotify Connect devices'
-    'device:transfer playback to a Spotify Connect device'
+    'device:list Spotify Connect devices or transfer playback to one'
     'seek:seek within the current track'
     'sk:alias for seek'
     'restart:restart the current track from the beginning'
@@ -141,7 +140,8 @@ _spoti() {
     's:alias for search'
     'vol:alias for volume'
     'dev:alias for device'
-    'devs:alias for devices'
+    'devices:alias for device'
+    'devs:alias for device'
     'pl:alias for playlist'
     'pls:alias for playlists'
     'rep:alias for repeat'
@@ -210,7 +210,7 @@ _spoti() {
         search|s)
           _arguments '(-l --limit)'{-l,--limit}'[maximum number of results]:number:' '*:query:'
           ;;
-        device|dev)
+        device|devices|dev|devs)
           _arguments '--default[save this device as the playback fallback]' '*:device:'
           ;;
         update)
@@ -239,7 +239,7 @@ complete -c spoti -s h -l help -d 'Display help'
 complete -c spoti -s V -l version -d 'Display version'
 
 function __spoti_needs_command
-  not __fish_seen_subcommand_from setup login logout status config interactive now open launch lyrics pause resume next previous devices device seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit playlist-move add playlist liked like unlike recent top tt ta update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art
+  not __fish_seen_subcommand_from setup login logout status config interactive now open launch lyrics pause resume next previous device devices seek restart volume queue shuffle repeat album artist playlists playlist-create playlist-edit playlist-move add playlist liked like unlike recent top tt ta update search play completion i p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst app alb art
 end
 complete -c spoti -n __spoti_needs_command -a setup -d 'Save your Spotify application client ID'
 complete -c spoti -n __spoti_needs_command -a login -d 'Log in to Spotify'
@@ -255,8 +255,7 @@ complete -c spoti -n __spoti_needs_command -a pause -d 'Pause playback'
 complete -c spoti -n __spoti_needs_command -a resume -d 'Resume playback'
 complete -c spoti -n __spoti_needs_command -a next -d 'Skip to the next track'
 complete -c spoti -n __spoti_needs_command -a previous -d 'Return to the previous track'
-complete -c spoti -n __spoti_needs_command -a devices -d 'List Spotify Connect devices'
-complete -c spoti -n __spoti_needs_command -a device -d 'Transfer playback to a device'
+complete -c spoti -n __spoti_needs_command -a device -d 'List devices or transfer playback to one'
 complete -c spoti -n __spoti_needs_command -a seek -d 'Seek within the current track'
 complete -c spoti -n __spoti_needs_command -a restart -d 'Restart the current track from the beginning'
 complete -c spoti -n __spoti_needs_command -a volume -d 'Show, set, or adjust volume'
@@ -282,7 +281,7 @@ complete -c spoti -n __spoti_needs_command -a update -d 'Check for or install up
 complete -c spoti -n __spoti_needs_command -a search -d 'Search Spotify tracks'
 complete -c spoti -n __spoti_needs_command -a play -d 'Play a track, album, artist, or playlist'
 complete -c spoti -n __spoti_needs_command -a completion -d 'Print a shell completion script'
-complete -c spoti -n __spoti_needs_command -a 'i app p pa r np ly q s vol dev devs pl pls rep rec n prev sk rst alb art tt ta' -d 'Command alias'
+complete -c spoti -n __spoti_needs_command -a 'i app p pa r np ly q s vol dev devices devs pl pls rep rec n prev sk rst alb art tt ta' -d 'Command alias'
 
 complete -c spoti -n '__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from get set reset path unset' -a 'get set reset path unset'
 complete -c spoti -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set unset' -a 'spotifyClientId defaultDevice watchAfterPlay refreshIntervalMs'
@@ -304,7 +303,7 @@ complete -c spoti -n '__fish_seen_subcommand_from top' -s r -l range -r -d 'shor
 complete -c spoti -n '__fish_seen_subcommand_from top' -s l -l limit -r -d 'Number of items per page'
 complete -c spoti -n '__fish_seen_subcommand_from tt ta' -s r -l range -r -d 'short, medium, or long term'
 complete -c spoti -n '__fish_seen_subcommand_from tt ta' -s l -l limit -r -d 'Number of items per page'
-complete -c spoti -n '__fish_seen_subcommand_from device dev' -l default -d 'Save this device as the playback fallback'
+complete -c spoti -n '__fish_seen_subcommand_from device devices dev devs' -l default -d 'Save this device as the playback fallback'
 complete -c spoti -n '__fish_seen_subcommand_from update' -l check -d 'Check without installing'
 complete -c spoti -n '__fish_seen_subcommand_from play p' -l first -d 'Play the first result without prompting'
 complete -c spoti -n '__fish_seen_subcommand_from play p' -l watch -d 'Continuously refresh playback information'

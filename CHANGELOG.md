@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-10-01
+
+### Added
+
+- `spoti device` lists available Spotify Connect devices without a selector and transfers playback when given a device number, name, or ID; `devices`, `dev`, and `devs` remain aliases.
+
+### Changed
+
+- Update shell completions, command guidance, and website examples for the unified device command.
+
 ## [1.7.0] - 2026-09-30
 
 ### Added

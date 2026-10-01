@@ -434,51 +434,56 @@ export function createProgram(dependencies: AppDependencies): Command {
     });
 
   program
-    .command('devices')
-    .alias('devs')
-    .description('List available Spotify Connect devices')
-    .action(async () => {
-      const [devices, config] = await Promise.all([
-        runTask('Loading devices…', () => dependencies.device.getDevices()),
-        dependencies.config.read(),
-      ]);
-      const defaultDevice = config.defaultDevice?.toLocaleLowerCase();
-      const formatted =
-        devices.length === 0
-          ? 'No Spotify devices are available. Open Spotify on a device and try again.'
-          : devices
-              .map((device, index) => {
-                const states = [
-                  device.isActive ? 'active' : device.isRestricted ? 'restricted' : 'available',
-                ];
-                if (
-                  defaultDevice &&
-                  (device.name.toLocaleLowerCase() === defaultDevice ||
-                    device.id?.toLocaleLowerCase() === defaultDevice)
-                ) {
-                  states.push('default');
-                }
-                const state = states.join(' · ');
-                const volume =
-                  device.volumePercent === null ? '' : ` · ${device.volumePercent}%`;
-                const name = styles.name(sanitizeOneLineText(device.name));
-                const metadata = styles.metadata(
-                  `${sanitizeOneLineText(device.type)} · ${state}${volume}`,
-                );
-                return `${index + 1}. ${name} · ${metadata}`;
-              })
-              .join('\n');
-      dependencies.output.log(formatted);
-    });
-
-  program
     .command('device')
+    .alias('devices')
     .alias('dev')
-    .description('Transfer playback to a Spotify Connect device')
-    .argument('<number-name-or-id...>', 'displayed number, exact device name, or ID')
+    .alias('devs')
+    .description('List Spotify Connect devices or transfer playback to one')
+    .argument('[number-name-or-id...]', 'displayed number, exact device name, or ID')
     .option('--default', 'also save this device as the playback fallback')
     .action(async (nameOrIdParts: string[], options: { default?: boolean }) => {
       const selection = nameOrIdParts.join(' ').trim();
+      if (!selection) {
+        if (options.default) {
+          throw new AppError(
+            'A device selection is required with --default. Run: spoti device <number-name-or-id> --default',
+          );
+        }
+
+        const [devices, config] = await Promise.all([
+          runTask('Loading devices…', () => dependencies.device.getDevices()),
+          dependencies.config.read(),
+        ]);
+        const defaultDevice = config.defaultDevice?.toLocaleLowerCase();
+        const formatted =
+          devices.length === 0
+            ? 'No Spotify devices are available. Open Spotify on a device and try again.'
+            : devices
+                .map((device, index) => {
+                  const states = [
+                    device.isActive ? 'active' : device.isRestricted ? 'restricted' : 'available',
+                  ];
+                  if (
+                    defaultDevice &&
+                    (device.name.toLocaleLowerCase() === defaultDevice ||
+                      device.id?.toLocaleLowerCase() === defaultDevice)
+                  ) {
+                    states.push('default');
+                  }
+                  const state = states.join(' · ');
+                  const volume =
+                    device.volumePercent === null ? '' : ` · ${device.volumePercent}%`;
+                  const name = styles.name(sanitizeOneLineText(device.name));
+                  const metadata = styles.metadata(
+                    `${sanitizeOneLineText(device.type)} · ${state}${volume}`,
+                  );
+                  return `${index + 1}. ${name} · ${metadata}`;
+                })
+                .join('\n');
+        dependencies.output.log(formatted);
+        return;
+      }
+
       const device = await dependencies.device.findDevice(selection);
       if (!device.id) throw new ConfigurationError('The selected device has no usable ID.');
       await dependencies.device.transferPlayback(device.id);

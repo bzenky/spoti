@@ -114,7 +114,7 @@
           <div class="example-copy">
             <p class="eyebrow">CLI examples</p>
             <h2>Small commands.<br>Full control.</h2>
-            <p>Ordinary multi-word searches do not need quotes. Add <code>--first</code> when you want deterministic, non-interactive selection. Use <code>spoti top tracks|artists</code> to browse affinity rankings; <code>--range short|medium|long</code> selects roughly four weeks, six months, or one year. The <code>tt</code> and <code>ta</code> shortcuts open top tracks and top artists directly.</p>
+            <p>Ordinary multi-word searches do not need quotes. Add <code>--first</code> when you want deterministic, non-interactive selection. Run <code>spoti device</code> to list Spotify Connect devices, then pass a number, name, or ID to switch playback. Use <code>spoti top tracks|artists</code> to browse affinity rankings; <code>--range short|medium|long</code> selects roughly four weeks, six months, or one year. The <code>tt</code> and <code>ta</code> shortcuts open top tracks and top artists directly.</p>
             <pre class="command-list" aria-label="Example spoti commands"><code><span>$</span> spoti play Fear of the Dark
 <span>$</span> spoti pause
 <span>$</span> spoti launch
@@ -129,6 +129,7 @@
 <span>$</span> spoti tt --range long
 <span>$</span> spoti ta
 <span>$</span> spoti add "Workout" --search "Numb" --first
+<span>$</span> spoti device
 <span>$</span> spoti device "My Computer" --default
 <span>$</span> spoti open
 <span>$</span> spoti lyrics Numb Linkin Park

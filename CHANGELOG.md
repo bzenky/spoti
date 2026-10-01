@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-10-01
+
+### Fixed
+
+- Guide device selection with an explicit command example, explain how to start Spotify when no Connect devices are available, and clarify when Spotify can no longer find a selected device.
+
+### Changed
+
+- Update README and website guidance for the device list and selection flow.
+
 ## [1.8.0] - 2026-10-01
 
 ### Added

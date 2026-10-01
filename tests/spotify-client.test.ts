@@ -240,6 +240,20 @@ describe('SpotifyClient', () => {
     ).rejects.toBeInstanceOf(SpotifyApiError);
   });
 
+  it('explains when Spotify cannot find the selected playback device', async () => {
+    const auth = {
+      getAccessToken: async () => 'token',
+      forceRefreshAccessToken: async () => 'refreshed-token',
+    };
+    const missingDevice = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({ error: { message: 'Device not found' } }, { status: 404 }),
+    );
+
+    await expect(new SpotifyClient(auth, missingDevice).put('/me/player')).rejects.toThrow(
+      'Spotify could not find the selected device. Open Spotify on that device',
+    );
+  });
+
   it('respects Retry-After and exponentially backs off after 429 responses', async () => {
     const fetcher = vi
       .fn<typeof fetch>()

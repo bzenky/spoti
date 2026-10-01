@@ -327,9 +327,18 @@ async function mapSpotifyError(
   if (
     response.status === 404 &&
     PLAYBACK_CONTROL_REQUESTS.has(`${method} ${path}`) &&
-    /\b(?:no active device|device not found)\b/i.test(message)
+    /\bno active device\b/i.test(message)
   ) {
     return new NoActiveDeviceError();
+  }
+  if (
+    response.status === 404 &&
+    PLAYBACK_CONTROL_REQUESTS.has(`${method} ${path}`) &&
+    /\bdevice not found\b/i.test(message)
+  ) {
+    return new AppError(
+      'Spotify could not find the selected device. Open Spotify on that device, then run spoti device and select it again.',
+    );
   }
   if (response.status === 429) {
     const retryAfterSeconds = getRetryAfterSeconds(response);

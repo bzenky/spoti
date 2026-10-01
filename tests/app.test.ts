@@ -388,7 +388,10 @@ describe('CLI application', () => {
     vi.mocked(deps.device.findDevice).mockResolvedValue(device);
 
     await run(['device'], deps);
-    expect(deps.messages).toContain('1. Laptop · Computer · active · 50%');
+    expect(deps.messages[0]).toContain('1. Laptop · Computer · active · 50%');
+    expect(deps.messages[0]).toContain(
+      'To switch playback, run: spoti device 1 (replace 1 with a listed number, name, or ID).',
+    );
 
     await run(['device', 'Laptop', '--default'], deps);
     await run(['device', '1'], deps);
@@ -397,6 +400,17 @@ describe('CLI application', () => {
     expect(deps.device.transferPlayback).toHaveBeenCalledWith('device-id');
     expect(deps.config.set).toHaveBeenCalledWith('defaultDevice', 'Laptop');
     expect(deps.messages).toContain('✓ Active device: Laptop · saved as default');
+  });
+
+  it('explains how to make devices available when listing finds none', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.device.getDevices).mockResolvedValue([]);
+
+    await run(['device'], deps);
+
+    expect(deps.messages[0]).toContain('No Spotify Connect devices are available.');
+    expect(deps.messages[0]).toContain('spoti launch');
+    expect(deps.messages[0]).toContain('Then run spoti device again.');
   });
 
   it('stores a device ID as the default when selection used a numeric position', async () => {

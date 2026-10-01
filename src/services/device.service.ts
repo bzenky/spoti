@@ -57,12 +57,18 @@ export class DeviceService {
     const normalizedQuery = query.toLocaleLowerCase();
     const availableDevices = await this.getDevices();
 
+    if (availableDevices.length === 0) {
+      throw new AppError(
+        'No Spotify Connect devices are available to select.\n\nOpen Spotify on a device, or run spoti launch on this computer. Then run spoti device to refresh the list.',
+      );
+    }
+
     if (/^\d+$/.test(query)) {
       const index = Number(query) - 1;
       const selected = Number.isSafeInteger(index) ? availableDevices[index] : undefined;
       if (!selected) {
         throw new AppError(
-          `Device number ${displayQuery} is out of range. Run: spoti device`,
+          `No device is listed as number ${displayQuery}. Run: spoti device, then choose a number shown.`,
         );
       }
       if (!selected.id || selected.isRestricted) {

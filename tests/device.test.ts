@@ -167,7 +167,18 @@ describe('DeviceService', () => {
       id: 'echo-id',
       name: 'Echo Pop de Bruno',
     });
-    await expect(service.findDevice('3')).rejects.toThrow('Device number 3 is out of range');
+    await expect(service.findDevice('3')).rejects.toThrow(
+      'No device is listed as number 3. Run: spoti device, then choose a number shown.',
+    );
+  });
+
+  it('explains how to make a device available when selecting from an empty list', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue({ devices: [] });
+
+    await expect(new DeviceService(api).findDevice('1')).rejects.toThrow(
+      /No Spotify Connect devices are available to select.*spoti launch.*spoti device/s,
+    );
   });
 
   it('rejects a numbered device that Spotify marks as uncontrollable', async () => {

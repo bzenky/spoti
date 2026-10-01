@@ -198,9 +198,9 @@ spoti device "My Computer"
 spoti device "My Computer" --default
 ```
 
-`spoti device` with no selector lists available Spotify Connect devices. `spoti launch` asks your operating system to open the locally installed Spotify app through its `spotify:` URI handler. It cannot wake Spotify on remote devices, but can make your current computer available to Spotify Connect before you run `spoti device` or `spoti interactive`.
+`spoti device` with no selector lists available Spotify Connect devices and prints how to switch to one. Pass a displayed one-based number, exact device name, or Spotify device ID to transfer playback. If no devices are listed, open Spotify on a device (or run `spoti launch` on this computer), then run `spoti device` again. `spoti launch` asks your operating system to open the locally installed Spotify app through its `spotify:` URI handler. It cannot wake Spotify on remote devices, but can make your current computer available to Spotify Connect before you run `spoti device` or `spoti interactive`.
 
-Pass the displayed one-based number, exact device name, or Spotify device ID to transfer playback. Add `--default` to save the selected device as the fallback when no device is active. You can also manage it directly with `spoti config set defaultDevice "My Computer"` and `spoti config unset defaultDevice`. An already-active device always takes precedence over the saved default.
+Add `--default` to save the selected device as the fallback when no device is active. You can also manage it directly with `spoti config set defaultDevice "My Computer"` and `spoti config unset defaultDevice`. An already-active device always takes precedence over the saved default.
 
 When playback reports no active device, `spoti play` and `spoti resume` retry the one active controllable device if Spotify reports one, or the only controllable device when exactly one is available. If several inactive devices are available, `spoti` asks you to select one explicitly.
 

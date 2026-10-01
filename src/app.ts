@@ -457,7 +457,7 @@ export function createProgram(dependencies: AppDependencies): Command {
         const defaultDevice = config.defaultDevice?.toLocaleLowerCase();
         const formatted =
           devices.length === 0
-            ? 'No Spotify devices are available. Open Spotify on a device and try again.'
+            ? 'No Spotify Connect devices are available.\n\nOpen Spotify on a device, or run spoti launch on this computer. Then run spoti device again.'
             : devices
                 .map((device, index) => {
                   const states = [
@@ -479,7 +479,8 @@ export function createProgram(dependencies: AppDependencies): Command {
                   );
                   return `${index + 1}. ${name} · ${metadata}`;
                 })
-                .join('\n');
+                .join('\n') +
+              '\n\nTo switch playback, run: spoti device 1 (replace 1 with a listed number, name, or ID).';
         dependencies.output.log(formatted);
         return;
       }

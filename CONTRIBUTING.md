@@ -2,6 +2,13 @@
 
 ## Local setup
 
+Install dependencies before running commands from source:
+
+```bash
+npm ci
+npm run dev -- --help
+```
+
 Create a Spotify application in the [Developer Dashboard](https://developer.spotify.com/dashboard) and register:
 
 ```text
@@ -40,3 +47,10 @@ Before opening a change, run:
 npm run verify
 npm run smoke:package
 ```
+
+When changing commands or TUI behavior, update `README.md`, the relevant
+descriptions in `docs/index.html`, and the Unreleased section of `CHANGELOG.md`.
+Keep shortcut documentation aligned with `src/tui/navigation.ts` and screen
+input handlers. Check command examples against `npm run dev -- --help` and each
+command's `--help` output. Website assets and internal links must resolve from
+the `docs` directory.

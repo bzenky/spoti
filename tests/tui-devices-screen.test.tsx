@@ -42,11 +42,58 @@ function renderScreen(device: TuiDevices, overrides: Partial<DevicesScreenProps>
       }
       onBack={overrides.onBack ?? vi.fn()}
       onExit={overrides.onExit ?? vi.fn()}
+      {...(overrides.openExternal ? { openExternal: overrides.openExternal } : {})}
     />,
   );
 }
 
 describe('DevicesScreen', () => {
+  it('opens Spotify from the empty state and refreshes devices', async () => {
+    const service = createService();
+    vi.mocked(service.getDevices).mockResolvedValueOnce([]).mockResolvedValueOnce([createDevice()]);
+    const openExternal = vi.fn().mockResolvedValue(undefined);
+    const view = renderScreen(service, { openExternal });
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Press [o]'));
+    view.stdin.write('o');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('› ● Laptop'));
+    expect(openExternal).toHaveBeenCalledExactlyOnceWith('spotify:');
+    expect(service.getDevices).toHaveBeenCalledTimes(2);
+    expect(view.lastFrame()).toContain('Requested local Spotify app launch.');
+    view.unmount();
+  });
+
+  it('reports launch failures and allows retrying with o', async () => {
+    const service = createService();
+    const openExternal = vi.fn().mockRejectedValueOnce(new Error('OS failure')).mockResolvedValue(undefined);
+    const view = renderScreen(service, { openExternal });
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('No Spotify Connect devices found.'));
+    view.stdin.write('o');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Install Spotify and ensure spotify: links'));
+    expect(service.getDevices).toHaveBeenCalledOnce();
+    view.stdin.write('o');
+    await vi.waitFor(() => expect(service.getDevices).toHaveBeenCalledTimes(2));
+    expect(openExternal).toHaveBeenCalledTimes(2);
+    view.unmount();
+  });
+
+  it('prevents duplicate launches and does not refresh after leaving the screen', async () => {
+    const service = createService();
+    let completeLaunch!: () => void;
+    const openExternal = vi.fn(() => new Promise<void>((resolve) => { completeLaunch = resolve; }));
+    const onBack = vi.fn();
+    const view = renderScreen(service, { openExternal, onBack });
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('No Spotify Connect devices found.'));
+    view.stdin.write('o');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Opening Spotify locally…'));
+    view.stdin.write('o');
+    view.stdin.write('\u001B');
+    await vi.waitFor(() => expect(onBack).toHaveBeenCalledOnce());
+    completeLaunch();
+    await vi.waitFor(() => expect(openExternal).toHaveBeenCalledOnce());
+    expect(service.getDevices).toHaveBeenCalledOnce();
+    view.unmount();
+  });
+
   it('loads controllable devices on mount and renders safe device details', async () => {
     const service = createService([
       createDevice({ name: 'Lap\u001B[31mtop\nMain', type: 'Com\tputer' }),

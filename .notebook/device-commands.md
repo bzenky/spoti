@@ -14,5 +14,6 @@ Commands:
 - `src/ui/completions.ts` keeps bash, zsh, and fish command/option entries in sync
 - `README.md` documents commands and default-device behavior
 - Interactive device selection is in `src/tui/devices-screen.tsx`
+- Devices screen `o` uses the `openExternal` dependency wired from `src/cli.ts` through `TuiApp` to request `spotify:` and refresh discovery. Launch requests are deduplicated; leaving the screen suppresses subsequent discovery. `r` handles delayed Spotify registration.
 
-Updated: 2026-10-01
+Updated: 2026-10-03

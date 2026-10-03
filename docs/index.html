@@ -76,7 +76,7 @@
             width="812"
             height="487"
           >
-          <figcaption id="player-caption">The real interactive Player screen in text-only mode. Supported terminals also display album artwork with a link to the playing Spotify item.</figcaption>
+          <figcaption id="player-caption">The real interactive Player screen in text-only mode. Supported terminals also display album artwork.</figcaption>
         </figure>
       </div>
     </section>
@@ -93,7 +93,7 @@
           <article class="feature-card featured">
             <div class="feature-icon" aria-hidden="true">⌨</div>
             <h3>Keyboard-first TUI</h3>
-            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts, album artwork in supported terminals, top tracks and artists, and playlist actions.</p>
+            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts, album artwork in supported terminals, top tracks and artists, and playlist actions. In Devices, press <code>o</code> to open Spotify locally and refresh the list; press <code>r</code> again if Spotify needs more time to appear.</p>
             <code>spoti interactive</code>
           </article>
           <article class="feature-card">
@@ -195,7 +195,7 @@
             <div>
               <h3>Save your client ID and sign in</h3>
               <div class="code-block two-lines"><code>spoti setup<br>spoti login</code></div>
-              <p class="step-note">Authentication opens Spotify’s authorization page in your browser.</p>
+              <p class="step-note">Authentication opens Spotify’s authorization page in your browser. If a new feature requires permissions missing from your saved credentials, run <code>spoti login</code> again when prompted.</p>
             </div>
           </li>
           <li>
@@ -203,6 +203,7 @@
             <div>
               <h3>Start listening</h3>
               <div class="code-block"><code>spoti interactive</code></div>
+              <p class="step-note">Album artwork requires an image-capable terminal and a window of at least 64 columns by 18 rows. Kitty, Ghostty, and iTerm2 support it; Windows Terminal requires Sixel support. GNOME Terminal, macOS Terminal.app, and the legacy Windows console show text only. See the <a href="https://github.com/endernoke/ink-picture#compatibility-with-terminal-emulators">terminal compatibility table</a> for other terminals and rendering limitations.</p>
             </div>
           </li>
         </ol>
@@ -218,7 +219,7 @@
         <div class="notice-grid">
           <article>
             <h3><span aria-hidden="true">◉</span> Spotify Connect</h3>
-            <p>spoti controls an existing Spotify client or Connect device. It does not stream or download audio, so an available playback device is required. Run <code>spoti launch</code> to open the local Spotify app; remote devices must still be opened separately. The Devices screen preselects the active device, shows defaults and unavailable devices, and can reveal device IDs for duplicate names.</p>
+            <p>spoti controls an existing Spotify client or Connect device. It does not stream or download audio, so an available playback device is required. Run <code>spoti launch</code> (alias <code>spoti app</code>), or press <code>o</code> in the TUI Devices screen, to open Spotify locally. Spotify must be installed and registered to handle <code>spotify:</code> links; remote devices must be opened separately. The Devices screen preselects the active device, shows defaults and unavailable devices, and can reveal device IDs for duplicate names.</p>
           </article>
           <article>
             <h3><span aria-hidden="true">◆</span> Premium &amp; quota</h3>
@@ -226,7 +227,7 @@
           </article>
           <article>
             <h3><span aria-hidden="true">≋</span> Lyrics &amp; privacy</h3>
-            <p>Spotify does not provide lyrics through its Web API. Only when lyrics are requested, spoti sends the track title, artists, album, and duration to the community-run LRCLIB service. Lyrics are loaded live and not persisted locally.</p>
+            <p>Spotify does not provide lyrics through its Web API. When lyrics are requested, spoti sends the track title, artists, album, and duration to the community-run LRCLIB service. Lookups are cached in memory during the running session and never written to disk. Player and Lyrics refresh Spotify playback every ten seconds while active, and progress updates locally every second.</p>
           </article>
           <article>
             <h3><span aria-hidden="true">§</span> Lyrics licensing</h3>

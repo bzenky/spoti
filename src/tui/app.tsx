@@ -54,6 +54,7 @@ export interface TuiAppProps {
   search: TuiSearch;
   queue: TuiQueue;
   device: TuiDevice;
+  openExternal?: (url: string) => Promise<unknown>;
   config: Pick<ConfigStore, 'read' | 'set' | 'resetKey'>;
   playlists: TuiPlaylistLibrary & TuiPlaylistPicker;
   auth: TuiLibraryAuth;
@@ -71,6 +72,7 @@ export function TuiApp({
   search,
   queue,
   device,
+  openExternal,
   config,
   playlists,
   auth,
@@ -451,6 +453,7 @@ export function TuiApp({
         ) : activeScreen === 'devices' ? (
           <DevicesScreen
             device={device}
+            {...(openExternal ? { openExternal } : {})}
             config={config}
             availableRows={Math.max(1, rows - 8)}
             onBack={() => setActiveScreen('player')}
@@ -506,8 +509,6 @@ function PlaybackView({
 }) {
   const status = playback.isPlaying ? '▶' : '⏸';
   const artists = playback.track.artists.map(sanitizeOneLineText).join(', ');
-  const spotifyUrl = playback.track.externalUrl ??
-    `https://open.spotify.com/track/${encodeURIComponent(playback.track.id)}`;
   return (
     <Box flexDirection="column">
       {imageProtocol && playback.track.imageUrl && !compact ? (
@@ -515,15 +516,12 @@ function PlaybackView({
           <Box flexDirection="column">
             <Image
               src={playback.track.imageUrl}
-              width={16}
-              height={8}
+              width={18}
+              height={9}
               objectFit="contain"
               protocol={imageProtocol}
               alt="Album artwork"
             />
-            <Text dimColor>
-              Spotify · <SpotifyLink label="Open item" url={spotifyUrl} />
-            </Text>
           </Box>
           <Box flexDirection="column" flexGrow={1}>
             <PlaybackDetails
@@ -601,11 +599,6 @@ function PlaybackDetails({
       </Box>
     </>
   );
-}
-
-function SpotifyLink({ label, url }: { label: string; url: string }) {
-  const hyperlink = `\u001b]8;;${url}\u001b\\${label}\u001b]8;;\u001b\\`;
-  return <Text color="green" underline>{hyperlink}</Text>;
 }
 
 function getImageProtocol(terminalInfo: ReturnType<typeof useTerminalInfo>): ImageProtocolName | undefined {

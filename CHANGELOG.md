@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-10-03
+
+### Added
+
+- Press `o` in the interactive Devices screen to open Spotify locally and refresh available devices, with launch status and retry guidance.
+
+### Changed
+
+- Enlarge the Player album cover from 16 × 8 to 18 × 9 terminal cells and remove the link below it.
+- Document terminal artwork compatibility and minimum window dimensions.
+- Refresh repository and website documentation for playback polling, shortcuts, device launch, and current feature scope.
+
 ## [1.8.1] - 2026-10-01
 
 ### Fixed

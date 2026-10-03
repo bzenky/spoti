@@ -73,6 +73,7 @@ export const DEVICE_SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: 's', description: 'Set or clear the selected default device' },
   { keys: 'i', description: 'Show or hide device IDs' },
   { keys: 'r', description: 'Refresh devices' },
+  { keys: 'o', description: 'Open Spotify locally and refresh devices' },
   { keys: 'Esc', description: 'Return to Player' },
 ];
 

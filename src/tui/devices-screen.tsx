@@ -13,6 +13,7 @@ export type TuiDevices = TuiDevice;
 export interface DevicesScreenProps {
   device: TuiDevice;
   config: TuiDeviceConfig;
+  openExternal?: (url: string) => Promise<unknown>;
   availableRows?: number;
   onBack(): void;
   onExit(): void;
@@ -21,6 +22,7 @@ export interface DevicesScreenProps {
 export function DevicesScreen({
   device,
   config,
+  openExternal,
   availableRows = 10,
   onBack,
   onExit,
@@ -31,6 +33,7 @@ export function DevicesScreen({
   const [loading, setLoading] = useState(true);
   const [transferring, setTransferring] = useState(false);
   const [savingDefault, setSavingDefault] = useState(false);
+  const [launching, setLaunching] = useState(false);
   const [showIds, setShowIds] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
@@ -38,6 +41,7 @@ export function DevicesScreen({
   const requestVersion = useRef(0);
   const lifecycleVersion = useRef(0);
   const transferInProgress = useRef(false);
+  const launchInProgress = useRef(false);
 
   const cancelDiscovery = useCallback(() => {
     requestVersion.current += 1;
@@ -105,6 +109,33 @@ export function DevicesScreen({
     cancelDiscovery();
     onExit();
   }, [cancelDiscovery, onExit]);
+
+  const launchSpotify = useCallback(async () => {
+    if (launchInProgress.current || transferInProgress.current || savingDefault) return;
+    if (!openExternal) {
+      setError('Opening the local Spotify app is unavailable in this environment.');
+      return;
+    }
+    launchInProgress.current = true;
+    const version = lifecycleVersion.current;
+    cancelDiscovery();
+    setLoading(false);
+    setLaunching(true);
+    setError(null);
+    setConfirmation(null);
+    try {
+      await openExternal('spotify:');
+      if (version !== lifecycleVersion.current) return;
+      setConfirmation('Requested local Spotify app launch. If your device is missing, wait for Spotify to open and press [r] to refresh.');
+      await loadDevices(false);
+    } catch {
+      if (version !== lifecycleVersion.current) return;
+      setError('Unable to open the local Spotify app. Install Spotify and ensure spotify: links are associated with it. Press [o] to retry.');
+    } finally {
+      launchInProgress.current = false;
+      if (version === lifecycleVersion.current) setLaunching(false);
+    }
+  }, [cancelDiscovery, loadDevices, openExternal, savingDefault]);
 
   const transferToSelected = useCallback(async () => {
     const selected = devices?.[selectedIndex];
@@ -184,6 +215,11 @@ export function DevicesScreen({
       goBack();
       return;
     }
+    if (launchInProgress.current) return;
+    if (!key.ctrl && !key.meta && input === 'o') {
+      void launchSpotify();
+      return;
+    }
     if (((key.ctrl && input === 'r') || (!key.ctrl && !key.meta && input === 'r')) && !transferring) {
       void loadDevices();
       return;
@@ -222,7 +258,7 @@ export function DevicesScreen({
           <Text color="red">{error} Press Enter or [r] to retry.</Text>
         ) : null}
         {!loading && !error && devices?.length === 0 ? (
-          <Text dimColor>No Spotify Connect devices found. Run spoti launch to open Spotify locally, then refresh.</Text>
+          <Text dimColor>No Spotify Connect devices found. Press [o] to open Spotify locally, or open Spotify on another device, then [r] to refresh.</Text>
         ) : null}
         {!loading && visibleDevices.hiddenAbove > 0 ? (
           <Text dimColor>↑ {visibleDevices.hiddenAbove} more</Text>
@@ -254,9 +290,10 @@ export function DevicesScreen({
       </Box>
       {transferring ? <Text color="yellow">Transferring playback…</Text> : null}
       {savingDefault ? <Text color="yellow">Saving default device…</Text> : null}
+      {launching ? <Text color="yellow">Opening Spotify locally…</Text> : null}
       {confirmation ? <Text color="green">{confirmation}</Text> : null}
       <Box marginTop={1}>
-        <Text dimColor>● active · ○ available · × unavailable · ↑/↓ select · Enter transfer · [s] default · [i] IDs · [r] refresh · Esc back</Text>
+        <Text dimColor>● active · ○ available · × unavailable · ↑/↓ select · Enter transfer · [s] default · [i] IDs · [o] open Spotify · [r] refresh · Esc back</Text>
       </Box>
     </Box>
   );

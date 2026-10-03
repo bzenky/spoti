@@ -109,9 +109,25 @@ spoti interactive
 # alias: spoti i
 ```
 
-The TUI opens on current playback, updates progress locally every second, and refreshes Spotify state every ten seconds only while the Player screen is active. Use:
+The TUI opens on current playback, updates progress locally every second, and
+refreshes Spotify state every ten seconds while Player or Lyrics is active.
+The `refreshIntervalMs` setting controls CLI watch mode, not TUI polling.
 
-The Player displays Spotify album artwork in terminals with inline image support. Other terminals keep the existing text-only playback view.
+The Player displays Spotify album artwork when the terminal supports Kitty
+graphics, iTerm2 inline images, or Sixel and the window is at least 64 columns
+wide and 18 rows tall. Examples include Kitty, Ghostty, iTerm2, Konsole, Rio,
+and XTerm. Windows Terminal requires a version with Sixel support. WezTerm,
+Warp, and VS Code have protocol limitations that can affect rendering; in
+VS Code, enable `terminal.integrated.enableImages` and set
+`terminal.integrated.gpuAcceleration` to `on`.
+
+GNOME Terminal, macOS Terminal.app, and the legacy Windows console keep the
+text-only playback view. Smaller windows also hide artwork. Compatibility
+depends on the terminal app and version, rather than the operating system;
+see the [image renderer's compatibility table](https://github.com/endernoke/ink-picture#compatibility-with-terminal-emulators)
+for protocol details.
+
+Use these keyboard controls:
 
 ```text
 1       Player
@@ -134,7 +150,8 @@ Ctrl+R  refresh now (Player)
 
 Esc     back one level, or exit from Player
 x       exit from Player or Help
-Ctrl+X  exit from Search, Queue, Devices, or Library
+Ctrl+X  exit from Search, Queue, Devices, Library, Lyrics, or the playlist picker
+Ctrl+C  exit from any screen
 ```
 
 On Search, type a query and press Enter. Use up/down to select a result, then Enter to play it. For a selected track, press `a` to choose a playlist and add the track without starting playback. Tab or left/right switches between tracks, albums, artists, and playlists. Search results are cached for the active TUI session, stale requests are cancelled when the query changes, and leaving Search cancels an in-flight search or playback request.
@@ -142,6 +159,12 @@ On Search, type a query and press Enter. Use up/down to select a result, then En
 Queue displays the current item and Spotify's upcoming items. Press `a` to search for a track, use up/down to select it, and press Enter to add it. Press `r` to refresh. Spotify does not expose arbitrary queue removal or position jumping, so the TUI does not offer those actions.
 
 Devices lists all Spotify Connect devices with active status, type, volume, and the saved default. The active device is selected automatically. Use up/down and Enter to transfer playback; pressing Enter on the active device is a safe no-op. Press `s` to set or clear the selected default device, `i` to show or hide device IDs when names are duplicated, and `r` to refresh. Restricted devices or entries without a usable ID remain visible with an explanation but cannot be selected for transfer.
+
+On Devices, press `o` to open the local Spotify app without leaving the TUI.
+spoti refreshes the device list after requesting the launch. If your device has
+not appeared yet, wait for Spotify to open and press `r` to refresh again.
+Spotify must be installed and registered to handle `spotify:` links. To use a
+remote device, open Spotify on that device and refresh the list.
 
 Library uses Tab or left/right to switch among Playlists, Liked, Recent, Top tracks, and Top artists. Use up/down and Enter to open a playlist or play the selected track or artist; `n` and `p` navigate lazily loaded pages. In Top tracks or Top artists, press `t` to cycle between the last 4 weeks, about 6 months, and about 1 year. In a playlist you own, press `e` to edit its details or move the selected track to a one-based position. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
 
@@ -163,6 +186,7 @@ spoti now
 spoti now --short
 spoti now --watch
 spoti open
+spoti play
 spoti play Numb
 spoti play Fear of the Dark
 spoti play Numb --first
@@ -253,11 +277,15 @@ spoti play playlist "Workout"
 spoti play playlist 1
 ```
 
-`spoti playlist-create <name>` creates a private playlist by default; pass `--public` to create a public one. `spoti playlist-edit <playlist>` updates a playlist you own: provide `--name`, `--description`, `--public`, or `--private` (the visibility options cannot be combined). `spoti playlist-move <playlist> <from> <to>` moves an item between one-based positions in a playlist you own; quote playlist names containing spaces. The TUI offers the same operation from Library: open a playlist, select a track, press `e`, then `m`, and enter its destination position. `spoti add` adds the currently playing track to an existing playlist. Pass `--search <query>` to select a searched track instead; `--first` chooses the first track and matching playlist without prompting. In an interactive terminal, omit the playlist to browse lazily loaded pages; otherwise pass a displayed number or playlist name. The TUI offers the same flow with `a` from Player or for a selected track in Search. These features require Spotify playlist-modification scopes, so existing users upgrading to this version must run `spoti login` once to authorize the permissions.
+`spoti playlist-create <name>` creates a private playlist by default; pass `--public` to create a public one. `spoti playlist-edit <playlist>` updates a playlist you own: provide `--name`, `--description`, `--public`, or `--private` (the visibility options cannot be combined). `spoti playlist-move <playlist> <from> <to>` moves an item between one-based positions in a playlist you own; quote playlist names containing spaces. The TUI offers the same operation from Library: open a playlist, select a track, press `e`, then `m`, and enter its destination position. `spoti add` adds the currently playing track to an existing playlist. Pass `--search <query>` to select a searched track instead; `--first` chooses the first track and matching playlist without prompting. In an interactive terminal, omit the playlist to browse lazily loaded pages; otherwise pass a displayed number or playlist name. The TUI offers the same flow with `a` from Player or for a selected track in Search. These features require Spotify playlist-modification scopes. If your saved credentials lack those permissions, run `spoti login` again when prompted.
 
 User playlists preserve Spotify’s order so their global displayed numbers remain stable across pages. A displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`, including numbers beyond the first page.
 
 In an interactive terminal, `spoti album` can play the entire album or a selected track after showing its details. `spoti artist` can play the artist context or let you browse the artist’s albums lazily, with each fetched page ordered from newest to oldest by release date. From an album selected through an artist, choose **Back to albums** to reuse that list and select another release; pressing Enter in the album browser returns to the artist actions. `spoti playlist` can start the selected playlist or browse its tracks across all available pages and play one directly. Non-interactive runs remain display-only and never start playback implicitly.
+
+`spoti play` without a query resumes playback, or reports that playback is
+already running. Watch flags and the saved watch preference apply to this form
+too.
 
 `spoti play <query>` remains shorthand for track playback. The words `track`, `album`, `artist`, and `playlist` are treated as explicit types when followed by another argument. For a track query that starts with one of those reserved words, use `spoti play track <query>` (or quote the complete query as one shell argument). Context commands support `--first` to skip interactive selection.
 
@@ -306,7 +334,7 @@ Common aliases include:
 i     interactive  p     play       pa    pause
 ly    lyrics       r     resume       np    now        q     queue      s     search
 vol   volume       sk    seek        rst  restart     alb   album
-art   artist       dev   device
+art   artist       dev   device     app   launch
 pl    playlist     pls   playlists   rep   repeat
 rec   recent       n     next        prev  previous
 tt    top tracks   ta    top artists
@@ -353,7 +381,7 @@ Spotify-provided names and descriptions are normalized to safe single-line termi
 
 ### Lyrics and LRCLIB
 
-Spotify's Web API does not provide lyrics. `spoti lyrics` and the TUI Lyrics screen therefore query the community-operated [LRCLIB](https://lrclib.net) service using the selected track's title, artists, album, and duration. This metadata is sent to LRCLIB only when lyrics are requested. `spoti` identifies itself through the required `User-Agent`, performs bounded retries for short `429` and `503` responses, and does not persist lyrics locally.
+Spotify's Web API does not provide lyrics. `spoti lyrics` and the TUI Lyrics screen therefore query the community-operated [LRCLIB](https://lrclib.net) service using the selected track's title, artists, album, and duration. This metadata is sent to LRCLIB only when lyrics are requested. `spoti` identifies itself through the required `User-Agent` and performs bounded retries for short `429` and `503` responses. Lyrics and missing-result lookups are cached in memory for the running process, with up to 50 entries; they are never written to disk.
 
 Lyrics are displayed for personal, immediate use with visible LRCLIB attribution. LRCLIB's software license does not grant redistribution rights to copyrighted song lyrics; do not treat displayed lyrics as freely licensed content. Availability and synchronization depend on LRCLIB's community data, and some tracks may be missing, instrumental, or incorrectly matched.
 
@@ -462,4 +490,10 @@ The tag must exactly match the package version. Never push a release tag before 
 
 ## Current scope
 
-Version `1.0.0` establishes the command-driven CLI, Ink TUI, configuration model, and documented command aliases as stable. The release includes Spotify Connect controls, paginated search and library browsing, playlist insertion, secure PKCE authentication, quota-aware request handling, LRCLIB lyrics, update checks, shell completions, a configurable default device, compact status output, cross-platform source and packaged-install CI, and the companion website.
+spoti provides a command-driven CLI and an interactive TUI for Spotify Connect
+controls, search, paginated library browsing, Top rankings, playlist creation
+and editing, track insertion and reordering, and LRCLIB lyrics. It also includes
+local Spotify launch, album artwork in supported terminals, PKCE authentication,
+quota-aware requests, update checks, shell completions, a configurable default
+device, and compact status output. Cross-platform CI checks both the source and
+packed installation. See [CHANGELOG.md](CHANGELOG.md) for release history.

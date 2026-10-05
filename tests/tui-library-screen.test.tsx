@@ -214,6 +214,104 @@ describe('LibraryScreen', () => {
     view.unmount();
   });
 
+  it('aborts a pending playlist save on Escape and ignores its late result', async () => {
+    const deps = dependencies();
+    let finishSave!: () => void;
+    vi.mocked(deps.playlists.updatePlaylistDetails).mockImplementation(() =>
+      new Promise<void>((resolve) => { finishSave = resolve; }),
+    );
+    const view = renderLibrary(deps);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+    view.stdin.write('e');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Edit playlist'));
+    view.stdin.write('n');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('New playlist name: Workout'));
+    view.stdin.write(' changed');
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(deps.playlists.updatePlaylistDetails).toHaveBeenCalledOnce());
+    const signal = vi.mocked(deps.playlists.updatePlaylistDetails).mock.calls[0]?.[2];
+    view.stdin.write('\u001b');
+    await vi.waitFor(() => expect(signal?.aborted).toBe(true));
+    expect(view.lastFrame()).not.toContain('New playlist name:');
+    finishSave();
+    view.stdin.write('e');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Edit playlist'));
+    expect(view.lastFrame()).not.toContain('✓ Playlist updated.');
+    expect(view.lastFrame()).not.toContain('Workout changed');
+    view.unmount();
+  });
+
+  it('aborts playback when leaving a cached library page', async () => {
+    const deps = dependencies();
+    const view = renderLibrary(deps);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+    view.stdin.write('\u001b');
+    await vi.waitFor(() => expect(view.lastFrame()).not.toContain('Playlist tracks'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+    let playbackSignal: AbortSignal | undefined;
+    vi.mocked(deps.player.playTrack).mockImplementation((_uri, signal) => {
+      playbackSignal = signal;
+      return new Promise<void>((resolve) => {
+        signal?.addEventListener('abort', () => resolve(), { once: true });
+      });
+    });
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(playbackSignal).toBeInstanceOf(AbortSignal));
+    view.unmount();
+    await vi.waitFor(() => expect(playbackSignal?.aborted).toBe(true));
+    expect(deps.playlists.getPlaylistItemsPage).toHaveBeenCalledOnce();
+  });
+
+  it('does not move a track after cancelling pending ownership verification', async () => {
+    const deps = dependencies();
+    const view = renderLibrary(deps);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+    view.stdin.write('e');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Edit playlist'));
+    let finishOwnership!: (user: { id: string; displayName: string }) => void;
+    vi.mocked(deps.auth.getCurrentUser).mockImplementation(() =>
+      new Promise((resolve) => { finishOwnership = resolve; }),
+    );
+    view.stdin.write('m');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Enter move'));
+    view.stdin.write('2');
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(finishOwnership).toBeTypeOf('function'));
+    view.stdin.write('\u001b');
+    await vi.waitFor(() => expect(view.lastFrame()).not.toContain('Enter move'));
+    finishOwnership({ id: 'user-1', displayName: 'Zenky' });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(deps.playlists.moveItem).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('does not reopen the edit menu after backing out of pending ownership verification', async () => {
+    const deps = dependencies();
+    let finishOwnership!: (user: { id: string; displayName: string }) => void;
+    vi.mocked(deps.auth.getCurrentUser).mockImplementation(() =>
+      new Promise((resolve) => { finishOwnership = resolve; }),
+    );
+    const view = renderLibrary(deps);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+    view.stdin.write('e');
+    await vi.waitFor(() => expect(finishOwnership).toBeTypeOf('function'));
+    view.stdin.write('\u001b');
+    await vi.waitFor(() => expect(view.lastFrame()).not.toContain('Playlist tracks'));
+    finishOwnership({ id: 'user-1', displayName: 'Zenky' });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(view.lastFrame()).not.toContain('Edit playlist');
+    view.unmount();
+  });
+
   it('does not offer edit access for a playlist owned by someone else', async () => {
     const deps = dependencies();
     vi.mocked(deps.playlists.listPlaylistsPage).mockResolvedValue({

@@ -86,6 +86,7 @@ export function TuiApp({
   const windowSize = useWindowSize();
   const terminalInfo = useTerminalInfo();
   const { columns, rows } = terminalSize ?? windowSize;
+  const terminalTooSmall = columns < 32 || rows < 10;
   const imageProtocol = getImageProtocol(terminalInfo);
   const [activeScreen, setActiveScreen] = useState<TuiScreen>('player');
   const [playback, setPlayback] = useState<CurrentPlayback | null>(null);
@@ -226,11 +227,11 @@ export function TuiApp({
   );
 
   useInput((input, key) => {
-    if (input === 'x' && activeScreen !== 'lyrics') {
+    if (input === 'x' && (terminalTooSmall || activeScreen !== 'lyrics')) {
       exit();
       return;
     }
-    if (key.escape && activeScreen !== 'lyrics') {
+    if (key.escape && (terminalTooSmall || activeScreen !== 'lyrics')) {
       if (activeScreen === 'player') exit();
       else setActiveScreen('player');
       return;
@@ -336,11 +337,11 @@ export function TuiApp({
         (current) => ({ ...current, repeatMode: mode }),
       );
     }
-  }, { isActive: playbackPollingActive || activeScreen === 'help' });
+  }, { isActive: terminalTooSmall || playbackPollingActive || activeScreen === 'help' });
 
   const progressMs = getDisplayedProgress(playback, observedAt, clock);
 
-  if (columns < 32 || rows < 10) {
+  if (terminalTooSmall) {
     return (
       <Box width={columns} height={rows} paddingX={1} alignItems="center">
         <Text wrap="truncate-end">Terminal too small — resize to at least 32×10. Press x to exit.</Text>

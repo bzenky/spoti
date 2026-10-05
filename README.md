@@ -37,6 +37,8 @@ npm run dev -- setup
 npm run dev -- login
 ```
 
+Press Escape to cancel the client ID prompt without saving the entered text.
+
 The setup command stores the public client ID in your local `spoti` configuration. For temporary sessions, CI, or an explicit override, you can still use:
 
 ```bash
@@ -245,6 +247,9 @@ spoti queue "Faint"
 spoti queue "Faint" --first
 ```
 
+Press Escape or Ctrl+C to cancel a CLI selection prompt without pressing Enter.
+An empty Enter answer also cancels the selection and leaves playback unchanged.
+
 Search without starting playback:
 
 ```bash
@@ -313,7 +318,7 @@ spoti update
 
 `spoti now --short` prints a single line such as `▶ Linkin Park — Numb` and exits, making it suitable for prompts and status bars. `spoti open` opens the current track's Spotify page in the system browser or registered Spotify handler.
 
-`spoti update` asks for confirmation before installing the exact version returned by the update check. It never installs an update silently. Normal commands use a cached update result and refresh it in a detached process at most once every 24 hours, so npm availability does not delay or break Spotify controls.
+`spoti update` asks for confirmation before installing the exact version returned by the update check. Press Enter to confirm, or Escape or Ctrl+C to cancel. It never installs an update silently. Normal commands use a cached update result and refresh it in a detached process at most once every 24 hours, so npm availability does not delay or break Spotify controls.
 
 Remove local credentials:
 

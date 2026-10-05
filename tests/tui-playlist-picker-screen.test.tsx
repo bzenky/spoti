@@ -144,6 +144,28 @@ describe('PlaylistPickerScreen', () => {
     view.unmount();
   });
 
+  it('aborts an active add when leaving a cached picker', async () => {
+    const deps = dependencies();
+    let finishAdd!: () => void;
+    let addSignal: AbortSignal | undefined;
+    vi.mocked(deps.playlists.addItems).mockImplementation((_id, _uris, signal) => {
+      addSignal = signal;
+      return new Promise<void>((resolve) => { finishAdd = resolve; });
+    });
+    const view = renderPicker(deps, {
+      sessionCache: { pages: [{ items: [playlist], nextToken: null }], index: 0 },
+    });
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(addSignal).toBeInstanceOf(AbortSignal));
+    view.unmount();
+    await vi.waitFor(() => expect(addSignal?.aborted).toBe(true));
+    finishAdd();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(deps.onAdded).not.toHaveBeenCalled();
+    expect(deps.playlists.listPlaylistsPage).not.toHaveBeenCalled();
+  });
+
   it('aborts an active add and returns when cancelled', async () => {
     const deps = dependencies();
     let addSignal: AbortSignal | undefined;

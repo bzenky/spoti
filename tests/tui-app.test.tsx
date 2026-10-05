@@ -581,6 +581,23 @@ describe('TuiApp', () => {
     view.unmount();
   });
 
+  it.each(['y', 'q', 'l'])('handles Escape after shrinking the terminal on screen %s', async (screen) => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+    view.stdin.write(screen);
+    const load = screen === 'y' ? props.lyrics.getLyrics
+      : screen === 'q' ? props.queue.getQueue : props.playlists.listPlaylistsPage;
+    await vi.waitFor(() => expect(load).toHaveBeenCalled());
+    view.rerender(<TuiApp {...props} terminalSize={{ columns: 100, rows: 8 }} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('Terminal too small'));
+    view.stdin.write('\u001b');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.rerender(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('[a] Add'));
+    view.unmount();
+  });
+
   it('keeps player-only shortcuts inactive on other screens', async () => {
     const player = createPlayer();
     const view = render(

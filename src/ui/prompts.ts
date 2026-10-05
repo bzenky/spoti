@@ -1,4 +1,5 @@
 import { createInterface, type Interface } from 'node:readline/promises';
+import type { Key } from 'node:readline';
 import { stdin, stdout } from 'node:process';
 
 import type {
@@ -77,8 +78,8 @@ export async function promptSpotifyClientId(): Promise<string | null> {
   if (!stdin.isTTY || !stdout.isTTY) return null;
   const prompt = createInterface({ input: stdin, output: stdout });
   try {
-    const answer = await prompt.question('Spotify Client ID: ');
-    return answer.trim() || null;
+    const answer = await questionWithEscape(prompt, 'Spotify Client ID (Esc to cancel): ');
+    return answer?.trim() || null;
   } finally {
     prompt.close();
   }
@@ -88,9 +89,11 @@ export async function confirmUpdate(currentVersion: string, latestVersion: strin
   if (!stdin.isTTY || !stdout.isTTY) return false;
   const prompt = createInterface({ input: stdin, output: stdout });
   try {
-    const answer = await prompt.question(
-      `Update spoti ${currentVersion} → ${latestVersion} with npm? [Y/n] `,
+    const answer = await questionWithEscape(
+      prompt,
+      `Update spoti ${currentVersion} → ${latestVersion} with npm? [Y/n] (Esc to cancel) `,
     );
+    if (answer === null) return false;
     return answer.trim() === '' || /^y(?:es)?$/i.test(answer.trim());
   } finally {
     prompt.close();
@@ -110,7 +113,7 @@ async function selectAction<Action extends string>(
   try {
     const index = await promptForSelection(
       prompt,
-      `Select [1-${actions.length + 1}]: `,
+      `Select [1-${actions.length + 1}] (Esc to cancel): `,
       actions.length + 1,
     );
     return index === null ? null : (actions[index]?.value ?? null);
@@ -133,7 +136,7 @@ async function selectItem<Item>(
   try {
     const index = await promptForSelection(
       prompt,
-      `Select [1-${items.length}] (Enter to ${emptyAction}): `,
+      `Select [1-${items.length}] (Enter or Esc to ${emptyAction}): `,
       items.length,
     );
     return index === null ? null : (items[index] ?? null);
@@ -177,12 +180,14 @@ export async function selectPageAction<Item>(
   const choices = pageChoices(view);
   try {
     while (true) {
-      const answer = await prompt.question(
-        `Select ${choices} (Enter to ${options.emptyAction ?? 'cancel'}): `,
+      const answer = await questionWithEscape(
+        prompt,
+        `Select ${choices} (Enter or Esc to ${options.emptyAction ?? 'cancel'}): `,
       );
+      if (answer === null) return { type: 'cancel' };
       const selection = parsePageSelectionInput(answer, view);
       if (selection.type !== 'invalid') return selection;
-      stdout.write(`Choose ${choices}, or press Enter to ${options.emptyAction ?? 'cancel'}.\n`);
+      stdout.write(`Choose ${choices}, or press Enter or Esc to ${options.emptyAction ?? 'cancel'}.\n`);
     }
   } finally {
     prompt.close();
@@ -218,9 +223,33 @@ async function promptForSelection(
   itemCount: number,
 ): Promise<number | null> {
   while (true) {
-    const result = parseSelectionInput(await prompt.question(question), itemCount);
+    const answer = await questionWithEscape(prompt, question);
+    if (answer === null) return null;
+    const result = parseSelectionInput(answer, itemCount);
     if (result.status === 'cancelled') return null;
     if (result.status === 'selected') return result.index;
     stdout.write(`Selection must be a number between 1 and ${itemCount}.\n`);
+  }
+}
+
+async function questionWithEscape(prompt: Interface, question: string): Promise<string | null> {
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  const onKeypress = (_input: string, key: Key) => {
+    if (key.name === 'escape') controller.abort();
+  };
+  stdin.on('keypress', onKeypress);
+  prompt.on('SIGINT', cancel);
+  prompt.on('close', cancel);
+  try {
+    return await prompt.question(question, { signal: controller.signal });
+  } catch (error) {
+    if (!controller.signal.aborted) throw error;
+    stdout.write('\n');
+    return null;
+  } finally {
+    stdin.removeListener('keypress', onKeypress);
+    prompt.removeListener('SIGINT', cancel);
+    prompt.removeListener('close', cancel);
   }
 }

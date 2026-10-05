@@ -62,6 +62,8 @@ export function PlaylistPickerScreen({
     request.current = null;
   }, []);
 
+  useEffect(() => cancelRequest, [cancelRequest]);
+
   useEffect(() => {
     const version = ++requestVersion.current;
     request.current?.abort();

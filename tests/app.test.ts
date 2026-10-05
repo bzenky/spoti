@@ -651,6 +651,20 @@ describe('CLI application', () => {
     expect(deps.messages).toContain('▶ Playing Numb — Linkin Park');
   });
 
+  it('leaves playback untouched when the play picker is cancelled', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.search.searchTracks).mockResolvedValue([track]);
+    deps.chooseTrack.mockResolvedValue(null);
+
+    await run(['p', 'numb'], deps);
+
+    expect(deps.player.playTrack).not.toHaveBeenCalled();
+    expect(deps.player.playContext).not.toHaveBeenCalled();
+    expect(deps.player.resume).not.toHaveBeenCalled();
+    expect(deps.watchPlayback).not.toHaveBeenCalled();
+    expect(deps.messages).toEqual(['Selection cancelled.']);
+  });
+
   it('passes the selected track album context to Spotify playback', async () => {
     const deps = dependencies();
     const contextualTrack = { ...track, albumUri: 'spotify:album:album-1' };

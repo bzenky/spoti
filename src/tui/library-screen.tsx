@@ -115,6 +115,8 @@ export function LibraryScreen({
     request.current = null;
   }, []);
 
+  useEffect(() => cancelRequest, [cancelRequest]);
+
   useEffect(() => {
     const version = ++requestVersion.current;
     request.current?.abort();
@@ -240,16 +242,22 @@ export function LibraryScreen({
       if (controller.signal.aborted) return;
       setError(`Unable to update playlist: ${formatError(caught)}`);
     } finally {
-      if (request.current === controller) request.current = null;
-      setSaving(false);
+      if (request.current === controller) {
+        request.current = null;
+        setSaving(false);
+      }
     }
   }, [location, playlists, saving, updateCachedPlaylist]);
 
   const openEditMenu = useCallback(async () => {
     if (location.kind !== 'playlist' || loading || playing || saving) return;
+    cancelRequest();
+    const controller = new AbortController();
+    request.current = controller;
     setError(null);
     try {
       const user = await auth.getCurrentUser();
+      if (controller.signal.aborted) return;
       if (location.playlist.ownerId !== user.id) {
         setError('You can edit only playlists you own.');
         return;
@@ -257,9 +265,12 @@ export function LibraryScreen({
       setEditMode('menu');
       setConfirmation(null);
     } catch (caught) {
+      if (controller.signal.aborted) return;
       setError(`Unable to verify playlist ownership: ${formatError(caught)}`);
+    } finally {
+      if (request.current === controller) request.current = null;
     }
-  }, [auth, loading, location, playing, saving]);
+  }, [auth, cancelRequest, loading, location, playing, saving]);
 
   const moveSelectedTrack = useCallback(async (to: number) => {
     if (location.kind !== 'playlist' || saving) return;
@@ -272,6 +283,7 @@ export function LibraryScreen({
     setError(null);
     try {
       const user = await auth.getCurrentUser();
+      if (controller.signal.aborted) return;
       if (location.playlist.ownerId !== user.id) {
         setError('You can edit only playlists you own.');
         return;
@@ -290,8 +302,10 @@ export function LibraryScreen({
       if (controller.signal.aborted) return;
       setError(`Unable to move playlist item: ${formatError(caught)}`);
     } finally {
-      if (request.current === controller) request.current = null;
-      setSaving(false);
+      if (request.current === controller) {
+        request.current = null;
+        setSaving(false);
+      }
     }
   }, [auth, location, locationKey, page, pageIndex, playlists, saving, selectedIndex, sessions]);
 
@@ -339,6 +353,8 @@ export function LibraryScreen({
     }
     if (key.escape) {
       if (editMode) {
+        cancelRequest();
+        setSaving(false);
         setEditMode(null);
         draftRef.current = '';
         setDraft('');

@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-10-05
+
+### Fixed
+
+- Cancel CLI track, album, artist, playlist, action, and paginated selections with Escape without pressing Enter.
+- Cancel setup and update prompts with Escape; cancelling an update never confirms installation.
+- Settle CLI prompts on Ctrl+C or Ctrl+D and restore terminal input.
+- Abort pending playlist saves and moves when cancelling an edit, and ignore ownership checks that finish after cancellation.
+- Abort pending Library and playlist-add requests when leaving cached screens.
+- Keep Escape and the advertised `x` exit shortcut working when the TUI terminal is too small, including from Lyrics.
+
 ## [1.9.0] - 2026-10-03
 
 ### Added

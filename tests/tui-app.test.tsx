@@ -1,10 +1,32 @@
+import { Text } from 'ink';
+import Image, { defaultTerminalInfo, TerminalInfoContext } from 'ink-picture';
 import { render } from 'ink-testing-library';
+import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CurrentPlayback } from '../src/services/models.js';
 import { TuiApp, type TuiPlayer } from '../src/tui/app.js';
 import { DevelopmentQuotaExceededError } from '../src/utils/errors.js';
 import type { TuiSearch } from '../src/tui/search-screen.js';
+
+const artworkLifecycle = vi.hoisted(() => ({ mount: vi.fn(), unmount: vi.fn() }));
+
+vi.mock('ink-picture', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('ink-picture')>();
+  return {
+    ...actual,
+    // Graphics protocols leave the alt placeholder in Ink's text layer after loading.
+    default: vi.fn(function MockImage({ alt }: { alt?: string }) {
+      useEffect(() => {
+        artworkLifecycle.mount();
+        return () => {
+          artworkLifecycle.unmount();
+        };
+      }, []);
+      return <Text>{alt}</Text>;
+    }),
+  };
+});
 
 const playback: CurrentPlayback = {
   isPlaying: true,
@@ -96,6 +118,121 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
 }
 
 describe('TuiApp', () => {
+  it.each(['kitty', 'iterm2', 'sixel'] as const)(
+    'keeps the %s artwork text layer blank',
+    async (protocol) => {
+      vi.mocked(Image).mockClear();
+      const view = render(
+        <TerminalInfoContext.Provider
+          value={{
+            ...defaultTerminalInfo,
+            supportsKittyGraphics: protocol === 'kitty',
+            supportsITerm2Graphics: protocol === 'iterm2',
+            supportsSixelGraphics: protocol === 'sixel',
+          }}
+        >
+          <TuiApp {...createTuiProps(createPlayer(), createSearch())} refreshIntervalMs={60_000} />
+        </TerminalInfoContext.Provider>,
+      );
+
+      try {
+        await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+        expect(Image).toHaveBeenCalledWith(
+          expect.objectContaining({
+            src: playback.track.imageUrl,
+            protocol,
+            width: 18,
+            height: 9,
+            alt: ' ',
+          }),
+          undefined,
+        );
+        expect(view.lastFrame()).not.toContain('Album artwork');
+        expect(view.lastFrame()).toContain('Linkin Park · Meteora');
+      } finally {
+        view.unmount();
+      }
+    },
+  );
+
+  it.each([
+    [9, 20, 8],
+    [8, 16, 9],
+    [10, 24, 8],
+    [0, 20, 9],
+    [9, 0, 9],
+    [Number.NaN, 20, 9],
+    [9, Number.POSITIVE_INFINITY, 9],
+  ])('sizes artwork for %s×%s pixel cells to %s rows', async (cellWidth, cellHeight, height) => {
+    vi.mocked(Image).mockClear();
+    const view = render(
+      <TerminalInfoContext.Provider
+        value={{ ...defaultTerminalInfo, supportsKittyGraphics: true, cellWidth, cellHeight }}
+      >
+        <TuiApp {...createTuiProps(createPlayer(), createSearch())} refreshIntervalMs={60_000} />
+      </TerminalInfoContext.Provider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+      expect(Image).toHaveBeenCalledWith(
+        expect.objectContaining({ width: 18, height, objectFit: 'contain' }),
+        undefined,
+      );
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it.each(['kitty', 'iterm2', 'sixel'] as const)(
+    'reloads %s artwork after resizing without refreshing playback',
+    async (protocol) => {
+      artworkLifecycle.mount.mockClear();
+      artworkLifecycle.unmount.mockClear();
+      const player = createPlayer();
+      const props = createTuiProps(player, createSearch());
+      const terminalInfo = {
+        ...defaultTerminalInfo,
+        supportsKittyGraphics: protocol === 'kitty',
+        supportsITerm2Graphics: protocol === 'iterm2',
+        supportsSixelGraphics: protocol === 'sixel',
+      };
+      const app = (columns: number, rows: number) => (
+        <TerminalInfoContext.Provider value={terminalInfo}>
+          <TuiApp {...props} terminalSize={{ columns, rows }} refreshIntervalMs={60_000} />
+        </TerminalInfoContext.Provider>
+      );
+      const view = render(app(100, 30));
+
+      try {
+        await vi.waitFor(() => expect(artworkLifecycle.mount).toHaveBeenCalledTimes(1));
+        // Ordinary renders must not reload the artwork.
+        view.rerender(app(100, 30));
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        expect(artworkLifecycle.mount).toHaveBeenCalledTimes(1);
+
+        view.rerender(app(90, 30));
+        await vi.waitFor(() => expect(artworkLifecycle.mount).toHaveBeenCalledTimes(2));
+        expect(artworkLifecycle.unmount).toHaveBeenCalledTimes(1);
+
+        view.rerender(app(90, 25));
+        await vi.waitFor(() => expect(artworkLifecycle.mount).toHaveBeenCalledTimes(3));
+        expect(artworkLifecycle.unmount).toHaveBeenCalledTimes(2);
+
+        view.rerender(app(40, 12));
+        await vi.waitFor(() => expect(artworkLifecycle.unmount).toHaveBeenCalledTimes(3));
+        expect(artworkLifecycle.mount).toHaveBeenCalledTimes(3);
+
+        view.rerender(app(100, 30));
+        await vi.waitFor(() => expect(artworkLifecycle.mount).toHaveBeenCalledTimes(4));
+        expect(view.lastFrame()).toContain('Breaking the Habit');
+        expect(view.lastFrame()).not.toContain('Album artwork');
+        expect(player.getCurrentPlayback).toHaveBeenCalledOnce();
+      } finally {
+        view.unmount();
+      }
+    },
+  );
+
   it('renders the current playback and keyboard help', async () => {
     const player = createPlayer();
     const view = render(

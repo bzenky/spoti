@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.2] - 2026-10-06
+
+### Fixed
+
+- Hide the album artwork placeholder text behind graphics-protocol images in the interactive Player while retaining the screen-reader label.
+- Reload and redraw Player artwork when terminal dimensions change, without refreshing or interrupting playback.
+- Adapt artwork height to terminal cell dimensions to reduce padding above square album covers without stretching or cropping them.
+
 ## [1.9.1] - 2026-10-05
 
 ### Fixed

@@ -376,6 +376,8 @@ export function TuiApp({
                 playback={playback}
                 progressMs={progressMs}
                 contentWidth={columns - 4}
+                artworkViewport={`${columns}x${rows}`}
+                artworkHeight={getArtworkHeight(terminalInfo)}
                 compact={rows < 16}
                 {...(columns >= 64 && rows >= 18 && imageProtocol ? { imageProtocol } : {})}
               />
@@ -495,16 +497,28 @@ export function TuiApp({
   );
 }
 
+function getArtworkHeight({ cellWidth, cellHeight }: ReturnType<typeof useTerminalInfo>): number {
+  if (!Number.isFinite(cellWidth) || !Number.isFinite(cellHeight) || cellWidth <= 0 || cellHeight <= 0) {
+    return 9;
+  }
+  // Keep a square cover in pixel space, within the existing nine-row layout budget.
+  return Math.max(1, Math.min(9, Math.round(18 * cellWidth / cellHeight)));
+}
+
 function PlaybackView({
   playback,
   progressMs,
   contentWidth,
+  artworkViewport,
+  artworkHeight,
   compact,
   imageProtocol,
 }: {
   playback: CurrentPlayback;
   progressMs: number;
   contentWidth: number;
+  artworkViewport: string;
+  artworkHeight: number;
   compact: boolean;
   imageProtocol?: ImageProtocolName;
 }) {
@@ -514,14 +528,17 @@ function PlaybackView({
     <Box flexDirection="column">
       {imageProtocol && playback.track.imageUrl && !compact ? (
         <Box flexDirection="row" columnGap={2}>
-          <Box flexDirection="column">
+          <Box flexDirection="column" aria-label="Album artwork">
             <Image
+              // Resizing can clear terminal graphics without invalidating the loaded image.
+              key={artworkViewport}
               src={playback.track.imageUrl}
               width={18}
-              height={9}
+              height={artworkHeight}
               objectFit="contain"
               protocol={imageProtocol}
-              alt="Album artwork"
+              // ink-picture keeps alt text behind graphics-protocol images, even after loading.
+              alt=" "
             />
           </Box>
           <Box flexDirection="column" flexGrow={1}>

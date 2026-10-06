@@ -124,7 +124,9 @@ VS Code, enable `terminal.integrated.enableImages` and set
 `terminal.integrated.gpuAcceleration` to `on`.
 
 GNOME Terminal, macOS Terminal.app, and the legacy Windows console keep the
-text-only playback view. Smaller windows also hide artwork. Compatibility
+text-only playback view. Smaller windows also hide artwork. Artwork height
+adapts to terminal cell dimensions, and resizing reloads and redraws the cover
+without interrupting playback. Compatibility
 depends on the terminal app and version, rather than the operating system;
 see the [image renderer's compatibility table](https://github.com/endernoke/ink-picture#compatibility-with-terminal-emulators)
 for protocol details.

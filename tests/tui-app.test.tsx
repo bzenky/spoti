@@ -421,6 +421,7 @@ describe('TuiApp', () => {
 
     await vi.waitFor(() => {
       expect(view.lastFrame()).toContain('Breaking the Habit');
+      expect(view.lastFrame()).toContain('♡ Not liked');
     });
 
     const frame = view.lastFrame() ?? '';

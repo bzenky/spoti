@@ -16,4 +16,6 @@ Layout: `PlaybackDetails()` keeps saved status on its own row below progress. Ti
 
 Hints: Player and Lyrics display `[h] Like` for unsaved tracks, `[h] Unlike` for saved tracks, and a neutral heart while status is unknown. Live TUI toggle checked against Spotify on 2026-11-05: like and unlike both confirmed; the originally unsaved track was restored to unsaved. Existing toggle tests also assert the dynamic hints.
 
+Tests: `tests/tui-app.test.tsx` keyboard-help assertions wait for saved status as well as playback. Checking only the track title can capture the transient neutral hint, which wraps footer labels differently on macOS and Windows CI.
+
 Updated: 2026-11-05

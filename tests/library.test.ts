@@ -17,6 +17,29 @@ const track = {
 };
 
 describe('LibraryService', () => {
+  it.each([true, false])('reads saved-track status (%s) through the URI library endpoint', async (liked) => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue([liked]);
+    const signal = new AbortController().signal;
+
+    await expect(new LibraryService(api).isTrackLiked(` ${track.uri} `, signal)).resolves.toBe(liked);
+    expect(api.get).toHaveBeenCalledWith('/me/library/contains', {
+      query: { uris: track.uri }, signal,
+    });
+  });
+
+  it('does not interpret a malformed status response as an unliked track', async () => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue([]);
+    await expect(new LibraryService(api).isTrackLiked(track.uri)).rejects.toThrow('invalid saved-track status');
+  });
+
+  it('ignores unsupported URIs when checking liked status', async () => {
+    const api = createApi();
+    await expect(new LibraryService(api).isTrackLiked('spotify:episode:episode')).resolves.toBe(false);
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
   it('keeps getLikedTracks compatible by returning first-page items', async () => {
     const api = createApi();
     vi.mocked(api.get).mockResolvedValue({

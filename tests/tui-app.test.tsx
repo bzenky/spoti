@@ -103,6 +103,9 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
       getCurrentUser: vi.fn().mockResolvedValue({ id: 'user-1', displayName: 'Zenky' }),
     },
     library: {
+      isTrackLiked: vi.fn().mockResolvedValue(false),
+      likeTrack: vi.fn().mockResolvedValue(undefined),
+      unlikeTrack: vi.fn().mockResolvedValue(undefined),
       getLikedTracksPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
       getTopTracksPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
       getTopArtistsPage: vi.fn().mockResolvedValue({ items: [], nextToken: null }),
@@ -118,6 +121,183 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
 }
 
 describe('TuiApp', () => {
+  it.each(['player', 'lyrics'] as const)('toggles liked status on %s without changing playback', async (screen) => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♡ Not liked'));
+      expect(props.library.isTrackLiked).toHaveBeenCalledWith(playback.track.uri, expect.any(AbortSignal));
+      if (screen === 'lyrics') {
+        view.stdin.write('y');
+        await vi.waitFor(() => expect(view.lastFrame()).toContain('Lyrics from LRCLIB'));
+      }
+      view.stdin.write('h');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♥ Liked'));
+      expect(view.lastFrame()).toContain('[h] Unlike');
+      const titleLine = view.lastFrame()?.split('\n').find((line) => line.includes(playback.track.name));
+      expect(titleLine).toBeDefined();
+      expect(titleLine).not.toMatch(/♥|♡|[Ll]iked/);
+      expect(props.library.likeTrack).toHaveBeenCalledExactlyOnceWith(playback.track.uri);
+      view.stdin.write('h');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♡ Not liked'));
+      expect(view.lastFrame()).toContain('[h] Like');
+      expect(props.library.unlikeTrack).toHaveBeenCalledExactlyOnceWith(playback.track.uri);
+      expect(props.player.pause).not.toHaveBeenCalled();
+      expect(props.player.resume).not.toHaveBeenCalled();
+      expect(props.player.getCurrentPlayback).toHaveBeenCalledOnce();
+      expect(props.library.isTrackLiked).toHaveBeenCalledOnce();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('unlikes an already saved track and preserves its status if the request fails', async () => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    props.library.isTrackLiked.mockResolvedValue(true);
+    props.library.unlikeTrack.mockRejectedValueOnce(new Error('Spotify save failed'));
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♥ Liked'));
+      view.stdin.write('h');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Spotify save failed'));
+      expect(view.lastFrame()).toContain('♥ Liked');
+      expect(props.library.likeTrack).not.toHaveBeenCalled();
+      view.stdin.write('h');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♡ Not liked'));
+      expect(view.lastFrame()).not.toContain('Spotify save failed');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('waits for saved status and prevents overlapping toggle requests', async () => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    let finishRead!: (liked: boolean) => void;
+    let finishSave!: () => void;
+    props.library.isTrackLiked.mockReturnValue(new Promise((resolve) => { finishRead = resolve; }));
+    props.library.likeTrack.mockReturnValue(new Promise<void>((resolve) => { finishSave = resolve; }));
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Checking liked status'));
+      view.stdin.write('h');
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(props.library.likeTrack).not.toHaveBeenCalled();
+      expect(props.library.unlikeTrack).not.toHaveBeenCalled();
+      finishRead(false);
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♡ Not liked'));
+      view.stdin.write('h');
+      await vi.waitFor(() => expect(props.library.likeTrack).toHaveBeenCalledOnce());
+      view.stdin.write('h');
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(props.library.likeTrack).toHaveBeenCalledOnce();
+      expect(props.library.unlikeTrack).not.toHaveBeenCalled();
+      finishSave();
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♥ Liked'));
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('retries a failed status lookup without treating failure as an unliked track', async () => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    props.library.isTrackLiked.mockRejectedValueOnce(new Error('Run: spoti login')).mockResolvedValue(true);
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Run: spoti login'));
+      expect(view.lastFrame()).toContain('Like status unavailable');
+      expect(view.lastFrame()).not.toContain('♡ Not liked');
+      view.stdin.write('h');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♥ Liked'));
+      expect(props.library.likeTrack).not.toHaveBeenCalled();
+      expect(props.library.unlikeTrack).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('ignores an old saved-status response after the playing track changes', async () => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    let finishRead!: (liked: boolean) => void;
+    props.library.isTrackLiked.mockReturnValueOnce(new Promise((resolve) => { finishRead = resolve; }))
+      .mockResolvedValue(true);
+    const nextPlayback = { ...playback, track: { ...playback.track, uri: 'spotify:track:track-2', id: 'track-2', name: 'Faint' } };
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    try {
+      await vi.waitFor(() => expect(props.library.isTrackLiked).toHaveBeenCalledOnce());
+      const signal = props.library.isTrackLiked.mock.calls[0]?.[1] as AbortSignal;
+      vi.mocked(props.player.getCurrentPlayback).mockResolvedValue(nextPlayback);
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Faint'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♥ Liked'));
+      expect(signal.aborted).toBe(true);
+      finishRead(false);
+      view.stdin.write('h');
+      await vi.waitFor(() => expect(props.library.unlikeTrack).toHaveBeenCalledWith(nextPlayback.track.uri));
+      expect(props.library.likeTrack).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('refreshes saved status manually but reuses it for normal same-track polling', async () => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    const view = render(<TuiApp {...props} refreshIntervalMs={80} />);
+    try {
+      await vi.waitFor(() => expect(vi.mocked(props.player.getCurrentPlayback).mock.calls.length).toBeGreaterThanOrEqual(2));
+      expect(props.library.isTrackLiked).toHaveBeenCalledOnce();
+      props.library.isTrackLiked.mockResolvedValue(true);
+      view.stdin.write('\u0012');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♥ Liked'));
+      expect(props.library.isTrackLiked).toHaveBeenCalledTimes(2);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('does not query or change saved status when no playable track is selected', async () => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    vi.mocked(props.player.getCurrentPlayback).mockResolvedValue(null);
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Nothing is currently playing'));
+      view.stdin.write('h');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('No playable track is currently selected'));
+      expect(props.library.isTrackLiked).not.toHaveBeenCalled();
+      expect(props.library.likeTrack).not.toHaveBeenCalled();
+      expect(props.library.unlikeTrack).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('invalidates cached liked pages after a successful toggle', async () => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    props.library.isTrackLiked.mockResolvedValue(true);
+    props.library.getLikedTracksPage.mockResolvedValueOnce({
+      items: [{ addedAt: '2026-11-04T00:00:00Z', track: playback.track }], nextToken: null,
+    });
+    const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♥ Liked'));
+      view.stdin.write('l');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('No playlists found'));
+      view.stdin.write('\t');
+      await vi.waitFor(() => expect(props.library.getLikedTracksPage).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+      view.stdin.write('\u001B');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♥ Liked'));
+      view.stdin.write('h');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('♡ Not liked'));
+      view.stdin.write('l');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('No playlists found'));
+      view.stdin.write('\t');
+      await vi.waitFor(() => expect(props.library.getLikedTracksPage).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('Breaking the Habit'));
+    } finally {
+      view.unmount();
+    }
+  });
+
   it.each(['kitty', 'iterm2', 'sixel'] as const)(
     'keeps the %s artwork text layer blank',
     async (protocol) => {

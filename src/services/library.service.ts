@@ -1,4 +1,5 @@
 import type { SpotifyApi } from '../spotify/client.js';
+import { AppError } from '../utils/errors.js';
 import type {
   SpotifyPaging,
   SpotifyPlaybackState,
@@ -76,6 +77,19 @@ export class LibraryService {
 
   async likeTrack(uri: string): Promise<void> {
     await this.changeSavedState('put', uri);
+  }
+
+  async isTrackLiked(uri: string, signal?: AbortSignal): Promise<boolean> {
+    const normalizedUri = uri.trim();
+    if (!normalizedUri.startsWith('spotify:track:')) return false;
+    const response = await this.spotify.get<boolean[]>('/me/library/contains', {
+      query: { uris: normalizedUri },
+      ...(signal === undefined ? {} : { signal }),
+    });
+    if (!Array.isArray(response) || typeof response[0] !== 'boolean') {
+      throw new AppError('Spotify returned an invalid saved-track status. Try again.');
+    }
+    return response[0];
   }
 
   async unlikeTrack(uri: string): Promise<void> {

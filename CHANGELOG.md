@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-11-05
+
+### Added
+
+- The Player and Lyrics shortcut hint shows `Like` or `Unlike` based on the current track's saved status.
+- Press `h` on the interactive Player or Lyrics screen to like or unlike the current track, with a saved-status indicator and refreshed Liked library pages after changes. Player shows saved status below playback progress, separate from the track title, with one blank row after artist/album details.
+
 ## [1.9.2] - 2026-10-06
 
 ### Fixed

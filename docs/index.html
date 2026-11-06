@@ -72,11 +72,11 @@
           <img
             class="tui-screenshot"
             src="images/spoti-interactive.png"
-            alt="spoti interactive Player screen playing Numb by Linkin Park, showing progress, volume, shuffle, repeat, device, navigation, and keyboard controls"
-            width="812"
-            height="487"
+            alt="spoti Player playing Born and Raised - Reprise by John Mayer, with album artwork, playback progress, saved-track status, and keyboard controls"
+            width="1022"
+            height="554"
           >
-          <figcaption id="player-caption">The real interactive Player screen in text-only mode. Supported terminals also display album artwork.</figcaption>
+          <figcaption id="player-caption">The interactive Player with album artwork and saved-track status. Press <kbd>h</kbd> on Player or Lyrics to like or unlike the current track. Player shows saved status below progress, with a blank row after artist/album details in larger windows. Artwork appears in supported terminals.</figcaption>
         </figure>
       </div>
     </section>
@@ -93,7 +93,7 @@
           <article class="feature-card featured">
             <div class="feature-icon" aria-hidden="true">⌨</div>
             <h3>Keyboard-first TUI</h3>
-            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts, album artwork in supported terminals, top tracks and artists, and playlist actions. In Devices, press <code>o</code> to open Spotify locally and refresh the list; press <code>r</code> again if Spotify needs more time to appear.</p>
+            <p>Player, Search, Queue, Devices, Library, Lyrics, and Help screens with responsive layouts, album artwork in supported terminals, top tracks and artists, and playlist actions. Press <kbd>h</kbd> on Player or Lyrics to like or unlike the current track; the heart indicator shows its saved status. In Devices, press <code>o</code> to open Spotify locally and refresh the list; press <code>r</code> again if Spotify needs more time to appear.</p>
             <code>spoti interactive</code>
           </article>
           <article class="feature-card">
@@ -134,6 +134,8 @@
 <span>$</span> spoti device "My Computer" --default
 <span>$</span> spoti open
 <span>$</span> spoti lyrics Numb Linkin Park
+<span>$</span> spoti like
+<span>$</span> spoti unlike
 <span>$</span> spoti liked --limit 10</code></pre>
           </div>
 
@@ -145,7 +147,7 @@
             <div class="lyrics-screen" role="img" aria-label="Illustrative spoti Lyrics screen with a synchronized current line, playback controls, and LRCLIB attribution">
               <b class="tui-brand">spoti</b>
               <p class="tui-nav"><span>[1] Player</span> <b>[y] Lyrics</b> <span>[/] Search</span> <span>[q] Queue</span></p>
-              <p class="dim">▶ Playing · Volume: 80% · Shuffle: Off · Repeat: Off</p>
+              <p class="dim">♥ Liked · ▶ Playing · Volume: 80% · Shuffle: Off · Repeat: Off</p>
               <div class="lyrics-body">
                 <strong>Lyrics</strong>
                 <p class="dim">Current track — Example Artist</p>
@@ -155,10 +157,10 @@
               </div>
               <p class="dim attribution">Lyrics from LRCLIB: https://lrclib.net</p>
               <p class="dim shortcut">[Space] Play/Pause · [n/p] Track · [←/→] Seek</p>
-              <p class="dim shortcut">[-/+] Volume · [s] Shuffle · [r] Repeat · [Ctrl+R] Refresh</p>
+              <p class="dim shortcut">[-/+] Volume · [s] Shuffle · [r] Repeat · [h] Unlike · [Ctrl+R] Refresh</p>
               <p class="dim shortcut">[↑/↓] Scroll · [f] Following · [Esc] Back · [Ctrl+X] Exit</p>
             </div>
-            <figcaption id="lyrics-caption">Control playback without leaving Lyrics: <kbd>Space</kbd> to play/pause, <kbd>n</kbd>/<kbd>p</kbd> to change tracks, <kbd>←</kbd>/<kbd>→</kbd> to seek, <kbd>-</kbd>/<kbd>+</kbd> for volume, <kbd>s</kbd> for shuffle, and <kbd>r</kbd> for repeat. Press <kbd>Ctrl+R</kbd> to refresh playback or <kbd>Enter</kbd> to retry a lyrics loading error. Scroll freely; press <kbd>f</kbd> to resume following synchronized lines. In Search, select a track and press <kbd>a</kbd> to add it to a playlist.</figcaption>
+            <figcaption id="lyrics-caption">Control playback without leaving Lyrics: <kbd>Space</kbd> to play/pause, <kbd>n</kbd>/<kbd>p</kbd> to change tracks, <kbd>←</kbd>/<kbd>→</kbd> to seek, <kbd>-</kbd>/<kbd>+</kbd> for volume, <kbd>s</kbd> for shuffle, and <kbd>r</kbd> for repeat. Press <kbd>h</kbd> on Player or Lyrics to like or unlike the current track; the heart shows its saved status, the shortcut hint switches between Like and Unlike, and Liked library pages reload after a change. Press <kbd>Ctrl+R</kbd> to refresh playback and saved status or <kbd>Enter</kbd> to retry a lyrics loading error. Scroll freely; press <kbd>f</kbd> to resume following synchronized lines. In Search, select a track and press <kbd>a</kbd> to add it to a playlist.</figcaption>
           </figure>
         </div>
       </div>

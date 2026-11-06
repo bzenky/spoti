@@ -3,6 +3,7 @@ import Image, { useTerminalInfo, type ImageProtocolName } from 'ink-picture';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { CurrentPlayback, Track } from '../services/models.js';
+import type { LibraryService } from '../services/library.service.js';
 import type { PlayerService } from '../services/player.service.js';
 import type { ConfigStore } from '../storage/config.js';
 import { DevelopmentQuotaExceededError } from '../utils/errors.js';
@@ -58,7 +59,7 @@ export interface TuiAppProps {
   config: Pick<ConfigStore, 'read' | 'set' | 'resetKey'>;
   playlists: TuiPlaylistLibrary & TuiPlaylistPicker;
   auth: TuiLibraryAuth;
-  library: TuiLikedLibrary;
+  library: TuiLikedLibrary & Pick<LibraryService, 'isTrackLiked' | 'likeTrack' | 'unlikeTrack'>;
   recent: TuiRecentLibrary;
   lyrics: TuiLyrics;
   refreshIntervalMs?: number;
@@ -95,6 +96,13 @@ export function TuiApp({
   const [error, setError] = useState<string | null>(null);
   const [action, setAction] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [savedTrack, setSavedTrack] = useState<{
+    uri: string;
+    liked: boolean | null;
+    error: string | null;
+  } | null>(null);
+  const [savedRefreshVersion, setSavedRefreshVersion] = useState(0);
+  const savedRequest = useRef<{ uri: string; controller: AbortController } | null>(null);
   const [playlistPickerTrack, setPlaylistPickerTrack] = useState<Track | null>(null);
   const [playlistPickerReturnScreen, setPlaylistPickerReturnScreen] = useState<TuiScreen>('player');
   const [observedAt, setObservedAt] = useState(Date.now());
@@ -147,6 +155,38 @@ export function TuiApp({
   }, [player]);
 
   const playbackPollingActive = activeScreen === 'player' || activeScreen === 'lyrics';
+  const trackUri = playback?.track.uri;
+  const canLikeTrack = Boolean(trackUri?.startsWith('spotify:track:'));
+  const currentSavedTrack = savedTrack?.uri === trackUri ? savedTrack : null;
+  const likeStatus = !canLikeTrack ? null
+    : currentSavedTrack?.liked === true ? '♥ Liked'
+      : currentSavedTrack?.liked === false ? '♡ Not liked'
+        : currentSavedTrack?.error ? 'Like status unavailable' : 'Checking liked status…';
+  const playbackError = error ?? currentSavedTrack?.error ?? null;
+  const likeHint = currentSavedTrack?.liked === true ? 'Unlike'
+    : currentSavedTrack?.liked === false ? 'Like' : '♥';
+
+  useEffect(() => {
+    if (!playbackPollingActive || !canLikeTrack || !trackUri) return;
+    const controller = new AbortController();
+    savedRequest.current = { uri: trackUri, controller };
+    setSavedTrack({ uri: trackUri, liked: null, error: null });
+    void library.isTrackLiked(trackUri, controller.signal).then(
+      (liked) => {
+        if (!controller.signal.aborted) setSavedTrack({ uri: trackUri, liked, error: null });
+      },
+      (caught: unknown) => {
+        if (!controller.signal.aborted) {
+          setSavedTrack({ uri: trackUri, liked: null, error: formatTuiError(caught) });
+        }
+      },
+    );
+    return () => {
+      controller.abort();
+      if (savedRequest.current?.controller === controller) savedRequest.current = null;
+    };
+  }, [canLikeTrack, library, playbackPollingActive, savedRefreshVersion, trackUri]);
+
   useEffect(() => {
     if (!playbackPollingActive) return;
 
@@ -237,7 +277,10 @@ export function TuiApp({
       return;
     }
     if (key.ctrl && input === 'r' && playbackPollingActive) {
-      if (!actionInProgress.current) void refresh(true);
+      if (!actionInProgress.current) {
+        setSavedRefreshVersion((version) => version + 1);
+        void refresh(true);
+      }
       return;
     }
     if (key.ctrl || key.meta) return;
@@ -248,6 +291,28 @@ export function TuiApp({
       return;
     }
     if (!playbackPollingActive) return;
+
+    if (input === 'h') {
+      if (actionInProgress.current) return;
+      if (!canLikeTrack || !trackUri) {
+        setError('No playable track is currently selected.');
+        return;
+      }
+      if (currentSavedTrack?.liked === null || !currentSavedTrack) {
+        if (currentSavedTrack?.error) setSavedRefreshVersion((version) => version + 1);
+        return;
+      }
+      const liked = !currentSavedTrack.liked;
+      void runPlayerAction(liked ? 'Liking track…' : 'Unliking track…', async () => {
+        await (liked ? library.likeTrack(trackUri) : library.unlikeTrack(trackUri));
+        // A status read started while navigating must not overwrite this completed save.
+        if (savedRequest.current?.uri === trackUri) savedRequest.current.controller.abort();
+        setSavedTrack((current) => current?.uri === trackUri
+          ? { uri: trackUri, liked, error: null } : current);
+        libraryCache.current.delete('liked');
+      });
+      return;
+    }
 
     if (input === 'a' && activeScreen === 'player') {
       setError(null);
@@ -374,6 +439,7 @@ export function TuiApp({
             ) : playback ? (
               <PlaybackView
                 playback={playback}
+                likeStatus={likeStatus}
                 progressMs={progressMs}
                 contentWidth={columns - 4}
                 artworkViewport={`${columns}x${rows}`}
@@ -389,9 +455,9 @@ export function TuiApp({
                 <Text color="yellow">{action}</Text>
               </Box>
             ) : null}
-            {error ? (
+            {playbackError ? (
               <Box marginTop={1}>
-                <Text color="red">{error}</Text>
+                <Text color="red">{playbackError}</Text>
               </Box>
             ) : null}
             {confirmation ? (
@@ -421,10 +487,10 @@ export function TuiApp({
             track={playback?.track ?? null}
             progressMs={progressMs}
             playbackStatus={playback
-              ? `${playback.isPlaying ? 'Playing' : 'Paused'} · ${formatDuration(progressMs)} / ${formatDuration(playback.track.durationMs)} · Volume: ${playback.volumePercent ?? 'Unavailable'}${playback.volumePercent === undefined ? '' : '%'} · Shuffle: ${playback.shuffleState ? 'On' : 'Off'} · Repeat: ${formatRepeatMode(playback.repeatMode)}`
+              ? `${likeStatus ? `${likeStatus} · ` : ''}${playback.isPlaying ? 'Playing' : 'Paused'} · ${formatDuration(progressMs)} / ${formatDuration(playback.track.durationMs)} · Volume: ${playback.volumePercent ?? 'Unavailable'}${playback.volumePercent === undefined ? '' : '%'} · Shuffle: ${playback.shuffleState ? 'On' : 'Off'} · Repeat: ${formatRepeatMode(playback.repeatMode)}`
               : 'Playback unavailable. Press Ctrl+R to refresh.'}
             playbackAction={action}
-            playbackError={error}
+            playbackError={playbackError}
             availableRows={Math.max(1, rows - 8)}
             onBack={() => setActiveScreen('player')}
             onExit={exit}
@@ -480,14 +546,14 @@ export function TuiApp({
         <Text dimColor>
           {activeScreen === 'player'
             ? rows < 16
-              ? '[space] [a] Add [y] Lyrics [?] [x]'
-              : '[space] Play/Pause  [n/p] Track  [←/→] Seek  [-/+] Volume  [s] Shuffle  [r] Repeat  [a] Add  [Ctrl+R] Refresh  [y] Lyrics  [?] Help  [x/Esc] Exit'
+              ? `[space] [h] ${likeHint} [a] [y] [?] [x]`
+              : `[space] Play/Pause  [n/p] Track  [←/→] Seek  [-/+] Volume  [s] Shuffle  [r] Repeat  [h] ${likeHint}  [a] Add  [Ctrl+R] Refresh  [y] Lyrics  [?] Help  [x/Esc] Exit`
             : activeScreen === 'help'
               ? '[Esc] Back to Player  [x] Exit'
               : activeScreen === 'lyrics'
                 ? rows < 16
-                  ? '[space] [n/p] [←/→] [-/+] [s] [r]'
-                  : '[space] Play/Pause  [n/p] Track  [←/→] Seek  [-/+] Volume  [s] Shuffle  [r] Repeat  [Ctrl+R] Refresh'
+                  ? `[space] [n/p] [h] ${likeHint}`
+                  : `[space] Play/Pause  [n/p] Track  [←/→] Seek  [-/+] Volume  [s] Shuffle  [r] Repeat  [h] ${likeHint}  [Ctrl+R] Refresh`
                 : activeScreen === 'add-to-playlist'
                   ? '[↑/↓] Select  [Enter] Add  [n/p] Page  [Esc] Cancel  [Ctrl+X] Exit'
                   : '[Esc] Back  [Ctrl+X] Exit'}
@@ -507,6 +573,7 @@ function getArtworkHeight({ cellWidth, cellHeight }: ReturnType<typeof useTermin
 
 function PlaybackView({
   playback,
+  likeStatus,
   progressMs,
   contentWidth,
   artworkViewport,
@@ -515,6 +582,7 @@ function PlaybackView({
   imageProtocol,
 }: {
   playback: CurrentPlayback;
+  likeStatus: string | null;
   progressMs: number;
   contentWidth: number;
   artworkViewport: string;
@@ -544,6 +612,8 @@ function PlaybackView({
           <Box flexDirection="column" flexGrow={1}>
             <PlaybackDetails
               status={status}
+              compact={compact}
+              likeStatus={likeStatus}
               isPlaying={playback.isPlaying}
               trackName={playback.track.name}
               artists={artists}
@@ -557,6 +627,8 @@ function PlaybackView({
       ) : (
         <PlaybackDetails
           status={status}
+          compact={compact}
+          likeStatus={likeStatus}
           isPlaying={playback.isPlaying}
           trackName={playback.track.name}
           artists={artists}
@@ -586,6 +658,8 @@ function PlaybackView({
 
 function PlaybackDetails({
   status,
+  compact,
+  likeStatus,
   isPlaying,
   trackName,
   artists,
@@ -595,6 +669,8 @@ function PlaybackDetails({
   contentWidth,
 }: {
   status: string;
+  compact: boolean;
+  likeStatus: string | null;
   isPlaying: boolean;
   trackName: string;
   artists: string;
@@ -604,7 +680,7 @@ function PlaybackDetails({
   contentWidth: number;
 }) {
   return (
-    <>
+    <Box flexDirection="column">
       <Text wrap="truncate-end">
         <Text color={isPlaying ? 'green' : 'yellow'}>{status}</Text>{' '}
         <Text bold>{sanitizeOneLineText(trackName)}</Text>
@@ -612,10 +688,15 @@ function PlaybackDetails({
       <Text dimColor wrap="truncate-end">
         {artists} · {sanitizeOneLineText(album)}
       </Text>
-      <Box marginTop={1}>
+      <Box flexDirection="column" marginTop={compact ? 0 : 1}>
         <Text>{formatPlaybackProgress(progressMs, durationMs, contentWidth)}</Text>
+        {likeStatus ? (
+          <Text wrap="truncate-end" {...(likeStatus === '♥ Liked' ? { color: 'green' as const } : { dimColor: true })}>
+            {likeStatus}
+          </Text>
+        ) : null}
       </Box>
-    </>
+    </Box>
   );
 }
 

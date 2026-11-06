@@ -36,6 +36,7 @@ export const PLAYER_SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: '- / +', description: 'Lower or raise volume by 5%' },
   { keys: 's', description: 'Toggle shuffle' },
   { keys: 'r', description: 'Cycle repeat off, track, and context' },
+  { keys: 'h', description: 'Like or unlike the current track' },
   { keys: 'a', description: 'Add the current track to a playlist' },
   { keys: 'Ctrl+R', description: 'Refresh playback' },
 ];

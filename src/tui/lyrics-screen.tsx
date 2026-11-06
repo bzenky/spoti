@@ -137,7 +137,9 @@ export function LyricsScreen({
 
   return (
     <Box flexDirection="column" height="100%" overflow="hidden">
-      <Text bold>Lyrics</Text>
+      <Box flexShrink={0}>
+        <Text bold>Lyrics</Text>
+      </Box>
       {track ? (
         <Text dimColor wrap="truncate-end">
           {safeText(track.name, 'Unknown track')} — {safeArtists(track.artists)}

@@ -149,6 +149,7 @@ p       previous track (Player)
 - / +   lower or raise volume by 5% (Player)
 s       toggle shuffle (Player)
 r       cycle repeat off, track, and context (Player)
+h       like or unlike the current track (Player and Lyrics)
 a       add the current track to a playlist (Player)
 Ctrl+R  refresh now (Player)
 
@@ -173,6 +174,16 @@ remote device, open Spotify on that device and refresh the list.
 Library uses Tab or left/right to switch among Playlists, Liked, Recent, Top tracks, and Top artists. Use up/down and Enter to open a playlist or play the selected track or artist; `n` and `p` navigate lazily loaded pages. In Top tracks or Top artists, press `t` to cycle between the last 4 weeks, about 6 months, and about 1 year. In a playlist you own, press `e` to edit its details or move the selected track to a one-based position. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
 
 Press `y` from Player to open lyrics for the current track. When synchronized lyrics are available, the TUI follows and highlights the current line; use up/down to scroll manually and `f` to resume following. The Player playback shortcuts also work in Lyrics: Space to play/pause, `n`/`p` to change tracks, left/right to seek, `-`/`+` for volume, `s` for shuffle, `r` for repeat, and Ctrl+R to refresh playback. Press Enter to retry a lyrics loading error. Lyrics are loaded live from LRCLIB and are not stored persistently.
+
+On Player and Lyrics, press `h` to like or unlike the current track. The
+`♥ Liked` or `♡ Not liked` indicator updates after Spotify confirms the change.
+The shortcut hint switches between `[h] Like` and `[h] Unlike` to show the action.
+On Player, the indicator appears below playback progress, separate from the title.
+One blank row separates the artist/album line from progress and saved status;
+windows shorter than 16 rows keep the compact layout.
+Saved status loads when the track changes; press Ctrl+R to refresh changes made
+in another Spotify client. If the status lookup fails, press `h` to retry it.
+The Liked library reloads on your next visit after a successful change.
 
 All command-driven usage remains available. The `interactive` command requires an interactive stdin and stdout; outside a TTY it prints its command help instead of starting Ink.
 

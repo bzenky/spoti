@@ -613,7 +613,7 @@ export function LibraryScreen({
 
   return (
     <Box flexDirection="column" height="100%" overflow="hidden">
-      <Text bold>{location.kind === 'playlist' ? sanitizeOneLineText(location.playlist.name) : 'Library'}</Text>
+      <Text bold wrap={filterActive ? 'truncate-end' : 'wrap'}>{location.kind === 'playlist' ? sanitizeOneLineText(location.playlist.name) : 'Library'}</Text>
       {location.kind === 'category' ? (
         <Box marginTop={1} flexWrap="wrap" columnGap={2}>
           {CATEGORIES.map((category) => (

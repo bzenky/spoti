@@ -29,8 +29,11 @@ const frame = (view: ReturnType<typeof render>) => view.lastFrame() ?? '';
 describe('playlist filtering', () => {
   it('loads the whole playlist progressively without restarting for query changes', async () => {
     const props = deps();
-    let finish!: (value: ReturnType<typeof page>) => void;
-    props.playlists.getPlaylistItemsPage.mockResolvedValueOnce(page([track], 50)).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    let finishSecond!: (value: ReturnType<typeof page>) => void;
+    let finishThird!: (value: ReturnType<typeof page>) => void;
+    props.playlists.getPlaylistItemsPage.mockResolvedValueOnce(page([track], 50))
+      .mockReturnValueOnce(new Promise(resolve => { finishSecond = resolve; }))
+      .mockReturnValueOnce(new Promise(resolve => { finishThird = resolve; }));
     const { view } = await opened(props);
     try {
       view.stdin.write('/');
@@ -40,12 +43,21 @@ describe('playlist filtering', () => {
       view.stdin.write('faint');
       await vi.waitFor(() => expect(frame(view)).toContain('Filter: faint'));
       expect(frame(view)).not.toContain('Numb — Linkin Park');
-      finish(page([faint]));
+      expect(props.playlists.getPlaylistItemsPage).toHaveBeenCalledTimes(2);
+      finishSecond(page([faint], 100));
       await vi.waitFor(() => expect(frame(view)).toContain('Faint — Linkin Park'));
       expect(frame(view)).toContain('2 tracks loaded');
+      expect(frame(view)).toContain('Loading playlist…');
+      await vi.waitFor(() => expect(props.playlists.getPlaylistItemsPage).toHaveBeenCalledTimes(3));
+      view.stdin.write(' last');
+      await vi.waitFor(() => expect(frame(view)).toContain('Filter: faint last'));
+      finishThird(page([{ ...faint, name: 'Faint last page' }]));
+      await vi.waitFor(() => expect(frame(view)).toContain('Faint last page — Linkin Park'));
+      expect(frame(view)).toContain('3 tracks loaded');
       expect(frame(view)).not.toContain('Loading playlist…');
-      expect(props.playlists.getPlaylistItemsPage).toHaveBeenCalledTimes(2);
-      expect(props.playlists.getPlaylistItemsPage).toHaveBeenLastCalledWith('workout', { offset: 50 }, 50, expect.any(AbortSignal));
+      expect(props.playlists.getPlaylistItemsPage.mock.calls.map(call => [call[1], call[2]])).toEqual([
+        [undefined, 50], [{ offset: 50 }, 50], [{ offset: 100 }, 50],
+      ]);
     } finally { view.unmount(); }
   });
 
@@ -64,11 +76,31 @@ describe('playlist filtering', () => {
   });
 
   it('treats shortcut letters as text and removes a whole grapheme', async () => {
-    const { view, props } = await opened();
+    const props = deps();
+    props.playlists.getPlaylistItemsPage.mockResolvedValue(page([track, faint]));
+    const { view } = await opened(props);
     try {
       view.stdin.write('/');
       await vi.waitFor(() => expect(frame(view)).toContain('Filter:'));
-      view.stdin.write('npe');
+      view.stdin.write('\u001b[A');
+      await vi.waitFor(() => expect(frame(view)).toContain('› Faint'));
+      view.stdin.write('linkin');
+      await vi.waitFor(() => expect(frame(view)).toContain('› Numb'));
+      view.stdin.write('\r');
+      await vi.waitFor(() => expect(props.player.playTrack).toHaveBeenCalledExactlyOnceWith(track.uri, expect.any(AbortSignal)));
+      view.stdin.write('\u001b[A');
+      await vi.waitFor(() => expect(frame(view)).toContain('› Faint'));
+      view.stdin.write('\u007f');
+      await vi.waitFor(() => expect(frame(view)).toContain('Filter: linki'));
+      expect(frame(view)).toContain('› Numb');
+      view.stdin.write('\r');
+      await vi.waitFor(() => expect(props.player.playTrack).toHaveBeenCalledTimes(2));
+      expect(props.player.playTrack).toHaveBeenLastCalledWith(track.uri, expect.any(AbortSignal));
+      for (let i = 0; i < 5; i += 1) view.stdin.write('\u007f');
+      for (const [letter, query] of [['n', 'n'], ['p', 'np'], ['e', 'npe']]) {
+        view.stdin.write(letter);
+        await vi.waitFor(() => expect(frame(view)).toContain(`Filter: ${query}`));
+      }
       await vi.waitFor(() => expect(frame(view)).toContain('Filter: npe'));
       view.stdin.write('👩‍💻');
       await vi.waitFor(() => expect(frame(view)).toContain('👩‍💻'));
@@ -209,8 +241,12 @@ describe('playlist filtering', () => {
     props.playlists.getPlaylistItemsPage.mockResolvedValueOnce(page([track], 50)).mockResolvedValueOnce(page([faint]));
     const { view } = await opened(props);
     try {
-      view.stdin.write('/'); view.stdin.write('faint');
+      view.stdin.write('/'); view.stdin.write('linkin');
       await vi.waitFor(() => expect(frame(view)).toContain('Faint — Linkin Park'));
+      view.stdin.write('\u001b[B');
+      await vi.waitFor(() => expect(frame(view)).toContain('› Faint'));
+      view.stdin.write('\r');
+      await vi.waitFor(() => expect(props.player.playTrack).toHaveBeenCalledWith(faint.uri, expect.any(AbortSignal), faint.albumUri));
       view.stdin.write('\u001b');
       await vi.waitFor(() => expect(frame(view)).not.toContain('Filter:'));
       view.stdin.write('/');
@@ -219,8 +255,80 @@ describe('playlist filtering', () => {
         expect(frame(view)).toContain('Numb — Linkin Park');
         expect(frame(view)).toContain('Faint — Linkin Park');
       });
-      expect(frame(view)).not.toContain('Filter: faint');
+      expect(frame(view)).not.toContain('Filter: linkin');
+      expect(frame(view)).toContain('› Numb');
+      view.stdin.write('\r');
+      await vi.waitFor(() => expect(props.player.playTrack).toHaveBeenLastCalledWith(track.uri, expect.any(AbortSignal)));
       expect(props.playlists.getPlaylistItemsPage).toHaveBeenCalledTimes(2);
     } finally { view.unmount(); }
   });
+  it('keeps standalone shortcuts in query text and restores the original move position', async () => {
+    const props = deps();
+    const original = { ...track, id: 'original', uri: 'spotify:track:original', name: 'Original row' };
+    props.playlists.getPlaylistItemsPage.mockResolvedValue(page([track]))
+      .mockResolvedValueOnce(page([track], 50))
+      .mockResolvedValueOnce(page([faint, original], 100))
+      .mockResolvedValueOnce(page([{ ...track, name: 'Last page' }]));
+    const { view } = await opened(props);
+    try {
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(frame(view)).toContain('Page 2'));
+      view.stdin.write('\u001b[B');
+      await vi.waitFor(() => expect(frame(view)).toContain('› Original row'));
+      view.stdin.write('/');
+      await vi.waitFor(() => expect(frame(view)).toContain('4 tracks loaded'));
+      for (const [letter, query] of [['n', 'n'], ['p', 'np'], ['e', 'npe'], ['m', 'npem']]) {
+        view.stdin.write(letter);
+        await vi.waitFor(() => expect(frame(view)).toContain(`Filter: ${query}`));
+      }
+      expect(props.auth.getCurrentUser).not.toHaveBeenCalled();
+      expect(props.playlists.updatePlaylistDetails).not.toHaveBeenCalled();
+      expect(props.playlists.moveItem).not.toHaveBeenCalled();
+      expect(props.playlists.getPlaylistItemsPage).toHaveBeenCalledTimes(3);
+      view.stdin.write('\u001b');
+      await vi.waitFor(() => expect(frame(view)).toContain('› Original row'));
+      expect(frame(view)).toContain('Page 2');
+      view.stdin.write('e');
+      await vi.waitFor(() => expect(frame(view)).toContain('Edit playlist'));
+      view.stdin.write('m');
+      await vi.waitFor(() => expect(frame(view)).toContain('Move selected track to position:'));
+      view.stdin.write('1'); view.stdin.write('\r');
+      await vi.waitFor(() => expect(props.playlists.moveItem).toHaveBeenCalledExactlyOnceWith('workout', 52, 1, expect.any(AbortSignal)));
+    } finally { view.unmount(); }
+  });
+
+  it('cancels pending playback and scanning on Escape without late feedback', async () => {
+    for (const outcome of ['success', 'failure']) {
+      const props = deps();
+      let finishPage!: (value: ReturnType<typeof page>) => void;
+      let finishPlayback!: () => void;
+      let failPlayback!: (error: Error) => void;
+      props.playlists.getPlaylistItemsPage.mockResolvedValueOnce(page([track, faint], 50))
+        .mockReturnValueOnce(new Promise(resolve => { finishPage = resolve; }));
+      props.player.playTrack.mockReturnValueOnce(new Promise<void>((resolve, reject) => { finishPlayback = resolve; failPlayback = reject; }));
+      const { view } = await opened(props);
+      try {
+        view.stdin.write('/'); view.stdin.write('linkin');
+        await vi.waitFor(() => expect(frame(view)).toContain('Loading playlist…'));
+        view.stdin.write('\u001b[B');
+        await vi.waitFor(() => expect(frame(view)).toContain('› Faint'));
+        view.stdin.write('\r');
+        await vi.waitFor(() => expect(props.player.playTrack).toHaveBeenCalledOnce());
+        const playbackSignal = props.player.playTrack.mock.calls[0]?.[1] as AbortSignal;
+        const scanSignal = props.playlists.getPlaylistItemsPage.mock.calls[1]?.[3] as AbortSignal;
+        view.stdin.write('\u001b');
+        await vi.waitFor(() => expect(playbackSignal.aborted && scanSignal.aborted).toBe(true));
+        expect(frame(view)).toContain('› Numb');
+        expect(frame(view)).toContain('Page 1');
+        finishPage(page([{ ...track, name: 'Late song' }]));
+        if (outcome === 'success') finishPlayback();
+        else failPlayback(new Error('late playback error'));
+        await new Promise(resolve => setTimeout(resolve, 30));
+        expect(frame(view)).not.toMatch(/Playing Faint|late playback error|Late song|Filter:/);
+        expect(props.sessionCache.get('playlist:workout').pages).toHaveLength(1);
+        expect(props.onBack).not.toHaveBeenCalled();
+      } finally { view.unmount(); }
+    }
+  });
+
 });

@@ -24,12 +24,14 @@ Proof: run unit | ✓ loads the whole playlist progressively without restarting 
 
 **C4** - Query input consumes shortcuts and removes complete graphemes (AC 5)
 Proof: run unit | ✓ treats shortcut letters as text and removes a whole grapheme
+Proof: run unit | ✓ keeps standalone shortcuts in query text and restores the original move position
 
 **C5** - Arrow selection and Enter play the exact match while retaining the filter (AC 6)
 Proof: run unit | ✓ plays the selected match with album context and keeps the filter
 
 **C6** - Esc restores the original page and selected track, then existing navigation (AC 7)
 Proof: run unit | ✓ restores the original page and selection on Escape
+Proof: run unit | ✓ cancels pending playback and scanning on Escape without late feedback
 
 **C7** - Cancelled or unmounted scans cannot update caches with late responses (AC 8)
 Proof: run unit | ✓ aborts filtering and ignores late pages on exit
@@ -48,9 +50,11 @@ Proof: run unit | ✓ keeps filtering within a small TUI viewport
 
 **C12** - Filtering help is discoverable (AC 13)
 Proof: run unit | ✓ documents playlist filtering and retry shortcuts
+Proof: run unit | ✓ documents full-playlist filtering and Escape restoration
 
 **C13** - Filter typing cannot edit or reorder a playlist (AC 14)
 Proof: run unit | ✓ treats shortcut letters as text and removes a whole grapheme
+Proof: run unit | ✓ keeps standalone shortcuts in query text and restores the original move position
 
 ## Coverage
 
@@ -78,7 +82,7 @@ Proof: run unit | ✓ treats shortcut letters as text and removes a whole graphe
 ## Handoff
 
 - **Settled mid-build:** none; initial user approval: "ok good to go" (2026-11-10).
-- **Dispatched:** none.
-- **Boundary:** implementation and targeted proofs complete; full proof run and independent review pending.
+- **Dispatched:** Verifier at b07dd0c — returned, five findings in verification.md; fix pass in progress. Screens judge not required: no binding visual captures.
+- **Boundary:** Initial proofs passed at b07dd0c; independent review found F1-F5. Fix regression tests pass; final proof run pending.
 - **Abandoned:** none.
-- **Walked:** Running TuiApp in a real 80x24 PTY with deterministic demo services: l -> playlist Enter -> / showed cached matches and Loading playlist; typed cafe BEYONCE -> later-page Café by Beyoncé; Enter recorded spotify:track:cafe with the filter retained; Esc restored page 1 and Numb selection; Ctrl+X exited. Page log: offsets 0, 50; no Spotify playback was changed. Automated TuiApp interaction also verifies resize to 40x18, selection scrolling, and Help. No binding visual captures were supplied; screenshots and screens judge are not required.
+- **Walked:** Running TuiApp in a real 80x24 PTY with deterministic demo services: l -> playlist Enter -> / showed cached matches and Loading playlist; typed cafe BEYONCE -> later-page Café by Beyoncé; Enter recorded spotify:track:cafe with the filter retained; Esc restored page 1 and Numb selection; Ctrl+X exited. Page log: offsets 0, 50; no Spotify playback was changed. Automated TuiApp interaction also verifies resize to 40x18, selection scrolling, Help, and (after F1) long playlist/track/artist/query content. No binding visual captures were supplied; screenshots and screens judge are not required.

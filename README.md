@@ -173,7 +173,7 @@ remote device, open Spotify on that device and refresh the list.
 
 Library uses Tab or left/right to switch among Playlists, Liked, Recent, Top tracks, and Top artists. Use up/down and Enter to open a playlist or play the selected track or artist; `n` and `p` navigate lazily loaded pages. In Top tracks or Top artists, press `t` to cycle between the last 4 weeks, about 6 months, and about 1 year. In a playlist you own, press `e` to edit its details or move the selected track to a one-based position. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
 
-Inside a playlist, press `/` to filter tracks by title or artist. Each word must
+Inside a playlist, press `/` to filter all playlist tracks by title or artist. Each word must
 match somewhere in the title or artists; matching ignores case and accents.
 Matches appear as playlist pages load, with a count of loaded tracks. Use up/down
 and Enter to play a match without clearing the filter. While filtering, letters

@@ -123,16 +123,16 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
 describe('TuiApp', () => {
   it('keeps filtering within a small TUI viewport', async () => {
     const props = createTuiProps(createPlayer(), createSearch());
-    props.playlists.listPlaylistsPage.mockResolvedValue({ items: [{ id: 'workout', uri: 'spotify:playlist:workout', name: 'Workout', ownerName: 'Me', totalTracks: 16 }], nextToken: null });
-    props.playlists.getPlaylistItemsPage.mockResolvedValue({ items: Array.from({ length: 16 }, (_, index) => ({ ...playback.track, id: `track-${index}`, name: index === 15 ? 'Final track' : `Playlist song ${index}` })), nextToken: null });
+    props.playlists.listPlaylistsPage.mockResolvedValue({ items: [{ id: 'workout', uri: 'spotify:playlist:workout', name: 'Workout '.repeat(40), ownerName: 'Me', totalTracks: 16 }], nextToken: null });
+    props.playlists.getPlaylistItemsPage.mockResolvedValue({ items: Array.from({ length: 16 }, (_, index) => ({ ...playback.track, id: `track-${index}`, name: index === 15 ? 'Final track ' + 'a very long title '.repeat(10) : `Playlist song ${index}`, artists: ['Linkin Park ' + 'long artist '.repeat(10)] })), nextToken: null });
     const view = render(<TuiApp {...props} terminalSize={{ columns: 100, rows: 30 }} refreshIntervalMs={60_000} />);
     try {
       await vi.waitFor(() => expect(props.library.isTrackLiked).toHaveBeenCalledOnce());
       view.stdin.write('l');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout — Me'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
       view.stdin.write('\r');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
-      view.stdin.write('/'); view.stdin.write('linkin');
+      view.stdin.write('/'); view.stdin.write('linkin '.repeat(15));
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Filter: linkin'));
       await vi.waitFor(() => expect(view.lastFrame()).toContain('16 matches'));
       view.rerender(<TuiApp {...props} terminalSize={{ columns: 40, rows: 18 }} refreshIntervalMs={60_000} />);
@@ -140,6 +140,7 @@ describe('TuiApp', () => {
       view.stdin.write('\u001b[A');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('› Final track'));
       const lines = (view.lastFrame() ?? '').split('\n');
+      expect(view.lastFrame()).toContain('[Ctrl+X] Exit');
       expect(lines.length).toBeLessThanOrEqual(18);
       expect(lines.every(line => Array.from(line).length <= 40)).toBe(true);
       view.stdin.write('\u001b');
@@ -154,6 +155,9 @@ describe('TuiApp', () => {
       view.stdin.write('?');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Filter tracks in a playlist by title or artist'));
       expect(view.lastFrame()).toContain('Retry playlist filter loading');
+      const lines = (view.lastFrame() ?? '').split('\n');
+      expect(lines.find(line => line.includes('Filter tracks in a playlist'))).toMatch(/\/\s+Filter tracks/);
+      expect(lines.find(line => line.includes('Retry playlist filter loading'))).toMatch(/Ctrl\+R\s+Retry playlist filter loading/);
     } finally { view.unmount(); }
   });
 

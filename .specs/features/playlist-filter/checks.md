@@ -82,7 +82,7 @@ Proof: run unit | ✓ keeps standalone shortcuts in query text and restores the 
 ## Handoff
 
 - **Settled mid-build:** none; initial user approval: "ok good to go" (2026-11-10).
-- **Dispatched:** Verifier at b07dd0c — returned, five findings in verification.md; fix pass in progress. Screens judge not required: no binding visual captures.
-- **Boundary:** Initial proofs passed at b07dd0c; independent review found F1-F5. Fix regression tests pass; final proof run pending.
+- **Dispatched:** Verifier at b07dd0c — returned, five findings in verification.md; F1-F5 addressed by 94656b4; no binding captures and no screens round required. Screens judge not required: no binding visual captures.
+- **Boundary:** Initial proofs passed at b07dd0c; independent review found F1-F5. F1-F5 addressed by 94656b4; targeted regression tests pass; final proof run pending.
 - **Abandoned:** none.
 - **Walked:** Running TuiApp in a real 80x24 PTY with deterministic demo services: l -> playlist Enter -> / showed cached matches and Loading playlist; typed cafe BEYONCE -> later-page Café by Beyoncé; Enter recorded spotify:track:cafe with the filter retained; Esc restored page 1 and Numb selection; Ctrl+X exited. Page log: offsets 0, 50; no Spotify playback was changed. Automated TuiApp interaction also verifies resize to 40x18, selection scrolling, Help, and (after F1) long playlist/track/artist/query content. No binding visual captures were supplied; screenshots and screens judge are not required.

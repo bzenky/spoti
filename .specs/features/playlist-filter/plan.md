@@ -39,7 +39,7 @@ reachable by the existing Vitest tests, rather than only in JSX presentation.
 ```mermaid
 flowchart LR
     U["1. LibraryScreen (exists)"] --> L["2. PlaylistService and SpotifyClient (exists)"]
-    L --> F["3. matchesPlaylistTrack (new)"]
+    L --> F["3. src/tui/playlist-filter.ts:matchesPlaylistTrack (new)"]
     F --> V["4. LibraryScreen and createListWindow (exists)"]
     V --> P["4. PlayerService.playTrack (exists)"]
 ```

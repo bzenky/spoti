@@ -10,6 +10,8 @@ import type { PlaylistService } from '../services/playlist.service.js';
 import type { RecentService } from '../services/recent.service.js';
 import { sanitizeOneLineText } from '../utils/text.js';
 import { createListWindow } from './viewport.js';
+import { removeLastGrapheme } from './input.js';
+import { matchesPlaylistTrack } from './playlist-filter.js';
 
 export type LibraryCategory = 'playlists' | 'liked' | 'recent' | 'top-tracks' | 'top-artists';
 
@@ -102,6 +104,16 @@ export function LibraryScreen({
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [retryVersion, setRetryVersion] = useState(0);
+  const [filterQuery, setFilterQuery] = useState<string | null>(null);
+  const filterQueryRef = useRef<string | null>(null);
+  const filterSelection = useRef(0);
+  const filterRowsRef = useRef<DisplayRow[]>([]);
+  const [filterRows, setFilterRows] = useState<DisplayRow[]>([]);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const [filterRetryVersion, setFilterRetryVersion] = useState(0);
+  const filterRequest = useRef<AbortController | null>(null);
+  const filterOrigin = useRef({ pageIndex: 0, selectedIndex: 0 });
   const localSessions = useRef<LibrarySessionCache>(new Map());
   const sessions = sessionCache ?? localSessions.current;
   const request = useRef<AbortController | null>(null);
@@ -180,6 +192,56 @@ export function LibraryScreen({
       request.current = null;
     };
   }, [library, location, locationKey, pageIndex, playlists, recent, retryVersion, sessions, topRange]);
+
+  const filterActive = filterQuery !== null;
+  const playlistId = location.kind === 'playlist' ? location.playlist.id : null;
+
+  useEffect(() => {
+    if (!filterActive || !playlistId) return;
+    const controller = new AbortController();
+    filterRequest.current = controller;
+    const session = getSession(sessions, `playlist:${playlistId}`);
+    setFilterLoading(true);
+    setFilterError(null);
+    const scan = async () => {
+      const rows: DisplayRow[] = [];
+      try {
+        let index = 0;
+        for (;;) {
+          let cached = session.pages[index];
+          if (!cached) {
+            const token = index === 0 ? undefined : session.pages[index - 1]?.nextToken;
+            if (index > 0 && !token) break;
+            const loaded = await playlists.getPlaylistItemsPage(
+              playlistId, token as OffsetToken | undefined, PLAYLIST_TRACK_PAGE_SIZE, controller.signal,
+            );
+            if (controller.signal.aborted) return;
+            cached = { rows: loaded.items.map((track) => ({ kind: 'track', track })), nextToken: loaded.nextToken };
+            session.pages[index] = cached;
+          }
+          if (controller.signal.aborted) return;
+          rows.push(...cached.rows);
+          filterRowsRef.current = [...rows];
+          setFilterRows(filterRowsRef.current);
+          if (!cached.nextToken) break;
+          index += 1;
+        }
+      } catch (caught) {
+        if (!controller.signal.aborted) setFilterError(formatError(caught));
+      } finally {
+        if (!controller.signal.aborted) setFilterLoading(false);
+      }
+    };
+    void scan();
+    return () => {
+      controller.abort();
+      if (filterRequest.current === controller) filterRequest.current = null;
+    };
+  }, [filterActive, filterRetryVersion, playlistId, playlists, sessions]);
+
+  const displayRows = filterActive
+    ? filterRows.filter((row) => row.kind === 'track' && matchesPlaylistTrack(row.track, filterQuery))
+    : page?.rows ?? [];
 
   const changeCategory = useCallback(
     (direction: -1 | 1) => {
@@ -309,8 +371,8 @@ export function LibraryScreen({
     }
   }, [auth, location, locationKey, page, pageIndex, playlists, saving, selectedIndex, sessions]);
 
-  const playSelected = useCallback(async () => {
-    const selected = page?.rows[selectedIndex];
+  const playSelected = useCallback(async (selection?: DisplayRow) => {
+    const selected = selection ?? displayRows[selectedIndex];
     if (!selected || (selected.kind !== 'track' && selected.kind !== 'artist') || playing) return;
 
     cancelRequest();
@@ -343,15 +405,31 @@ export function LibraryScreen({
         setPlaying(false);
       }
     }
-  }, [cancelRequest, page, player, playing, selectedIndex]);
+  }, [cancelRequest, displayRows, player, playing, selectedIndex]);
 
   useInput((input, key) => {
     if (key.ctrl && input === 'x') {
+      filterRequest.current?.abort();
       cancelRequest();
       onExit?.();
       return;
     }
     if (key.escape) {
+      if (filterQueryRef.current !== null) {
+        filterQueryRef.current = null;
+        filterRowsRef.current = [];
+        filterRequest.current?.abort();
+        cancelRequest();
+        setPlaying(false);
+        setError(null);
+        setConfirmation(null);
+        setFilterQuery(null);
+        setFilterRows([]);
+        setFilterError(null);
+        setPageIndex(filterOrigin.current.pageIndex);
+        setSelectedIndex(filterOrigin.current.selectedIndex);
+        return;
+      }
       if (editMode) {
         cancelRequest();
         setSaving(false);
@@ -363,7 +441,41 @@ export function LibraryScreen({
       }
       return;
     }
+    if (key.ctrl && input === 'r' && filterQueryRef.current !== null) {
+      if (!filterLoading) {
+        setFilterLoading(true);
+        setFilterRetryVersion((current) => current + 1);
+      }
+      return;
+    }
     if (key.ctrl || key.meta) return;
+    if (filterQueryRef.current !== null) {
+      const matches = filterRowsRef.current.filter((row) => row.kind === 'track'
+        && matchesPlaylistTrack(row.track, filterQueryRef.current ?? ''));
+      if (key.upArrow && matches.length) {
+        filterSelection.current = (filterSelection.current - 1 + matches.length) % matches.length;
+        setSelectedIndex(filterSelection.current);
+      } else if (key.downArrow && matches.length) {
+        filterSelection.current = (filterSelection.current + 1) % matches.length;
+        setSelectedIndex(filterSelection.current);
+      } else if (key.return) {
+        const selected = matches[filterSelection.current];
+        if (selected) void playSelected(selected);
+      } else if (key.backspace || key.delete) {
+        filterQueryRef.current = removeLastGrapheme(filterQueryRef.current);
+        setFilterQuery(filterQueryRef.current);
+        filterSelection.current = 0;
+        setSelectedIndex(0);
+      } else if (input && !key.tab && !key.leftArrow && !key.rightArrow) {
+        // Sentinels keep leading/trailing spaces while stripping pasted controls.
+        const text = sanitizeOneLineText(`_${input}_`).slice(1, -1);
+        filterQueryRef.current += text;
+        setFilterQuery(filterQueryRef.current);
+        filterSelection.current = 0;
+        setSelectedIndex(0);
+      }
+      return;
+    }
     if (editMode === 'menu') {
       if (input === 'n') {
         const value = location.kind === 'playlist' ? location.playlist.name : '';
@@ -422,6 +534,20 @@ export function LibraryScreen({
       return;
     }
     if (loading || playing || saving) return;
+    if (input === '/' && location.kind === 'playlist' && page) {
+      filterOrigin.current = { pageIndex, selectedIndex };
+      filterRowsRef.current = [];
+      filterQueryRef.current = '';
+      filterSelection.current = 0;
+      setFilterRows([]);
+      setFilterQuery('');
+      setFilterLoading(true);
+      setFilterError(null);
+      setSelectedIndex(0);
+      setError(null);
+      setConfirmation(null);
+      return;
+    }
     if (input === 'e' && location.kind === 'playlist') {
       void openEditMenu();
       return;
@@ -481,7 +607,9 @@ export function LibraryScreen({
 
   const hasPrevious = pageIndex > 0;
   const hasNext = Boolean(page?.nextToken);
-  const visibleRows = createListWindow(page?.rows ?? [], selectedIndex, availableRows);
+  const filterListRows = Math.max(1, availableRows - 8
+    - (filterError ? 2 : 0) - (error ? 2 : 0) - Number(playing) - Number(Boolean(confirmation)));
+  const visibleRows = createListWindow(displayRows, selectedIndex, filterActive ? filterListRows : availableRows);
 
   return (
     <Box flexDirection="column" height="100%" overflow="hidden">
@@ -502,19 +630,35 @@ export function LibraryScreen({
       ) : (
         <Text dimColor>Playlist tracks</Text>
       )}
+      {filterActive ? (
+        <>
+          <Text wrap="truncate-end">Filter: {sanitizeOneLineText(filterQuery)}</Text>
+          <Text dimColor wrap="truncate-end">{displayRows.length} matches · {filterRows.length} tracks loaded</Text>
+          {filterLoading ? <Text color="yellow">Loading playlist…</Text> : null}
+          {filterError ? (
+            <>
+              <Text color="red" wrap="truncate-end">{filterError}</Text>
+              <Text dimColor>Ctrl+R retry · Esc clear filter</Text>
+            </>
+          ) : null}
+        </>
+      ) : null}
       {location.kind === 'category' && location.category.startsWith('top-') ? (
         <Text dimColor>{rangeLabel(topRange)}</Text>
       ) : null}
 
       <Box marginTop={1} flexDirection="column">
+        {filterActive && displayRows.length === 0 ? (
+          <Text dimColor>{filterLoading ? 'Searching playlist…' : filterError ? 'Search incomplete.' : 'No matching tracks.'}</Text>
+        ) : null}
         {loading ? <Text color="yellow">Loading {getLocationLabel(location).toLowerCase()}…</Text> : null}
-        {!loading && !error && page?.rows.length === 0 ? (
+        {!filterActive && !loading && !error && page?.rows.length === 0 ? (
           <Text dimColor>No {getLocationLabel(location).toLowerCase()} found.</Text>
         ) : null}
-        {!loading && !error && visibleRows.hiddenAbove > 0 ? (
+        {!loading && (!error || filterActive) && visibleRows.hiddenAbove > 0 ? (
           <Text dimColor>↑ {visibleRows.hiddenAbove} more</Text>
         ) : null}
-        {!loading && !error
+        {!loading && (!error || filterActive)
           ? visibleRows.items.map((row, visibleIndex) => {
               const index = visibleRows.startIndex + visibleIndex;
               return (
@@ -528,7 +672,7 @@ export function LibraryScreen({
               );
             })
           : null}
-        {!loading && !error && visibleRows.hiddenBelow > 0 ? (
+        {!loading && (!error || filterActive) && visibleRows.hiddenBelow > 0 ? (
           <Text dimColor>↓ {visibleRows.hiddenBelow} more</Text>
         ) : null}
       </Box>
@@ -536,7 +680,7 @@ export function LibraryScreen({
       {error ? (
         <Box flexDirection="column">
           <Text color="red">{error}</Text>
-          <Text dimColor>Press r or Enter to retry.</Text>
+          <Text dimColor>{filterActive ? 'Enter retry playback · Esc clear filter' : 'Press r or Enter to retry.'}</Text>
         </Box>
       ) : null}
       {playing ? <Text color="yellow">Starting playback…</Text> : null}
@@ -571,7 +715,7 @@ export function LibraryScreen({
           <Text dimColor>Enter move · Esc cancel</Text>
         </Box>
       ) : null}
-      {!loading && !error ? (
+      {!filterActive && !loading && !error ? (
         <Text dimColor>
           Page {pageIndex + 1} · {hasPrevious ? 'p previous' : 'p unavailable'} ·{' '}
           {hasNext ? 'n next' : 'n unavailable'}
@@ -579,9 +723,11 @@ export function LibraryScreen({
       ) : null}
       <Box marginTop={1}>
         <Text dimColor>
-          {editMode
+          {filterActive
+            ? 'Type to filter · ↑/↓ select · Enter play · Esc clear · Ctrl+R retry'
+            : editMode
             ? 'Type to edit · Enter save · Esc cancel'
-          : <>Enter {location.kind === 'playlist' ? 'play' : location.category === 'playlists' ? 'open/play' : 'play'} · ↑/↓ select · n/p page{location.kind === 'category' ? ` · Tab/←/→ category${location.category.startsWith('top-') ? ' · t time range' : ''}` : ' · e edit, then m move track'} · Esc back</>}
+          : <>Enter {location.kind === 'playlist' ? 'play' : location.category === 'playlists' ? 'open/play' : 'play'} · ↑/↓ select · n/p page{location.kind === 'category' ? ` · Tab/←/→ category${location.category.startsWith('top-') ? ' · t time range' : ''}` : ' · / filter · e edit, then m move track'} · Esc back</>}
         </Text>
       </Box>
     </Box>

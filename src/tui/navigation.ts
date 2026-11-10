@@ -79,6 +79,8 @@ export const DEVICE_SHORTCUTS: readonly ShortcutHelp[] = [
 ];
 
 export const LIBRARY_SHORTCUTS: readonly ShortcutHelp[] = [
+  { keys: '/', description: 'Filter tracks in a playlist by title or artist' },
+  { keys: 'Ctrl+R', description: 'Retry playlist filter loading' },
   { keys: 'Tab / ← / →', description: 'Switch Library categories' },
   { keys: '↑ / ↓', description: 'Select an item' },
   { keys: 'Enter', description: 'Open a playlist or play a track' },

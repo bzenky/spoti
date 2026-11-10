@@ -121,6 +121,42 @@ function createTuiProps(player: TuiPlayer, search: TuiSearch) {
 }
 
 describe('TuiApp', () => {
+  it('keeps filtering within a small TUI viewport', async () => {
+    const props = createTuiProps(createPlayer(), createSearch());
+    props.playlists.listPlaylistsPage.mockResolvedValue({ items: [{ id: 'workout', uri: 'spotify:playlist:workout', name: 'Workout', ownerName: 'Me', totalTracks: 16 }], nextToken: null });
+    props.playlists.getPlaylistItemsPage.mockResolvedValue({ items: Array.from({ length: 16 }, (_, index) => ({ ...playback.track, id: `track-${index}`, name: index === 15 ? 'Final track' : `Playlist song ${index}` })), nextToken: null });
+    const view = render(<TuiApp {...props} terminalSize={{ columns: 100, rows: 30 }} refreshIntervalMs={60_000} />);
+    try {
+      await vi.waitFor(() => expect(props.library.isTrackLiked).toHaveBeenCalledOnce());
+      view.stdin.write('l');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout — Me'));
+      view.stdin.write('\r');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+      view.stdin.write('/'); view.stdin.write('linkin');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Filter: linkin'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('16 matches'));
+      view.rerender(<TuiApp {...props} terminalSize={{ columns: 40, rows: 18 }} refreshIntervalMs={60_000} />);
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Filter: linkin'));
+      view.stdin.write('\u001b[A');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('› Final track'));
+      const lines = (view.lastFrame() ?? '').split('\n');
+      expect(lines.length).toBeLessThanOrEqual(18);
+      expect(lines.every(line => Array.from(line).length <= 40)).toBe(true);
+      view.stdin.write('\u001b');
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('Filter:'));
+    } finally { view.unmount(); }
+  });
+
+  it('documents playlist filtering and retry shortcuts', async () => {
+    const view = render(<TuiApp {...createTuiProps(createPlayer(), createSearch())} terminalSize={{ columns: 110, rows: 110 }} refreshIntervalMs={60_000} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Breaking the Habit'));
+      view.stdin.write('?');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Filter tracks in a playlist by title or artist'));
+      expect(view.lastFrame()).toContain('Retry playlist filter loading');
+    } finally { view.unmount(); }
+  });
+
   it.each(['player', 'lyrics'] as const)('toggles liked status on %s without changing playback', async (screen) => {
     const props = createTuiProps(createPlayer(), createSearch());
     const view = render(<TuiApp {...props} refreshIntervalMs={60_000} />);

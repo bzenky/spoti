@@ -173,6 +173,16 @@ remote device, open Spotify on that device and refresh the list.
 
 Library uses Tab or left/right to switch among Playlists, Liked, Recent, Top tracks, and Top artists. Use up/down and Enter to open a playlist or play the selected track or artist; `n` and `p` navigate lazily loaded pages. In Top tracks or Top artists, press `t` to cycle between the last 4 weeks, about 6 months, and about 1 year. In a playlist you own, press `e` to edit its details or move the selected track to a one-based position. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
 
+Inside a playlist, press `/` to filter tracks by title or artist. Each word must
+match somewhere in the title or artists; matching ignores case and accents.
+Matches appear as playlist pages load, with a count of loaded tracks. Use up/down
+and Enter to play a match without clearing the filter. While filtering, letters
+such as `n`, `p`, and `e` are query text. Press Ctrl+R to retry a failed load.
+Press Esc to clear the filter and return to your original page and selection;
+press Esc again to return to the playlist list. Pages stay cached for the current
+TUI session. A search still loading or interrupted by an error is marked as
+incomplete, rather than reporting that the whole playlist has no matches.
+
 Press `y` from Player to open lyrics for the current track. When synchronized lyrics are available, the TUI follows and highlights the current line; use up/down to scroll manually and `f` to resume following. The Player playback shortcuts also work in Lyrics: Space to play/pause, `n`/`p` to change tracks, left/right to seek, `-`/`+` for volume, `s` for shuffle, `r` for repeat, and Ctrl+R to refresh playback. Press Enter to retry a lyrics loading error. Lyrics are loaded live from LRCLIB and are not stored persistently.
 
 On Player and Lyrics, press `h` to like or unlike the current track. The

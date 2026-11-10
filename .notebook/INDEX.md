@@ -1,7 +1,9 @@
 # .notebook
 > Project intelligence — read before every mission
 
-Last updated: 2026-11-05
+Last updated: 2026-11-10
+
+- [playlist-filter](playlist-filter.md) — Full-playlist filtering, cancellation, and session paging | flow | tui, library, filtering
 
 - [website-layout](website-layout.md) — Live Player screenshot capture and mobile overflow checks | gotcha | website, screenshots, mobile
 

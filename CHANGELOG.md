@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Press `/` inside an interactive Library playlist to filter all its tracks by title and artist, ignoring case and accents and matching all query words. Results and loading progress update as pages arrive; Ctrl+R retries failed reads, Enter plays a match, and Esc restores the original page and selection.
+
 ## [1.10.0] - 2026-11-05
 
 ### Added

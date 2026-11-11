@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 6,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "ac_gap::exercise long playlist headings query text and row metadata when verifying bounded terminal layouts",
+      "text": "Exercise long playlist headings, query text, and row metadata when verifying bounded terminal layouts.",
+      "signal": "ac_gap",
+      "scope": "tui",
+      "status": "candidate",
+      "features": [
+        "playlist-filter"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "F1 (tui)"
+      ],
+      "created": "2026-11-11T00:24:39Z",
+      "last_seen": "2026-11-11T00:24:39Z"
+    },
+    {
+      "id": "L-002",
+      "key": "weak_test::use at least two deferred missing pages to prove serial exhaustive playlist scanning",
+      "text": "Use at least two deferred missing pages to prove serial exhaustive playlist scanning.",
+      "signal": "weak_test",
+      "scope": "pagination",
+      "status": "candidate",
+      "features": [
+        "playlist-filter"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "F2 (pagination)"
+      ],
+      "created": "2026-11-11T00:24:39Z",
+      "last_seen": "2026-11-11T00:24:39Z"
+    },
+    {
+      "id": "L-003",
+      "key": "weak_test::send shortcut keys as distinct input events and establish nonzero selections before testing selection reset or restoration",
+      "text": "Send shortcut keys as distinct input events and establish nonzero selections before testing selection reset or restoration.",
+      "signal": "weak_test",
+      "scope": "tui",
+      "status": "candidate",
+      "features": [
+        "playlist-filter"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "F3 (tui)"
+      ],
+      "created": "2026-11-11T00:24:39Z",
+      "last_seen": "2026-11-11T00:24:39Z"
+    },
+    {
+      "id": "L-004",
+      "key": "weak_test::defer playback and page reads together to prove escape aborts both and suppresses late effects",
+      "text": "Defer playback and page reads together to prove Escape aborts both and suppresses late effects.",
+      "signal": "weak_test",
+      "scope": "tui",
+      "status": "candidate",
+      "features": [
+        "playlist-filter"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "F4 (tui)"
+      ],
+      "created": "2026-11-11T00:24:39Z",
+      "last_seen": "2026-11-11T00:24:39Z"
+    },
+    {
+      "id": "L-005",
+      "key": "weak_test::assert shortcut key and description associations plus documented behavior rather than descriptions alone",
+      "text": "Assert shortcut key and description associations plus documented behavior, rather than descriptions alone.",
+      "signal": "weak_test",
+      "scope": "tui-docs",
+      "status": "candidate",
+      "features": [
+        "playlist-filter"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "F5 (tui-docs)"
+      ],
+      "created": "2026-11-11T00:24:39Z",
+      "last_seen": "2026-11-11T00:24:39Z"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # playlist-filter proofs
 
-**HEAD**: eb174fd
+**HEAD**: 0058c7f
 **Tree**: clean
 **Shell**: /bin/sh
 **Result**: 21 pass, 0 fail
@@ -34,19 +34,19 @@
 `Run unit` - exit 0
 
 ```
- ✓ tests/tui-app.test.tsx > TuiApp > coalesces manual refreshes while playback loading is in flight 128ms
- ✓ tests/tui-app.test.tsx > TuiApp > aborts an active playback request when leaving Player 99ms
- ✓ tests/tui-app.test.tsx > TuiApp > pauses automatic polling after quota exhaustion and permits a manual retry 186ms
- ✓ tests/tui-app.test.tsx > TuiApp > keeps quota-paused Lyrics polling stopped until a manual player retry 206ms
- ✓ tests/tui-app.test.tsx > TuiApp > keeps quota-paused Lyrics polling stopped until a manual lyrics retry 168ms
- ✓ tests/tui-app.test.tsx > TuiApp > keeps Lyrics within a 32×10 terminal 97ms
- ✓ tests/tui-app.test.tsx > TuiApp > keeps Lyrics within a 40×12 terminal 98ms
- ✓ tests/tui-app.test.tsx > TuiApp > renders a minimum-size fallback and compact navigation without overflowing rows 128ms
- ✓ tests/tui-app.test.tsx > TuiApp > truncates long playback metadata within a narrow terminal 89ms
- ✓ tests/tui-app.test.tsx > TuiApp > shows actionable errors without terminating the interface 100ms
+ ✓ tests/tui-app.test.tsx > TuiApp > coalesces manual refreshes while playback loading is in flight 118ms
+ ✓ tests/tui-app.test.tsx > TuiApp > aborts an active playback request when leaving Player 86ms
+ ✓ tests/tui-app.test.tsx > TuiApp > pauses automatic polling after quota exhaustion and permits a manual retry 177ms
+ ✓ tests/tui-app.test.tsx > TuiApp > keeps quota-paused Lyrics polling stopped until a manual player retry 188ms
+ ✓ tests/tui-app.test.tsx > TuiApp > keeps quota-paused Lyrics polling stopped until a manual lyrics retry 157ms
+ ✓ tests/tui-app.test.tsx > TuiApp > keeps Lyrics within a 32×10 terminal 93ms
+ ✓ tests/tui-app.test.tsx > TuiApp > keeps Lyrics within a 40×12 terminal 93ms
+ ✓ tests/tui-app.test.tsx > TuiApp > renders a minimum-size fallback and compact navigation without overflowing rows 116ms
+ ✓ tests/tui-app.test.tsx > TuiApp > truncates long playback metadata within a narrow terminal 86ms
+ ✓ tests/tui-app.test.tsx > TuiApp > shows actionable errors without terminating the interface 87ms
 
  Test Files  34 passed (34)
       Tests  446 passed (446)
-   Start at  21:23:26
-   Duration  14.85s (tests 77%, import 13%, transform 10%)
+   Start at  10:04:30
+   Duration  14.20s (tests 76%, import 15%, transform 8%)
 ```

@@ -553,6 +553,7 @@ describe('TuiApp', () => {
     await vi.waitFor(() =>
       expect(view.lastFrame()).toContain('Added Breaking the Habit to Workout.'),
     );
+    await vi.waitFor(() => expect(view.lastFrame()).toContain('♡ Not liked'));
     expect(view.lastFrame()).toContain('[a] Add');
     view.unmount();
   });

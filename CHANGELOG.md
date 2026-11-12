@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-12
+
 ### Added
 
 - Press `/` inside an interactive Library playlist to filter all its tracks by title and artist, ignoring case and accents and matching all query words. Results and loading progress update as pages arrive; Ctrl+R retries failed reads, Enter plays a match, and Esc restores the original page and selection.

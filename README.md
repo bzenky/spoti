@@ -2,6 +2,8 @@
 
 A local-first command-line client for controlling Spotify through Spotify Connect.
 
+[![Spoti on StartupScores](https://startupscores.com/badge/spoti.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/spoti)
+
 [Website](https://spoti.bzenky.dev/) · [npm](https://www.npmjs.com/package/@bzenky/spoti) · [Releases](https://github.com/bzenky/spoti/releases)
 
 > `spoti` is an independent project and is not affiliated with, endorsed by, or sponsored by Spotify AB.

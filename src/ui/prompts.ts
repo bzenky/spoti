@@ -100,6 +100,24 @@ export async function confirmUpdate(currentVersion: string, latestVersion: strin
   }
 }
 
+export async function confirmPlaylistRemoval(
+  trackLabel: string,
+  playlistName: string,
+): Promise<boolean> {
+  if (!stdin.isTTY || !stdout.isTTY) return false;
+  const prompt = createInterface({ input: stdin, output: stdout });
+  try {
+    const answer = await questionWithEscape(
+      prompt,
+      `Remove ${trackLabel} from ${playlistName}? Spotify removes every copy of this track from the playlist. [Y/n] (Esc to cancel) `,
+    );
+    if (answer === null) return false;
+    return answer.trim() === '' || /^y(?:es)?$/i.test(answer.trim());
+  } finally {
+    prompt.close();
+  }
+}
+
 async function selectAction<Action extends string>(
   actions: ReadonlyArray<{ value: Action; label: string }>,
 ): Promise<Action | null> {

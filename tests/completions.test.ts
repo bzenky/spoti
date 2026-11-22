@@ -31,6 +31,8 @@ const commands = [
   'playlists',
   'playlist-create',
   'playlist-edit',
+  'playlist-move',
+  'playlist-remove',
   'add',
   'playlist',
   'liked',
@@ -124,6 +126,8 @@ describe('generateCompletionScript', () => {
       expectWords(script, ['spotifyClientId', 'defaultDevice', 'watchAfterPlay', 'refreshIntervalMs']);
       expectWords(script, ['on', 'off', 'track', 'context']);
       expectWords(script, ['playlist-create']);
+      expectWords(script, ['playlist-remove']);
+      expect(script).toMatch(/(?:--yes|-l yes)/);
       expect(script).toMatch(/(?:--search|-l search)/);
       expect(script).toMatch(/(?:--public|-l public)/);
       expect(script).toMatch(/(?:--private|-l private)/);

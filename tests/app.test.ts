@@ -102,6 +102,8 @@ function dependencies() {
       createPlaylist: vi.fn(),
       updatePlaylistDetails: vi.fn(),
       moveItem: vi.fn(),
+      getItemAt: vi.fn(),
+      removeItem: vi.fn(),
       addItems: vi.fn(),
     } as unknown as PlaylistService,
     library: {
@@ -149,6 +151,7 @@ function dependencies() {
     choosePlaylistAction: vi.fn(),
     requestSpotifyClientId: vi.fn(),
     confirmUpdate: vi.fn(),
+    confirmPlaylistRemoval: vi.fn(),
     progress: vi.fn(async (_label: string, task: () => Promise<unknown>) => task()) as ProgressRunner,
     watchPlayback: vi.fn() as PlaybackWatcher,
     startTui: vi.fn().mockResolvedValue(undefined),
@@ -528,6 +531,76 @@ describe('CLI application', () => {
       'You can only edit playlists you own: Workout.',
     );
     expect(deps.playlist.moveItem).not.toHaveBeenCalled();
+  });
+
+  describe('playlist-remove', () => {
+    const target = {
+      playlistId: playlist.id,
+      position: 4,
+      snapshotId: 'snap-1',
+      track: { uri: 'spotify:track:numb', name: 'Numb', artists: ['Linkin Park'] },
+    };
+
+    function ownedPlaylistDeps() {
+      const deps = dependencies();
+      vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue(playlist);
+      vi.mocked(deps.auth.getCurrentUser).mockResolvedValue({ id: 'user-1', displayName: 'Bruno' });
+      vi.mocked(deps.playlist.getItemAt).mockResolvedValue(target as never);
+      return deps;
+    }
+
+    it('removes a track after interactive confirmation', async () => {
+      const deps = ownedPlaylistDeps();
+      deps.isInteractive = true;
+      deps.confirmPlaylistRemoval.mockResolvedValue(true);
+
+      await run(['playlist-remove', '1', '4'], deps);
+
+      expect(deps.playlist.getItemAt).toHaveBeenCalledWith(playlist.id, 4);
+      expect(deps.confirmPlaylistRemoval).toHaveBeenCalledWith('Numb — Linkin Park', 'Workout');
+      expect(deps.playlist.removeItem).toHaveBeenCalledWith(target);
+      expect(deps.messages).toContain('✓ Removed Numb — Linkin Park from Workout');
+    });
+
+    it('skips the confirmation with --yes, even without a TTY', async () => {
+      const deps = ownedPlaylistDeps();
+
+      await run(['playlist-remove', '1', '4', '--yes'], deps);
+
+      expect(deps.confirmPlaylistRemoval).not.toHaveBeenCalled();
+      expect(deps.playlist.removeItem).toHaveBeenCalledWith(target);
+    });
+
+    it('changes nothing when the confirmation is cancelled', async () => {
+      const deps = ownedPlaylistDeps();
+      deps.isInteractive = true;
+      deps.confirmPlaylistRemoval.mockResolvedValue(false);
+
+      await run(['playlist-remove', '1', '4'], deps);
+
+      expect(deps.playlist.removeItem).not.toHaveBeenCalled();
+      expect(deps.messages).toContain('Removal cancelled.');
+    });
+
+    it('requires --yes without a TTY', async () => {
+      const deps = ownedPlaylistDeps();
+
+      await expect(run(['playlist-remove', '1', '4'], deps)).rejects.toThrow('--yes');
+      expect(deps.playlist.removeItem).not.toHaveBeenCalled();
+    });
+
+    it('rejects playlists the current user does not own', async () => {
+      const deps = ownedPlaylistDeps();
+      vi.mocked(deps.playlist.getPlaylistByNumber).mockResolvedValue({
+        ...playlist,
+        ownerId: 'another-user',
+      });
+
+      await expect(run(['playlist-remove', '1', '4', '--yes'], deps)).rejects.toThrow(
+        'You can only edit playlists you own: Workout.',
+      );
+      expect(deps.playlist.removeItem).not.toHaveBeenCalled();
+    });
   });
 
   it('rejects playlist edits for playlists the current user does not own', async () => {

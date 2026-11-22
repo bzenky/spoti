@@ -50,6 +50,7 @@ import {
   type OutputStyles,
 } from './ui/output.js';
 import {
+  confirmPlaylistRemoval,
   confirmUpdate,
   promptSpotifyClientId,
   selectAlbum,
@@ -97,6 +98,7 @@ export interface AppDependencies {
   choosePlaylistAction?: typeof selectPlaylistAction;
   requestSpotifyClientId?: typeof promptSpotifyClientId;
   confirmUpdate?: typeof confirmUpdate;
+  confirmPlaylistRemoval?: typeof confirmPlaylistRemoval;
   progress?: ProgressRunner;
   styles?: OutputStyles;
   watchPlayback?: PlaybackWatcher;
@@ -117,6 +119,7 @@ export function createProgram(dependencies: AppDependencies): Command {
   const choosePlaylistAction = dependencies.choosePlaylistAction ?? selectPlaylistAction;
   const requestClientId = dependencies.requestSpotifyClientId ?? promptSpotifyClientId;
   const requestUpdateConfirmation = dependencies.confirmUpdate ?? confirmUpdate;
+  const requestRemovalConfirmation = dependencies.confirmPlaylistRemoval ?? confirmPlaylistRemoval;
   const styles = dependencies.styles ?? plainOutputStyles;
   const safe = sanitizeOneLineText;
   const safeArtists = (artists: string[]): string => artists.map(safe).join(', ');
@@ -726,6 +729,34 @@ export function createProgram(dependencies: AppDependencies): Command {
       );
     });
 
+  const resolveOwnedPlaylist = async (query: string): Promise<Playlist | null> => {
+    let playlist: Playlist | null | undefined;
+    if (/^\d+$/.test(query)) {
+      playlist = await runTask('Loading playlist…', () =>
+        dependencies.playlist.getPlaylistByNumber(Number(query)),
+      );
+      if (!playlist) throw playlistNumberOutOfRange(query);
+    } else {
+      const matches = (
+        await runTask('Loading playlists…', () => dependencies.playlist.listPlaylists(50))
+      ).filter((item) => item.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+      if (matches.length === 0) {
+        dependencies.output.log(`No playlists found for "${safe(query)}".`);
+        return null;
+      }
+      playlist = matches.length === 1 ? matches[0] : await choosePlaylist(matches);
+    }
+    if (!playlist) {
+      dependencies.output.log('Selection cancelled.');
+      return null;
+    }
+    const user = await dependencies.auth.getCurrentUser();
+    if (playlist.ownerId !== user.id) {
+      throw new AppError(`You can only edit playlists you own: ${safe(playlist.name)}.`);
+    }
+    return playlist;
+  };
+
   program
     .command('playlist-edit')
     .description('Edit the details of a playlist you own')
@@ -806,34 +837,43 @@ export function createProgram(dependencies: AppDependencies): Command {
         throw new ConfigurationError('Playlist positions must be positive whole numbers.');
       }
 
-      let playlist: Playlist | null | undefined;
-      if (/^\d+$/.test(query)) {
-        playlist = await runTask('Loading playlist…', () =>
-          dependencies.playlist.getPlaylistByNumber(Number(query)),
-        );
-        if (!playlist) throw playlistNumberOutOfRange(query);
-      } else {
-        const matches = (await runTask('Loading playlists…', () =>
-          dependencies.playlist.listPlaylists(50),
-        )).filter((item) => item.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
-        if (matches.length === 0) {
-          dependencies.output.log(`No playlists found for "${safe(query)}".`);
-          return;
-        }
-        playlist = matches.length === 1 ? matches[0] : await choosePlaylist(matches);
-      }
-      if (!playlist) {
-        dependencies.output.log('Selection cancelled.');
-        return;
-      }
-      const user = await dependencies.auth.getCurrentUser();
-      if (playlist.ownerId !== user.id) {
-        throw new AppError(`You can only edit playlists you own: ${safe(playlist.name)}.`);
-      }
+      const playlist = await resolveOwnedPlaylist(query);
+      if (!playlist) return;
       await runTask('Moving playlist item…', () =>
         dependencies.playlist.moveItem(playlist.id, from, to),
       );
       dependencies.output.log(`✓ Moved item ${from} to ${to} in ${safe(playlist.name)}`);
+    });
+
+  program
+    .command('playlist-remove')
+    .description('Remove a track from a playlist you own')
+    .argument('<playlist>', 'playlist number or quoted name')
+    .argument('<position>', 'one-based track position')
+    .option('--yes', 'skip the confirmation prompt')
+    .action(async (query: string, positionValue: string, options: { yes?: boolean }) => {
+      const position = Number(positionValue);
+      if (!/^\d+$/.test(positionValue) || !Number.isSafeInteger(position) || position < 1) {
+        throw new ConfigurationError('Playlist position must be a positive whole number.');
+      }
+      if (!options.yes && !isInteractive) {
+        throw new ConfigurationError(
+          'Removing a playlist item needs confirmation. Pass --yes to confirm in a non-interactive shell.',
+        );
+      }
+
+      const playlist = await resolveOwnedPlaylist(query);
+      if (!playlist) return;
+      const target = await runTask('Loading playlist item…', () =>
+        dependencies.playlist.getItemAt(playlist.id, position),
+      );
+      const trackLabel = `${safe(target.track.name)} — ${safeArtists(target.track.artists)}`;
+      if (!options.yes && !(await requestRemovalConfirmation(trackLabel, safe(playlist.name)))) {
+        dependencies.output.log('Removal cancelled.');
+        return;
+      }
+      await runTask('Removing playlist item…', () => dependencies.playlist.removeItem(target));
+      dependencies.output.log(`✓ Removed ${trackLabel} from ${safe(playlist.name)}`);
     });
 
   program

@@ -171,7 +171,7 @@ not appeared yet, wait for Spotify to open and press `r` to refresh again.
 Spotify must be installed and registered to handle `spotify:` links. To use a
 remote device, open Spotify on that device and refresh the list.
 
-Library uses Tab or left/right to switch among Playlists, Liked, Recent, Top tracks, and Top artists. Use up/down and Enter to open a playlist or play the selected track or artist; `n` and `p` navigate lazily loaded pages. In Top tracks or Top artists, press `t` to cycle between the last 4 weeks, about 6 months, and about 1 year. In a playlist you own, press `e` to edit its details or move the selected track to a one-based position. Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
+Library uses Tab or left/right to switch among Playlists, Liked, Recent, Top tracks, and Top artists. Use up/down and Enter to open a playlist or play the selected track or artist; `n` and `p` navigate lazily loaded pages. In Top tracks or Top artists, press `t` to cycle between the last 4 weeks, about 6 months, and about 1 year. In a playlist you own, press `e` to edit its details, press `m` to move the selected track to a one-based position, or press `r` to remove it (after a `y` confirmation). Previously visited pages remain cached for the TUI session, and Esc returns from playlist tracks to the playlist list before returning to Player.
 
 Inside a playlist, press `/` to filter all playlist tracks by title or artist. Each word must
 match somewhere in the title or artists; matching ignores case and accents.
@@ -293,6 +293,7 @@ spoti playlist-create "Release radar" --public
 spoti playlist-edit "Road trip" --name "Road trip 2026"
 spoti playlist-edit "Road trip" --description "Songs for the drive" --private
 spoti playlist-move "Road trip" 12 3
+spoti playlist-remove "Road trip" 12
 spoti add
 spoti add 1
 spoti add "Workout" --search "Numb"
@@ -305,7 +306,7 @@ spoti play playlist "Workout"
 spoti play playlist 1
 ```
 
-`spoti playlist-create <name>` creates a private playlist by default; pass `--public` to create a public one. `spoti playlist-edit <playlist>` updates a playlist you own: provide `--name`, `--description`, `--public`, or `--private` (the visibility options cannot be combined). `spoti playlist-move <playlist> <from> <to>` moves an item between one-based positions in a playlist you own; quote playlist names containing spaces. The TUI offers the same operation from Library: open a playlist, select a track, press `e`, then `m`, and enter its destination position. `spoti add` adds the currently playing track to an existing playlist. Pass `--search <query>` to select a searched track instead; `--first` chooses the first track and matching playlist without prompting. In an interactive terminal, omit the playlist to browse lazily loaded pages; otherwise pass a displayed number or playlist name. The TUI offers the same flow with `a` from Player or for a selected track in Search. These features require Spotify playlist-modification scopes. If your saved credentials lack those permissions, run `spoti login` again when prompted.
+`spoti playlist-create <name>` creates a private playlist by default; pass `--public` to create a public one. `spoti playlist-edit <playlist>` updates a playlist you own: provide `--name`, `--description`, `--public`, or `--private` (the visibility options cannot be combined). `spoti playlist-move <playlist> <from> <to>` moves an item between one-based positions in a playlist you own; quote playlist names containing spaces. `spoti playlist-remove <playlist> <position>` removes the track at a one-based position from a playlist you own after a confirmation prompt; pass `--yes` to skip it (required without a terminal). Spotify removes every copy of that track from the playlist. The TUI offers the same operation from Library: open a playlist, select a track, press `e`, then `m`, and enter its destination position, or press `e`, then `r`, to remove it. `spoti add` adds the currently playing track to an existing playlist. Pass `--search <query>` to select a searched track instead; `--first` chooses the first track and matching playlist without prompting. In an interactive terminal, omit the playlist to browse lazily loaded pages; otherwise pass a displayed number or playlist name. The TUI offers the same flow with `a` from Player or for a selected track in Search. These features require Spotify playlist-modification scopes. If your saved credentials lack those permissions, run `spoti login` again when prompted.
 
 User playlists preserve Spotify’s order so their global displayed numbers remain stable across pages. A displayed number can be reused with `spoti playlist <number>` or `spoti play playlist <number>`, including numbers beyond the first page.
 

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `spoti playlist-remove <playlist> <position>` removes a track from a playlist you own, with a confirmation prompt (`--yes` skips it). In the interactive Library, press `e` then `r` on a selected playlist track and confirm with `y`. Spotify removes every copy of the track from the playlist.
+
 ## [1.11.0] - 2026-11-12
 
 ### Added

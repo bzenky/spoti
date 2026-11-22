@@ -109,10 +109,9 @@ export async function confirmPlaylistRemoval(
   try {
     const answer = await questionWithEscape(
       prompt,
-      `Remove ${trackLabel} from ${playlistName}? Spotify removes every copy of this track from the playlist. [Y/n] (Esc to cancel) `,
+      `Remove ${trackLabel} from ${playlistName}? Spotify removes every copy of this track from the playlist. [y/N] (Esc to cancel) `,
     );
-    if (answer === null) return false;
-    return answer.trim() === '' || /^y(?:es)?$/i.test(answer.trim());
+    return answer !== null && /^y(?:es)?$/i.test(answer.trim());
   } finally {
     prompt.close();
   }

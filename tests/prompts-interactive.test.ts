@@ -14,7 +14,7 @@ vi.mock('node:process', async () => {
 
 import { stdin, stdout } from 'node:process';
 import {
-  confirmUpdate, promptSpotifyClientId, selectAlbumAction, selectPageAction, selectTrack,
+  confirmPlaylistRemoval, confirmUpdate, promptSpotifyClientId, selectAlbumAction, selectPageAction, selectTrack,
 } from '../src/ui/prompts.js';
 
 const track = {
@@ -105,6 +105,14 @@ describe('interactive selection prompts', () => {
       const update = confirmUpdate('1.9.0', '1.9.1');
       stdin.emit('data', Buffer.from(answer));
       await expect(update).resolves.toBe(true);
+    }
+  });
+
+  it('defaults playlist removal to no on Enter and confirms only on yes', async () => {
+    for (const [answer, expected] of [['\r', false], ['n\r', false], ['y\r', true], ['yes\r', true]] as const) {
+      const removal = confirmPlaylistRemoval('Numb — Linkin Park', 'Workout');
+      stdin.emit('data', Buffer.from(answer));
+      await expect(removal).resolves.toBe(expected);
     }
   });
 

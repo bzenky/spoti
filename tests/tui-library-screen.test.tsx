@@ -311,11 +311,16 @@ describe('LibraryScreen', () => {
         snapshotId: 'snap',
       });
       const view = await openSecondPage(deps);
+      const loadsBefore = vi.mocked(deps.playlists.getPlaylistItemsPage).mock.calls.length;
 
       view.stdin.write('y');
 
       await vi.waitFor(() => expect(view.lastFrame()).toContain('The playlist changed'));
       expect(deps.playlists.removeItem).not.toHaveBeenCalled();
+      await vi.waitFor(() =>
+        expect(vi.mocked(deps.playlists.getPlaylistItemsPage).mock.calls.length).toBeGreaterThan(loadsBefore),
+      );
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Page 2'));
       view.unmount();
     });
   });

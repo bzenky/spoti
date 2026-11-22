@@ -400,8 +400,12 @@ export function LibraryScreen({
       const target = await playlists.getItemAt(location.playlist.id, position, controller.signal);
       if (controller.signal.aborted) return;
       if (target.track.uri !== row.track.uri) {
+        restoreSelection.current = selectedIndex;
+        sessions.delete(locationKey);
+        setPage(null);
         setEditMode(null);
-        setError('The playlist changed since it was loaded. Press r to refresh, then try again.');
+        setRetryVersion((current) => current + 1);
+        setConfirmation('The playlist changed since it was loaded, so nothing was removed. It has been reloaded; check the selection and try again.');
         return;
       }
       await playlists.removeItem(target, controller.signal);
@@ -556,7 +560,7 @@ export function LibraryScreen({
     if (editMode === 'remove-confirm') {
       if (input === 'y') {
         void removeSelectedTrack();
-      } else if (input === 'n') {
+      } else {
         setEditMode(null);
       }
       return;

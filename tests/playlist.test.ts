@@ -148,9 +148,23 @@ describe('PlaylistService', () => {
       isPublic: false,
     });
     expect(api.post).toHaveBeenCalledWith('/me/playlists', {
-      body: { name: 'Road trip', public: false },
+      body: { name: 'Road trip', public: false, description: '' },
       signal,
     });
+  });
+
+  it.each([
+    ['null', ''],
+    [null, ''],
+    ['Rock &amp; punk &#x27;classics&#39; &lt;3 &bogus;', "Rock & punk 'classics' <3 &bogus;"],
+    ['Mixed by <a href="spotify:user:dj">DJ &quot;X&quot;</a>', 'Mixed by DJ "X"'],
+  ])('decodes the Spotify playlist description %j for display', async (description, expected) => {
+    const api = createApi();
+    vi.mocked(api.get).mockResolvedValue(page([{ ...playlist, description }]));
+
+    const result = await new PlaylistService(api).listPlaylistsPage();
+
+    expect(result.items[0]?.description).toBe(expected);
   });
 
   it('rejects an empty playlist name before making a request', async () => {

@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `spoti playlist-remove <playlist> <position>` removes a track from a playlist you own, with a confirmation prompt (`--yes` skips it). In the interactive Library, press `e` then `r` on a selected playlist track and confirm with `y`. Spotify removes every copy of the track from the playlist.
 
+### Fixed
+
+- Playlist descriptions display Spotify's HTML-escaped text as plain text (`&amp;` becomes `&`) and no longer show `null` for playlists created without a description. `spoti playlist-create` now sets an empty description so Spotify does not store `null`.
+
 ## [1.11.0] - 2026-11-12
 
 ### Added

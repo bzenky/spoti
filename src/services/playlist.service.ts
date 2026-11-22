@@ -59,7 +59,8 @@ export class PlaylistService {
     if (!playlistName) throw new AppError('A playlist name is required.');
 
     const response = await this.spotify.post<SpotifyPlaylist>('/me/playlists', {
-      body: { name: playlistName, public: isPublic },
+      // Without an explicit description, Spotify stores the literal text "null".
+      body: { name: playlistName, public: isPublic, description: '' },
       ...(signal === undefined ? {} : { signal }),
     });
     return mapPlaylist(response);

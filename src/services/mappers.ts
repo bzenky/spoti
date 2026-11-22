@@ -79,6 +79,25 @@ export function mapArtist(artist: SpotifyFullArtist): Artist {
   };
 }
 
+const HTML_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+};
+
+// Spotify returns descriptions as escaped HTML, and the literal "null" for
+// playlists created without a description; that value cannot be cleared later.
+function decodePlaylistDescription(value: string | null | undefined): string {
+  if (!value || value === 'null') return '';
+  return value
+    .replace(/<[^>]*>/g, '')
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity: string) => {
+      if (entity[0] !== '#') return HTML_ENTITIES[entity.toLowerCase()] ?? match;
+      const codePoint = entity[1] === 'x' || entity[1] === 'X'
+        ? Number.parseInt(entity.slice(2), 16)
+        : Number.parseInt(entity.slice(1), 10);
+      return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : match;
+    });
+}
+
 export function mapPlaylist(
   playlist: SpotifySimplifiedPlaylist | SpotifyPlaylist,
 ): Playlist {
@@ -88,7 +107,7 @@ export function mapPlaylist(
     id: playlist.id,
     uri: playlist.uri,
     name: playlist.name,
-    description: playlist.description ?? '',
+    description: decodePlaylistDescription(playlist.description),
     ownerId: playlist.owner.id,
     ownerName: playlist.owner.display_name ?? playlist.owner.id,
     isPublic: playlist.public,

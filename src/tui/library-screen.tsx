@@ -17,7 +17,7 @@ export type LibraryCategory = 'playlists' | 'liked' | 'recent' | 'top-tracks' | 
 
 export type TuiPlaylistLibrary = Pick<
   PlaylistService,
-  'getPlaylistItemsPage' | 'listPlaylistsPage' | 'updatePlaylistDetails' | 'moveItem'
+  'getPlaylistItemsPage' | 'listPlaylistsPage' | 'updatePlaylistDetails' | 'moveItem' | 'getItemAt' | 'removeItem'
 >;
 export type TuiLibraryAuth = Pick<AuthService, 'getCurrentUser'>;
 export type TuiLikedLibrary = Pick<
@@ -98,7 +98,7 @@ export function LibraryScreen({
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editMode, setEditMode] = useState<'menu' | 'name' | 'description' | 'visibility' | 'move-target' | null>(null);
+  const [editMode, setEditMode] = useState<'menu' | 'name' | 'description' | 'visibility' | 'move-target' | 'remove-confirm' | null>(null);
   const [draft, setDraft] = useState('');
   const draftRef = useRef('');
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +118,7 @@ export function LibraryScreen({
   const sessions = sessionCache ?? localSessions.current;
   const request = useRef<AbortController | null>(null);
   const requestVersion = useRef(0);
+  const restoreSelection = useRef<number | null>(null);
 
   const locationKey = getLocationKey(location, topRange);
 
@@ -145,7 +146,10 @@ export function LibraryScreen({
       return;
     }
 
-    const token = pageIndex === 0 ? undefined : session.pages[pageIndex - 1]?.nextToken;
+    const token = pageIndex === 0
+      ? undefined
+      : session.pages[pageIndex - 1]?.nextToken
+        ?? (location.kind === 'playlist' ? { offset: pageIndex * PLAYLIST_TRACK_PAGE_SIZE } : undefined);
     if (pageIndex > 0 && !token) {
       setPage(session.pages[session.index] ?? null);
       setLoading(false);
@@ -192,6 +196,12 @@ export function LibraryScreen({
       request.current = null;
     };
   }, [library, location, locationKey, pageIndex, playlists, recent, retryVersion, sessions, topRange]);
+
+  useEffect(() => {
+    if (!page || restoreSelection.current === null) return;
+    setSelectedIndex(Math.min(restoreSelection.current, Math.max(0, page.rows.length - 1)));
+    restoreSelection.current = null;
+  }, [page]);
 
   const filterActive = filterQuery !== null;
   const playlistId = location.kind === 'playlist' ? location.playlist.id : null;
@@ -371,6 +381,50 @@ export function LibraryScreen({
     }
   }, [auth, location, locationKey, page, pageIndex, playlists, saving, selectedIndex, sessions]);
 
+  const removeSelectedTrack = useCallback(async () => {
+    if (location.kind !== 'playlist' || saving) return;
+    const row = page?.rows[selectedIndex];
+    if (!row || row.kind !== 'track') return;
+    const position = pageIndex * PLAYLIST_TRACK_PAGE_SIZE + selectedIndex + 1;
+    const controller = new AbortController();
+    request.current = controller;
+    setSaving(true);
+    setError(null);
+    try {
+      const user = await auth.getCurrentUser();
+      if (controller.signal.aborted) return;
+      if (location.playlist.ownerId !== user.id) {
+        setError('You can edit only playlists you own.');
+        return;
+      }
+      const target = await playlists.getItemAt(location.playlist.id, position, controller.signal);
+      if (controller.signal.aborted) return;
+      if (target.track.uri !== row.track.uri) {
+        setEditMode(null);
+        setError('The playlist changed since it was loaded. Press r to refresh, then try again.');
+        return;
+      }
+      await playlists.removeItem(target, controller.signal);
+      if (controller.signal.aborted) return;
+      const lastOnPage = page.rows.length === 1 && pageIndex > 0;
+      restoreSelection.current = lastOnPage ? Number.MAX_SAFE_INTEGER : selectedIndex;
+      sessions.delete(locationKey);
+      setPage(null);
+      if (lastOnPage) setPageIndex(pageIndex - 1);
+      setEditMode(null);
+      setRetryVersion((current) => current + 1);
+      setConfirmation(`✓ Removed ${formatTrack(row.track)}.`);
+    } catch (caught) {
+      if (controller.signal.aborted) return;
+      setError(`Unable to remove playlist item: ${formatError(caught)}`);
+    } finally {
+      if (request.current === controller) {
+        request.current = null;
+        setSaving(false);
+      }
+    }
+  }, [auth, location, locationKey, page, pageIndex, playlists, saving, selectedIndex, sessions]);
+
   const playSelected = useCallback(async (selection?: DisplayRow) => {
     const selected = selection ?? displayRows[selectedIndex];
     if (!selected || (selected.kind !== 'track' && selected.kind !== 'artist') || playing) return;
@@ -493,6 +547,17 @@ export function LibraryScreen({
         draftRef.current = '';
         setDraft('');
         setEditMode('move-target');
+      } else if (input === 'r' && location.kind === 'playlist') {
+        const row = page?.rows[selectedIndex];
+        if (row?.kind === 'track') setEditMode('remove-confirm');
+      }
+      return;
+    }
+    if (editMode === 'remove-confirm') {
+      if (input === 'y') {
+        void removeSelectedTrack();
+      } else if (input === 'n') {
+        setEditMode(null);
       }
       return;
     }
@@ -689,7 +754,7 @@ export function LibraryScreen({
       {editMode === 'menu' ? (
         <Box flexDirection="column">
           <Text bold>Edit playlist</Text>
-          <Text dimColor>[n] Name · [d] Description · [v] Visibility · [m] Move selected track · [Esc] Cancel</Text>
+          <Text dimColor>[n] Name · [d] Description · [v] Visibility · [m] Move selected track · [r] Remove selected track · [Esc] Cancel</Text>
         </Box>
       ) : null}
       {editMode === 'name' ? (
@@ -707,6 +772,11 @@ export function LibraryScreen({
       {editMode === 'visibility' && location.kind === 'playlist' ? (
         <Box flexDirection="column">
           <Text>Make this playlist {location.playlist.isPublic ? 'private' : 'public'}? [y/N]</Text>
+        </Box>
+      ) : null}
+      {editMode === 'remove-confirm' && location.kind === 'playlist' && page?.rows[selectedIndex]?.kind === 'track' ? (
+        <Box flexDirection="column">
+          <Text>Remove {formatTrack(page.rows[selectedIndex].track)} from {sanitizeOneLineText(location.playlist.name)}? Every copy of this track is removed. [y/N]</Text>
         </Box>
       ) : null}
       {editMode === 'move-target' ? (
@@ -727,7 +797,7 @@ export function LibraryScreen({
             ? 'Type to filter · ↑/↓ select · Enter play · Esc clear · Ctrl+R retry'
             : editMode
             ? 'Type to edit · Enter save · Esc cancel'
-          : <>Enter {location.kind === 'playlist' ? 'play' : location.category === 'playlists' ? 'open/play' : 'play'} · ↑/↓ select · n/p page{location.kind === 'category' ? ` · Tab/←/→ category${location.category.startsWith('top-') ? ' · t time range' : ''}` : ' · / filter · e edit, then m move track'} · Esc back</>}
+          : <>Enter {location.kind === 'playlist' ? 'play' : location.category === 'playlists' ? 'open/play' : 'play'} · ↑/↓ select · n/p page{location.kind === 'category' ? ` · Tab/←/→ category${location.category.startsWith('top-') ? ' · t time range' : ''}` : ' · / filter · e edit, then m move or r remove track'} · Esc back</>}
         </Text>
       </Box>
     </Box>

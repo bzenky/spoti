@@ -48,6 +48,8 @@ function dependencies(): Dependencies {
       getPlaylistItemsPage: vi.fn().mockResolvedValue({ items: [track], nextToken: null }),
       updatePlaylistDetails: vi.fn().mockResolvedValue(undefined),
       moveItem: vi.fn().mockResolvedValue(undefined),
+      getItemAt: vi.fn(),
+      removeItem: vi.fn().mockResolvedValue(undefined),
     },
     auth: { getCurrentUser: vi.fn().mockResolvedValue({ id: 'user-1', displayName: 'Zenky' }) },
     library: {
@@ -241,6 +243,81 @@ describe('LibraryScreen', () => {
     expect(view.lastFrame()).not.toContain('✓ Playlist updated.');
     expect(view.lastFrame()).not.toContain('Workout changed');
     view.unmount();
+  });
+
+  describe('removing a playlist track', () => {
+    const other: Track = { ...track, id: 'track-2', uri: 'spotify:track:track-2', name: 'Faint' };
+
+    async function openSecondPage(deps: Dependencies) {
+      vi.mocked(deps.playlists.getPlaylistItemsPage).mockImplementation(async (_id, token) =>
+        token
+          ? { items: [track, other], nextToken: null }
+          : { items: [track], nextToken: { offset: 50 } },
+      );
+      const view = renderLibrary(deps);
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
+      view.stdin.write('\r');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Page 2'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Faint'));
+      view.stdin.write('\u001b[B');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('› Faint'));
+      view.stdin.write('e');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('[r] Remove selected track'));
+      view.stdin.write('r');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Every copy of this track is removed. [y/N]'));
+      return view;
+    }
+
+    it('removes the selected track, stays on the same page, and confirms', async () => {
+      const deps = dependencies();
+      const target = { playlistId: 'playlist-1', position: 52, track: other, snapshotId: 'snap' };
+      vi.mocked(deps.playlists.getItemAt).mockResolvedValue(target);
+      const view = await openSecondPage(deps);
+      vi.mocked(deps.playlists.getPlaylistItemsPage).mockImplementation(async (_id, token) =>
+        token ? { items: [track], nextToken: null } : { items: [track], nextToken: { offset: 50 } },
+      );
+
+      view.stdin.write('y');
+
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('✓ Removed Faint'));
+      expect(deps.playlists.getItemAt).toHaveBeenCalledWith('playlist-1', 52, expect.any(AbortSignal));
+      expect(deps.playlists.removeItem).toHaveBeenCalledWith(target, expect.any(AbortSignal));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Page 2'));
+      expect(view.lastFrame()).toContain('› Numb');
+      expect(view.lastFrame()).not.toContain('  Faint');
+      view.unmount();
+    });
+
+    it('cancels without calling Spotify', async () => {
+      const deps = dependencies();
+      const view = await openSecondPage(deps);
+
+      view.stdin.write('n');
+
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('[y/N]'));
+      expect(deps.playlists.getItemAt).not.toHaveBeenCalled();
+      expect(deps.playlists.removeItem).not.toHaveBeenCalled();
+      view.unmount();
+    });
+
+    it('refuses to delete when the playlist changed under the selection', async () => {
+      const deps = dependencies();
+      vi.mocked(deps.playlists.getItemAt).mockResolvedValue({
+        playlistId: 'playlist-1',
+        position: 52,
+        track,
+        snapshotId: 'snap',
+      });
+      const view = await openSecondPage(deps);
+
+      view.stdin.write('y');
+
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('The playlist changed'));
+      expect(deps.playlists.removeItem).not.toHaveBeenCalled();
+      view.unmount();
+    });
   });
 
   it('aborts playback when leaving a cached library page', async () => {

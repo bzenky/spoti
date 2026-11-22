@@ -9,7 +9,7 @@ const playlist = { id: 'workout', uri: 'spotify:playlist:workout', name: 'Workou
 const page = (tracks: Track[], offset: number | null = null) => ({ items: tracks, nextToken: offset === null ? null : { offset } });
 function deps() {
   return {
-    playlists: { listPlaylistsPage: vi.fn().mockResolvedValue({ items: [playlist], nextToken: null }), getPlaylistItemsPage: vi.fn().mockResolvedValue(page([track])), updatePlaylistDetails: vi.fn(), moveItem: vi.fn() },
+    playlists: { listPlaylistsPage: vi.fn().mockResolvedValue({ items: [playlist], nextToken: null }), getPlaylistItemsPage: vi.fn().mockResolvedValue(page([track])), updatePlaylistDetails: vi.fn(), moveItem: vi.fn(), getItemAt: vi.fn(), removeItem: vi.fn() },
     auth: { getCurrentUser: vi.fn().mockResolvedValue({ id: 'me' }) },
     library: { getLikedTracksPage: vi.fn(), getTopTracksPage: vi.fn(), getTopArtistsPage: vi.fn() },
     recent: { getRecentlyPlayedPage: vi.fn() },

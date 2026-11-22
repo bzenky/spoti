@@ -269,14 +269,58 @@ describe('PlaylistService', () => {
     });
   });
 
-  it('removes items through the current playlist items endpoint', async () => {
+  it('loads the playlist item at a one-based position with the current snapshot', async () => {
     const api = createApi();
+    vi.mocked(api.get)
+      .mockResolvedValueOnce(playlist)
+      .mockResolvedValueOnce(page([{ item: track }], { total: 3 }));
     const signal = new AbortController().signal;
 
-    await new PlaylistService(api).removeItems('playlist/id', [' spotify:track:track-id '], signal);
+    const target = await new PlaylistService(api).getItemAt('playlist/id', 2, signal);
+
+    expect(api.get).toHaveBeenNthCalledWith(1, '/playlists/playlist%2Fid', { signal });
+    expect(api.get).toHaveBeenNthCalledWith(2, '/playlists/playlist%2Fid/items', {
+      query: { limit: 1, offset: 1 },
+      signal,
+    });
+    expect(target).toMatchObject({
+      playlistId: 'playlist/id',
+      position: 2,
+      snapshotId: 'snapshot-1',
+      track: { uri: 'spotify:track:track-id' },
+    });
+  });
+
+  it('rejects invalid or unremovable playlist item positions', async () => {
+    const api = createApi();
+    const service = new PlaylistService(api);
+    vi.mocked(api.get).mockResolvedValue(playlist);
+
+    await expect(service.getItemAt('', 1)).rejects.toThrow('playlist ID is required');
+    await expect(service.getItemAt('playlist', 0)).rejects.toThrow('positive whole number');
+    await expect(service.getItemAt('playlist', 1.5)).rejects.toThrow('positive whole number');
+    await expect(service.getItemAt('playlist', 4)).rejects.toThrow('between 1 and 3');
+
+    vi.mocked(api.get)
+      .mockResolvedValueOnce(playlist)
+      .mockResolvedValueOnce(page([{ item: null }]));
+    await expect(service.getItemAt('playlist', 1)).rejects.toThrow("can't be removed by spoti");
+  });
+
+  it('removes one item by URI with the snapshot it was loaded from', async () => {
+    const api = createApi();
+    const signal = new AbortController().signal;
+    const target = {
+      playlistId: 'playlist/id',
+      position: 2,
+      snapshotId: 'snapshot-1',
+      track: { uri: 'spotify:track:track-id' },
+    };
+
+    await new PlaylistService(api).removeItem(target as never, signal);
 
     expect(api.delete).toHaveBeenCalledWith('/playlists/playlist%2Fid/items', {
-      body: { items: [{ uri: 'spotify:track:track-id' }] },
+      body: { items: [{ uri: 'spotify:track:track-id' }], snapshot_id: 'snapshot-1' },
       signal,
     });
   });
@@ -311,22 +355,6 @@ describe('PlaylistService', () => {
     await service.moveItem('playlist', 2, 2);
 
     expect(api.put).not.toHaveBeenCalled();
-  });
-
-  it('rejects invalid playlist removals before making a request', async () => {
-    const api = createApi();
-    const service = new PlaylistService(api);
-
-    await expect(service.removeItems('', ['spotify:track:1'])).rejects.toThrow(
-      'playlist ID is required',
-    );
-    await expect(service.removeItems('playlist', [])).rejects.toThrow(
-      'At least one Spotify item URI is required',
-    );
-    await expect(
-      service.removeItems('playlist', Array.from({ length: 101 }, (_, index) => `spotify:track:${index}`)),
-    ).rejects.toThrow('at most 100');
-    expect(api.delete).not.toHaveBeenCalled();
   });
 
   it('rejects invalid playlist additions before making a request', async () => {

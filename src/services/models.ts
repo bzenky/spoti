@@ -72,6 +72,14 @@ export interface PlaylistDetailsChanges {
   isPublic?: boolean;
 }
 
+export interface PlaylistItemTarget {
+  playlistId: string;
+  /** One-based position in the playlist. */
+  position: number;
+  track: Track;
+  snapshotId: string;
+}
+
 export interface SavedTrack {
   addedAt: string;
   track: Track;

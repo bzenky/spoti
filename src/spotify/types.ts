@@ -101,6 +101,7 @@ export interface SpotifyPlaylistDetailsUpdate {
 
 export interface SpotifyRemovePlaylistItemsRequest {
   items: Array<{ uri: string }>;
+  snapshot_id: string;
 }
 
 export interface SpotifyUpdatePlaylistItemsRequest {

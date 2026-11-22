@@ -10,7 +10,13 @@ import type {
   SpotifyUpdatePlaylistItemsRequest,
 } from '../spotify/types.js';
 import { mapPlaybackItem, mapPlaylist, normalizeLimit } from './mappers.js';
-import type { Playlist, PlaylistDetail, PlaylistDetailsChanges, Track } from './models.js';
+import type {
+  Playlist,
+  PlaylistDetail,
+  PlaylistDetailsChanges,
+  PlaylistItemTarget,
+  Track,
+} from './models.js';
 import { nextOffsetToken, type OffsetToken, type Page } from './pagination.js';
 
 const DEFAULT_PLAYLIST_LIMIT = 20;
@@ -105,19 +111,45 @@ export class PlaylistService {
     });
   }
 
-  async removeItems(id: string, uris: string[], signal?: AbortSignal): Promise<void> {
+  async getItemAt(
+    id: string,
+    position: number,
+    signal?: AbortSignal,
+  ): Promise<PlaylistItemTarget> {
     const playlistId = id.trim();
-    const items = uris.map((uri) => uri.trim()).filter(Boolean);
     if (!playlistId) throw new AppError('A Spotify playlist ID is required.');
-    if (items.length === 0) throw new AppError('At least one Spotify item URI is required.');
-    if (items.length > 100) {
-      throw new AppError('Spotify accepts at most 100 playlist items per request.');
+    if (!Number.isSafeInteger(position) || position < 1) {
+      throw new AppError('Playlist position must be a positive whole number.');
     }
 
+    const playlist = await this.spotify.get<SpotifyPlaylist>(
+      `/playlists/${encodeURIComponent(playlistId)}`,
+      signal === undefined ? undefined : { signal },
+    );
+    if (position > playlist.items.total) {
+      throw new AppError(`Playlist positions must be between 1 and ${playlist.items.total}.`);
+    }
+
+    const response = await this.spotify.get<SpotifyPaging<SpotifyPlaylistItem>>(
+      `/playlists/${encodeURIComponent(playlistId)}/items`,
+      {
+        query: { limit: 1, offset: position - 1 },
+        ...(signal === undefined ? {} : { signal }),
+      },
+    );
+    const track = mapPlaybackItem(response.items[0]?.item ?? null);
+    if (!track) {
+      throw new AppError(`The item at position ${position} can't be removed by spoti.`);
+    }
+    return { playlistId, position, track, snapshotId: playlist.snapshot_id };
+  }
+
+  async removeItem(target: PlaylistItemTarget, signal?: AbortSignal): Promise<void> {
     const body: SpotifyRemovePlaylistItemsRequest = {
-      items: items.map((uri) => ({ uri })),
+      items: [{ uri: target.track.uri }],
+      snapshot_id: target.snapshotId,
     };
-    await this.spotify.delete<void>(`/playlists/${encodeURIComponent(playlistId)}/items`, {
+    await this.spotify.delete<void>(`/playlists/${encodeURIComponent(target.playlistId)}/items`, {
       body,
       ...(signal === undefined ? {} : { signal }),
     });

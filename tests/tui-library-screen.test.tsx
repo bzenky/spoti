@@ -257,7 +257,7 @@ describe('LibraryScreen', () => {
       const view = renderLibrary(deps);
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Workout'));
       view.stdin.write('\r');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Playlist tracks'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('n next'));
       view.stdin.write('n');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Page 2'));
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Faint'));
@@ -284,9 +284,11 @@ describe('LibraryScreen', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('✓ Removed Faint'));
       expect(deps.playlists.getItemAt).toHaveBeenCalledWith('playlist-1', 52, expect.any(AbortSignal));
       expect(deps.playlists.removeItem).toHaveBeenCalledWith(target, expect.any(AbortSignal));
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Page 2'));
-      expect(view.lastFrame()).toContain('› Numb');
-      expect(view.lastFrame()).not.toContain('  Faint');
+      await vi.waitFor(() => {
+        expect(view.lastFrame()).toContain('Page 2');
+        expect(view.lastFrame()).toContain('› Numb');
+        expect(view.lastFrame()).not.toContain('  Faint');
+      });
       view.unmount();
     });
 

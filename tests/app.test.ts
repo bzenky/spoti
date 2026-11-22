@@ -537,7 +537,6 @@ describe('CLI application', () => {
     const target = {
       playlistId: playlist.id,
       position: 4,
-      snapshotId: 'snap-1',
       track: { uri: 'spotify:track:numb', name: 'Numb', artists: ['Linkin Park'] },
     };
 

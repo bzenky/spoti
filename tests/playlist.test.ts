@@ -269,7 +269,7 @@ describe('PlaylistService', () => {
     });
   });
 
-  it('loads the playlist item at a one-based position with the current snapshot', async () => {
+  it('loads the playlist item at a one-based position', async () => {
     const api = createApi();
     vi.mocked(api.get)
       .mockResolvedValueOnce(playlist)
@@ -286,7 +286,6 @@ describe('PlaylistService', () => {
     expect(target).toMatchObject({
       playlistId: 'playlist/id',
       position: 2,
-      snapshotId: 'snapshot-1',
       track: { uri: 'spotify:track:track-id' },
     });
   });
@@ -307,20 +306,19 @@ describe('PlaylistService', () => {
     await expect(service.getItemAt('playlist', 1)).rejects.toThrow("can't be removed by spoti");
   });
 
-  it('removes one item by URI with the snapshot it was loaded from', async () => {
+  it('removes the item by URI without a snapshot, which Spotify would ignore', async () => {
     const api = createApi();
     const signal = new AbortController().signal;
     const target = {
       playlistId: 'playlist/id',
       position: 2,
-      snapshotId: 'snapshot-1',
       track: { uri: 'spotify:track:track-id' },
     };
 
     await new PlaylistService(api).removeItem(target as never, signal);
 
     expect(api.delete).toHaveBeenCalledWith('/playlists/playlist%2Fid/items', {
-      body: { items: [{ uri: 'spotify:track:track-id' }], snapshot_id: 'snapshot-1' },
+      body: { items: [{ uri: 'spotify:track:track-id' }] },
       signal,
     });
   });

@@ -272,7 +272,7 @@ describe('LibraryScreen', () => {
 
     it('removes the selected track, stays on the same page, and confirms', async () => {
       const deps = dependencies();
-      const target = { playlistId: 'playlist-1', position: 52, track: other, snapshotId: 'snap' };
+      const target = { playlistId: 'playlist-1', position: 52, track: other };
       vi.mocked(deps.playlists.getItemAt).mockResolvedValue(target);
       const view = await openSecondPage(deps);
       vi.mocked(deps.playlists.getPlaylistItemsPage).mockImplementation(async (_id, token) =>
@@ -308,7 +308,6 @@ describe('LibraryScreen', () => {
         playlistId: 'playlist-1',
         position: 52,
         track,
-        snapshotId: 'snap',
       });
       const view = await openSecondPage(deps);
       const loadsBefore = vi.mocked(deps.playlists.getPlaylistItemsPage).mock.calls.length;

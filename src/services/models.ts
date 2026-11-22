@@ -77,7 +77,6 @@ export interface PlaylistItemTarget {
   /** One-based position in the playlist. */
   position: number;
   track: Track;
-  snapshotId: string;
 }
 
 export interface SavedTrack {

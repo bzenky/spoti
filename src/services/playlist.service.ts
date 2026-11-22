@@ -141,14 +141,12 @@ export class PlaylistService {
     if (!track) {
       throw new AppError(`The item at position ${position} can't be removed by spoti.`);
     }
-    return { playlistId, position, track, snapshotId: playlist.snapshot_id };
+    return { playlistId, position, track };
   }
 
   async removeItem(target: PlaylistItemTarget, signal?: AbortSignal): Promise<void> {
-    const body: SpotifyRemovePlaylistItemsRequest = {
-      items: [{ uri: target.track.uri }],
-      snapshot_id: target.snapshotId,
-    };
+    // Spotify accepts snapshot_id here but then silently removes nothing (live-tested Nov 2026).
+    const body: SpotifyRemovePlaylistItemsRequest = { items: [{ uri: target.track.uri }] };
     await this.spotify.delete<void>(`/playlists/${encodeURIComponent(target.playlistId)}/items`, {
       body,
       ...(signal === undefined ? {} : { signal }),

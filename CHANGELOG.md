@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `spoti setup` is now a guided first run: it shows the Spotify Developer Dashboard link and the exact redirect URI to register, offers to open the dashboard, and continues straight into login. `spoti setup <client-id>` still only saves the ID. `spoti login` starts the same guide when no client ID is saved.
+- After login, `spoti` lists online Spotify devices or explains how to bring one online, and suggests first commands. Setup warns when `SPOTIFY_CLIENT_ID` overrides the saved client ID.
+- The browser callback page is a styled confirmation page instead of plain text.
+
+### Changed
+
+- `spoti setup` and `spoti config set spotifyClientId` reject values that are not 32-character Spotify client IDs. Saved configurations are not affected.
+
+### Fixed
+
+- `spoti login` prints the authorization URL and keeps waiting when a browser cannot be opened, for example in WSL.
+- A login timeout now explains the likely redirect URI or client ID mismatch, includes the SSH port-forwarding command, and a busy callback port reports how to recover instead of a raw `EADDRINUSE` error.
+
 ## [1.12.0] - 2026-11-23
 
 ### Added

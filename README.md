@@ -23,10 +23,26 @@ Create an application in the [Spotify Developer Dashboard](https://developer.spo
 http://127.0.0.1:43821/callback
 ```
 
-After installing `spoti`, save the application's client ID once:
+After installing `spoti`, run the guided setup:
 
 ```bash
 spoti setup
+```
+
+It shows the dashboard link and the exact redirect URI to register, offers to open the dashboard, and checks that the pasted value is a 32-character client ID. It then logs you in and lists the Spotify devices that are online. Running `spoti login` before setup starts the same guide.
+
+The login prints the Spotify authorization URL, so you can open it manually when no browser opens, for example in WSL. Over SSH, forward the callback port first so your local browser can reach `spoti`:
+
+```bash
+ssh -L 43821:127.0.0.1:43821 <host>
+```
+
+If Spotify shows `INVALID_CLIENT: Invalid redirect URI`, the redirect URI registered in your app does not match the one `spoti` printed.
+
+To save the client ID without the guide or login, for example in a script, pass it directly and log in separately:
+
+```bash
+spoti setup <client-id>
 spoti login
 ```
 

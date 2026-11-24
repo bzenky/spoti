@@ -197,8 +197,8 @@
             <span class="step-number">03</span>
             <div>
               <h3>Save your client ID and sign in</h3>
-              <div class="code-block two-lines"><code>spoti setup<br>spoti login</code></div>
-              <p class="step-note">Authentication opens Spotify’s authorization page in your browser. If a new feature requires permissions missing from your saved credentials, run <code>spoti login</code> again when prompted.</p>
+              <div class="code-block"><code>spoti setup</code></div>
+              <p class="step-note">The guided setup asks for your client ID, then opens Spotify’s authorization page in your browser. It also prints the URL, so you can open it yourself when no browser opens. Over SSH, forward the port first with <code>ssh -L 43821:127.0.0.1:43821 &lt;host&gt;</code>. If a new feature requires permissions missing from your saved credentials, run <code>spoti login</code> again when prompted.</p>
             </div>
           </li>
           <li>

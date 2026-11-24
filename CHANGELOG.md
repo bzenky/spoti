@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-24
+
 ### Added
 
 - `spoti setup` is now a guided first run: it shows the Spotify Developer Dashboard link and the exact redirect URI to register, offers to open the dashboard, notes that Spotify requires Premium, and continues straight into login. `spoti setup <client-id>` still only saves the ID. `spoti login` starts the same guide when no client ID is saved.

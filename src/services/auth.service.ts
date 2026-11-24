@@ -34,7 +34,12 @@ type AuthorizationCodeProvider = (
   authorizationUrl: string,
   redirectUri: string,
   expectedState: string,
+  options?: { onListening?: () => void },
 ) => Promise<string>;
+
+export interface LoginOptions {
+  onAwaitingAuthorization?: (authorizationUrl: string) => void;
+}
 
 export interface AuthServiceDependencies {
   credentialStore?: CredentialStore;
@@ -74,7 +79,7 @@ export class AuthService {
     this.clock = dependencies.now ?? Date.now;
   }
 
-  async login(): Promise<UserProfile> {
+  async login(options: LoginOptions = {}): Promise<UserProfile> {
     const config = await this.configLoader();
     const pkce = this.pkceFactory();
     const state = this.stateFactory();
@@ -83,6 +88,7 @@ export class AuthService {
       authorizationUrl,
       config.redirectUri,
       state,
+      { onListening: () => options.onAwaitingAuthorization?.(authorizationUrl) },
     );
     const token = await this.spotifyAuthApi.exchangeCode({
       clientId: config.clientId,

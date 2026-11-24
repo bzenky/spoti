@@ -128,6 +128,76 @@ describe('OAuth callback', () => {
 
     await expect(authorization).resolves.toBe('valid-code');
   });
+
+  it('serves an HTML confirmation page and announces when it is ready', async () => {
+    const port = await getAvailablePort();
+    const redirectUri = `http://127.0.0.1:${port}/callback`;
+    const onListening = vi.fn();
+    let callbackResponse: Promise<Response> | undefined;
+    const authorization = requestAuthorizationCode('https://example.test', redirectUri, 'state', {
+      timeoutMs: 2_000,
+      onListening,
+      openBrowser: async () => {
+        expect(onListening).toHaveBeenCalledOnce();
+        callbackResponse = fetch(`${redirectUri}?state=state&code=code`);
+        await callbackResponse;
+      },
+    });
+
+    await expect(authorization).resolves.toBe('code');
+    const response = await callbackResponse!;
+    expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    const page = await response.text();
+    expect(page).toContain('spoti is connected');
+  });
+
+  it('keeps waiting when the browser cannot be opened', async () => {
+    const port = await getAvailablePort();
+    const redirectUri = `http://127.0.0.1:${port}/callback`;
+    const authorization = requestAuthorizationCode('https://example.test', redirectUri, 'state', {
+      timeoutMs: 2_000,
+      onListening: () => {
+        setTimeout(() => void fetch(`${redirectUri}?state=state&code=manual-code`), 50);
+      },
+      openBrowser: () => Promise.reject(new Error('no browser available')),
+    });
+
+    await expect(authorization).resolves.toBe('manual-code');
+  });
+
+  it('explains the redirect URI when authorization times out', async () => {
+    const port = await getAvailablePort();
+    const redirectUri = `http://127.0.0.1:${port}/callback`;
+    const authorization = requestAuthorizationCode('https://example.test', redirectUri, 'state', {
+      timeoutMs: 50,
+      openBrowser: async () => undefined,
+    });
+
+    await expect(authorization).rejects.toThrow(
+      `Invalid redirect URI", add this exact\nRedirect URI in your app settings at https://developer.spotify.com/dashboard:\n  ${redirectUri}`,
+    );
+    await expect(authorization).rejects.toThrow(`ssh -L ${port}:127.0.0.1:${port} <host>`);
+  });
+
+  it('explains how to recover when the callback port is already in use', async () => {
+    const blocker = createNetServer();
+    await new Promise<void>((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+    const address = blocker.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+    try {
+      const authorization = requestAuthorizationCode(
+        'https://example.test',
+        `http://127.0.0.1:${address.port}/callback`,
+        'state',
+        { timeoutMs: 2_000, openBrowser: async () => undefined },
+      );
+      await expect(authorization).rejects.toThrow(
+        `port ${address.port} on 127.0.0.1 is already in use`,
+      );
+    } finally {
+      await new Promise((resolve) => blocker.close(resolve));
+    }
+  });
 });
 
 describe('token expiry', () => {

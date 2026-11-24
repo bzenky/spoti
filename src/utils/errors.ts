@@ -10,6 +10,14 @@ export class AppError extends Error {
 
 export class ConfigurationError extends AppError {}
 
+export class ClientIdRequiredError extends ConfigurationError {
+  constructor() {
+    super(
+      'A Spotify client ID is required.\n\nRun: spoti setup\nOr set SPOTIFY_CLIENT_ID in your environment.',
+    );
+  }
+}
+
 export class AuthenticationRequiredError extends AppError {
   constructor(message = 'You are not logged in.\n\nRun: spoti login') {
     super(message);

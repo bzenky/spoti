@@ -157,7 +157,9 @@ describe('FileConfigStore', () => {
 
 describe('parseConfigValue', () => {
   it('parses supported client ID, boolean, and interval values', () => {
-    expect(parseConfigValue('spotifyClientId', '  client123  ')).toBe('client123');
+    expect(parseConfigValue('spotifyClientId', '  0123456789abcdefABCDEF0123456789  ')).toBe(
+      '0123456789abcdefABCDEF0123456789',
+    );
     expect(parseConfigValue('defaultDevice', '  Living Room  ')).toBe('Living Room');
     expect(parseConfigValue('watchAfterPlay', 'true')).toBe(true);
     expect(parseConfigValue('watchAfterPlay', 'false')).toBe(false);
@@ -168,6 +170,10 @@ describe('parseConfigValue', () => {
   it.each([
     ['spotifyClientId', ''],
     ['spotifyClientId', 'client id'],
+    ['spotifyClientId', 'client123'],
+    ['spotifyClientId', '0123456789abcdef0123456789abcde'],
+    ['spotifyClientId', '0123456789abcdef0123456789abcdef0'],
+    ['spotifyClientId', '0123456789abcdef0123456789abcdeg'],
     ['defaultDevice', ''],
     ['watchAfterPlay', 'yes'],
     ['watchAfterPlay', 'TRUE'],

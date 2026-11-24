@@ -1,4 +1,4 @@
-import { ConfigurationError } from '../utils/errors.js';
+import { ClientIdRequiredError, ConfigurationError } from '../utils/errors.js';
 
 export const DEFAULT_REDIRECT_URI = 'http://127.0.0.1:43821/callback';
 
@@ -12,16 +12,16 @@ export function loadAuthConfig(
   storedClientId: string | null = null,
 ): AuthConfig {
   const clientId = environment.SPOTIFY_CLIENT_ID?.trim() || storedClientId?.trim();
-  if (!clientId) {
-    throw new ConfigurationError(
-      'A Spotify client ID is required.\n\nRun: spoti setup\nOr set SPOTIFY_CLIENT_ID in your environment.',
-    );
-  }
+  if (!clientId) throw new ClientIdRequiredError();
 
-  const redirectUri = environment.SPOTIFY_REDIRECT_URI?.trim() || DEFAULT_REDIRECT_URI;
+  const redirectUri = resolveRedirectUri(environment);
   validateRedirectUri(redirectUri);
 
   return { clientId, redirectUri };
+}
+
+export function resolveRedirectUri(environment: NodeJS.ProcessEnv = process.env): string {
+  return environment.SPOTIFY_REDIRECT_URI?.trim() || DEFAULT_REDIRECT_URI;
 }
 
 export function validateRedirectUri(redirectUri: string): URL {

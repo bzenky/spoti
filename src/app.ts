@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 
+import { resolveRedirectUri } from './auth/config.js';
 import type { AuthService } from './services/auth.service.js';
 import type { CatalogService } from './services/catalog.service.js';
 import type { DeviceService } from './services/device.service.js';
@@ -52,6 +53,7 @@ import {
 import {
   confirmPlaylistRemoval,
   confirmUpdate,
+  confirmOpenDashboard,
   promptSpotifyClientId,
   selectAlbum,
   selectAlbumAction,
@@ -70,7 +72,14 @@ import {
   type PageView,
 } from './ui/pagination.js';
 import { watchPlayback, type PlaybackWatcher } from './ui/watch.js';
-import { AppError, ConfigurationError } from './utils/errors.js';
+import {
+  formatAwaitingAuthorization,
+  formatEnvironmentClientIdWarning,
+  formatLoginNextSteps,
+  formatSetupGuide,
+  SPOTIFY_DASHBOARD_URL,
+} from './ui/onboarding.js';
+import { AppError, ClientIdRequiredError, ConfigurationError } from './utils/errors.js';
 import { formatDuration } from './utils/time.js';
 import { VERSION } from './version.js';
 
@@ -97,6 +106,8 @@ export interface AppDependencies {
   chooseArtistAction?: typeof selectArtistAction;
   choosePlaylistAction?: typeof selectPlaylistAction;
   requestSpotifyClientId?: typeof promptSpotifyClientId;
+  confirmOpenDashboard?: typeof confirmOpenDashboard;
+  environment?: NodeJS.ProcessEnv;
   confirmUpdate?: typeof confirmUpdate;
   confirmPlaylistRemoval?: typeof confirmPlaylistRemoval;
   progress?: ProgressRunner;
@@ -118,6 +129,9 @@ export function createProgram(dependencies: AppDependencies): Command {
   const chooseArtistAction = dependencies.chooseArtistAction ?? selectArtistAction;
   const choosePlaylistAction = dependencies.choosePlaylistAction ?? selectPlaylistAction;
   const requestClientId = dependencies.requestSpotifyClientId ?? promptSpotifyClientId;
+  const requestDashboardOpen = dependencies.confirmOpenDashboard ?? confirmOpenDashboard;
+  const environment = dependencies.environment ?? process.env;
+  const redirectUri = resolveRedirectUri(environment);
   const requestUpdateConfirmation = dependencies.confirmUpdate ?? confirmUpdate;
   const requestRemovalConfirmation = dependencies.confirmPlaylistRemoval ?? confirmPlaylistRemoval;
   const styles = dependencies.styles ?? plainOutputStyles;
@@ -201,29 +215,65 @@ export function createProgram(dependencies: AppDependencies): Command {
       await dependencies.startTui();
     });
 
+  const saveClientId = async (providedClientId?: string): Promise<void> => {
+    if (providedClientId === undefined) {
+      dependencies.output.log(formatSetupGuide(redirectUri));
+      if (isInteractive && dependencies.openExternal && (await requestDashboardOpen())) {
+        await dependencies.openExternal(SPOTIFY_DASHBOARD_URL).catch(() => undefined);
+      }
+    }
+    const clientId = providedClientId ?? (await requestClientId());
+    if (!clientId) {
+      throw new ConfigurationError(
+        'A Spotify client ID is required.\n\nRun: spoti setup <client-id>',
+      );
+    }
+    const validatedClientId = parseConfigValue('spotifyClientId', clientId);
+    await dependencies.config.set('spotifyClientId', validatedClientId);
+    dependencies.output.log('✓ Spotify client ID saved.');
+    if (environment.SPOTIFY_CLIENT_ID?.trim()) {
+      dependencies.output.log(formatEnvironmentClientIdWarning());
+    }
+  };
+
+  const login = async (): Promise<void> => {
+    const user = await dependencies.auth.login({
+      onAwaitingAuthorization: (url) => {
+        dependencies.output.log(formatAwaitingAuthorization(url));
+      },
+    });
+    dependencies.output.log(`✓ Logged in as ${safe(user.displayName)}`);
+    const devices = await dependencies.device.getDevices().catch(() => null);
+    dependencies.output.log(`\n${formatLoginNextSteps(devices)}`);
+  };
+
   program
     .command('setup')
-    .description('Save your Spotify application client ID')
+    .description('Connect spoti to your Spotify developer app and log in')
     .argument('[client-id]', 'Spotify application client ID')
     .action(async (providedClientId?: string) => {
-      const clientId = providedClientId ?? (await requestClientId());
-      if (!clientId) {
-        throw new ConfigurationError(
-          'A Spotify client ID is required.\n\nRun: spoti setup <client-id>',
-        );
+      await saveClientId(providedClientId);
+      if (providedClientId !== undefined || !isInteractive) {
+        dependencies.output.log('\nNext: spoti login');
+        return;
       }
-      const validatedClientId = parseConfigValue('spotifyClientId', clientId);
-      await dependencies.config.set('spotifyClientId', validatedClientId);
-      dependencies.output.log('✓ Spotify client ID saved.\n\nNext: spoti login');
+      dependencies.output.log('');
+      await login();
     });
 
   program
     .command('login')
     .description('Log in to Spotify')
     .action(async () => {
-      dependencies.output.log('Opening Spotify authorization in your browser…');
-      const user = await dependencies.auth.login();
-      dependencies.output.log(`✓ Logged in as ${safe(user.displayName)}`);
+      try {
+        await login();
+      } catch (error) {
+        if (!(error instanceof ClientIdRequiredError) || !isInteractive) throw error;
+        dependencies.output.log('spoti is not connected to a Spotify app yet.\n');
+        await saveClientId();
+        dependencies.output.log('');
+        await login();
+      }
     });
 
   program

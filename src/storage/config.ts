@@ -14,6 +14,11 @@ const spotifyClientIdSchema = z
   .max(256)
   .regex(/^[A-Za-z0-9]+$/);
 
+const enteredSpotifyClientIdSchema = z
+  .string()
+  .trim()
+  .regex(/^[0-9a-f]{32}$/i);
+
 const configSchema = z.strictObject({
   spotifyClientId: spotifyClientIdSchema.nullable().default(null),
   defaultDevice: z.string().trim().min(1).max(256).nullable().default(null),
@@ -140,10 +145,10 @@ export function parseConfigValue<Key extends ConfigKey>(
   value: string,
 ): AppConfig[Key] {
   if (key === 'spotifyClientId') {
-    const clientId = spotifyClientIdSchema.safeParse(value);
+    const clientId = enteredSpotifyClientIdSchema.safeParse(value);
     if (clientId.success) return clientId.data as AppConfig[Key];
     throw new ConfigurationError(
-      'Invalid Spotify client ID: expected a non-empty alphanumeric value.',
+      'Invalid Spotify client ID: expected the 32-character Client ID shown in your app\'s settings at https://developer.spotify.com/dashboard.',
     );
   }
 

@@ -85,14 +85,21 @@ export async function promptSpotifyClientId(): Promise<string | null> {
   }
 }
 
-export async function confirmUpdate(currentVersion: string, latestVersion: string): Promise<boolean> {
+export function confirmOpenDashboard(): Promise<boolean> {
+  return confirmDefaultYes('Open the Spotify Developer Dashboard in your browser? [Y/n] (Esc to skip) ');
+}
+
+export function confirmUpdate(currentVersion: string, latestVersion: string): Promise<boolean> {
+  return confirmDefaultYes(
+    `Update spoti ${currentVersion} → ${latestVersion} with npm? [Y/n] (Esc to cancel) `,
+  );
+}
+
+async function confirmDefaultYes(question: string): Promise<boolean> {
   if (!stdin.isTTY || !stdout.isTTY) return false;
   const prompt = createInterface({ input: stdin, output: stdout });
   try {
-    const answer = await questionWithEscape(
-      prompt,
-      `Update spoti ${currentVersion} → ${latestVersion} with npm? [Y/n] (Esc to cancel) `,
-    );
+    const answer = await questionWithEscape(prompt, question);
     if (answer === null) return false;
     return answer.trim() === '' || /^y(?:es)?$/i.test(answer.trim());
   } finally {

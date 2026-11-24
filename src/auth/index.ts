@@ -3,6 +3,7 @@ export type { AuthorizationCallbackOptions } from './callback.js';
 export {
   DEFAULT_REDIRECT_URI,
   loadAuthConfig,
+  resolveRedirectUri,
   validateRedirectUri,
 } from './config.js';
 export type { AuthConfig } from './config.js';

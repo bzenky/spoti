@@ -16,7 +16,10 @@ import type { UpdateService } from '../src/services/update.service.js';
 import { DEFAULT_CONFIG, type ConfigStore } from '../src/storage/config.js';
 import type { ProgressRunner } from '../src/ui/progress.js';
 import type { PlaybackWatcher } from '../src/ui/watch.js';
+import { ClientIdRequiredError } from '../src/utils/errors.js';
 import { VERSION } from '../src/version.js';
+
+const CLIENT_ID = '0123456789abcdef0123456789abcdef';
 
 const track: Track = {
   id: '1',
@@ -150,6 +153,8 @@ function dependencies() {
     chooseArtistAction: vi.fn(),
     choosePlaylistAction: vi.fn(),
     requestSpotifyClientId: vi.fn(),
+    confirmOpenDashboard: vi.fn().mockResolvedValue(false),
+    environment: {} as NodeJS.ProcessEnv,
     confirmUpdate: vi.fn(),
     confirmPlaylistRemoval: vi.fn(),
     progress: vi.fn(async (_label: string, task: () => Promise<unknown>) => task()) as ProgressRunner,
@@ -200,13 +205,143 @@ describe('CLI application', () => {
 
   it('saves a provided or interactively entered Spotify client ID', async () => {
     const deps = dependencies();
-    await run(['setup', 'provided123'], deps);
-    expect(deps.config.set).toHaveBeenNthCalledWith(1, 'spotifyClientId', 'provided123');
+    await run(['setup', CLIENT_ID], deps);
+    expect(deps.config.set).toHaveBeenNthCalledWith(1, 'spotifyClientId', CLIENT_ID);
+    expect(deps.messages).toEqual(['✓ Spotify client ID saved.', '\nNext: spoti login']);
 
-    deps.requestSpotifyClientId.mockResolvedValue('prompted456');
+    deps.requestSpotifyClientId.mockResolvedValue(` ${CLIENT_ID.toUpperCase()} `);
     await run(['setup'], deps);
-    expect(deps.config.set).toHaveBeenNthCalledWith(2, 'spotifyClientId', 'prompted456');
-    expect(deps.messages).toContain('✓ Spotify client ID saved.\n\nNext: spoti login');
+    expect(deps.config.set).toHaveBeenNthCalledWith(2, 'spotifyClientId', CLIENT_ID.toUpperCase());
+    expect(deps.messages.slice(-2)).toEqual(['✓ Spotify client ID saved.', '\nNext: spoti login']);
+    expect(deps.auth.login).not.toHaveBeenCalled();
+  });
+
+  it('guides first-time setup with the dashboard link and exact redirect URI', async () => {
+    const deps = dependencies();
+    deps.isInteractive = true;
+    deps.confirmOpenDashboard.mockResolvedValue(true);
+    deps.requestSpotifyClientId.mockResolvedValue(CLIENT_ID);
+    vi.mocked(deps.auth.login).mockResolvedValue({ id: 'user', displayName: 'Bruno', product: 'premium' });
+    vi.mocked(deps.device.getDevices).mockResolvedValue([]);
+
+    await run(['setup'], deps);
+
+    const guide = deps.messages[0];
+    expect(guide).toContain('https://developer.spotify.com/dashboard');
+    expect(guide).toContain('     http://127.0.0.1:43821/callback');
+    expect(deps.openExternal).toHaveBeenCalledWith('https://developer.spotify.com/dashboard');
+    expect(deps.config.set).toHaveBeenCalledWith('spotifyClientId', CLIENT_ID);
+    expect(deps.auth.login).toHaveBeenCalledOnce();
+    expect(deps.messages).toContain('✓ Logged in as Bruno');
+  });
+
+  it('saves a client ID passed as an argument without logging in, even in a terminal', async () => {
+    const deps = dependencies();
+    deps.isInteractive = true;
+
+    await run(['setup', CLIENT_ID], deps);
+
+    expect(deps.config.set).toHaveBeenCalledWith('spotifyClientId', CLIENT_ID);
+    expect(deps.messages).toEqual(['✓ Spotify client ID saved.', '\nNext: spoti login']);
+    expect(deps.auth.login).not.toHaveBeenCalled();
+  });
+
+  it('warns when SPOTIFY_CLIENT_ID overrides the saved client ID', async () => {
+    const deps = dependencies();
+    deps.environment = { SPOTIFY_CLIENT_ID: 'stale' };
+
+    await run(['setup', CLIENT_ID], deps);
+
+    expect(deps.messages[1]).toContain('SPOTIFY_CLIENT_ID is set in your environment');
+  });
+
+  it('rejects a client ID that does not look like a Spotify client ID', async () => {
+    const deps = dependencies();
+
+    await expect(run(['setup', 'abc123'], deps)).rejects.toThrow(
+      'expected the 32-character Client ID',
+    );
+    expect(deps.config.set).not.toHaveBeenCalled();
+  });
+
+  it('prints the authorization URL while waiting and next steps after login', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.auth.login).mockImplementation(async (options) => {
+      options?.onAwaitingAuthorization?.('https://accounts.spotify.com/authorize?x=1');
+      return { id: 'user', displayName: 'Bruno', product: 'premium' };
+    });
+    vi.mocked(deps.device.getDevices).mockResolvedValue([
+      {
+        id: 'd1',
+        isActive: true,
+        isPrivateSession: false,
+        isRestricted: false,
+        name: 'Desk Speaker',
+        type: 'Speaker',
+        volumePercent: 40,
+        supportsVolume: true,
+      },
+    ]);
+
+    await run(['login'], deps);
+
+    expect(deps.messages[0]).toBe(
+      'Opening Spotify in your browser to approve access…\n' +
+        'If it does not open, visit this URL:\n' +
+        '  https://accounts.spotify.com/authorize?x=1\n\n' +
+        'Waiting for approval (Ctrl+C to cancel)…',
+    );
+    expect(deps.messages[1]).toBe('✓ Logged in as Bruno');
+    expect(deps.messages[2]).toContain('Devices online: Desk Speaker');
+    expect(deps.messages[2]).toContain('spoti i');
+  });
+
+  it('explains how to bring a device online after login', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.auth.login).mockResolvedValue({ id: 'user', displayName: 'Bruno' });
+    vi.mocked(deps.device.getDevices).mockResolvedValue([]);
+
+    await run(['login'], deps);
+
+    expect(deps.messages[1]).toContain('No Spotify devices are online');
+  });
+
+  it('still finishes login when devices cannot be loaded', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.auth.login).mockResolvedValue({ id: 'user', displayName: 'Bruno' });
+    vi.mocked(deps.device.getDevices).mockRejectedValue(new Error('network down'));
+
+    await run(['login'], deps);
+
+    expect(deps.messages[0]).toBe('✓ Logged in as Bruno');
+    expect(deps.messages[1]).not.toContain('Devices');
+    expect(deps.messages[1]).toContain('Try:');
+  });
+
+  it('runs setup from login when no client ID is configured', async () => {
+    const deps = dependencies();
+    deps.isInteractive = true;
+    deps.requestSpotifyClientId.mockResolvedValue(CLIENT_ID);
+    vi.mocked(deps.auth.login)
+      .mockRejectedValueOnce(new ClientIdRequiredError())
+      .mockResolvedValueOnce({ id: 'user', displayName: 'Bruno', product: 'premium' });
+    vi.mocked(deps.device.getDevices).mockResolvedValue([]);
+
+    await run(['login'], deps);
+
+    expect(deps.messages[0]).toBe('spoti is not connected to a Spotify app yet.\n');
+    expect(deps.messages[1]).toContain('Connect spoti to Spotify');
+    expect(deps.config.set).toHaveBeenCalledWith('spotifyClientId', CLIENT_ID);
+    expect(deps.auth.login).toHaveBeenCalledTimes(2);
+    expect(deps.messages).toContain('✓ Logged in as Bruno');
+  });
+
+  it('reports the missing client ID from login outside a terminal', async () => {
+    const deps = dependencies();
+    vi.mocked(deps.auth.login).mockRejectedValue(new ClientIdRequiredError());
+
+    await expect(run(['login'], deps)).rejects.toThrow('Run: spoti setup');
+    expect(deps.requestSpotifyClientId).not.toHaveBeenCalled();
   });
 
   it('reads and updates configuration values', async () => {

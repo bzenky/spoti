@@ -228,6 +228,7 @@ describe('CLI application', () => {
 
     const guide = deps.messages[0];
     expect(guide).toContain('https://developer.spotify.com/dashboard');
+    expect(guide).toContain('Spotify Premium');
     expect(guide).toContain('     http://127.0.0.1:43821/callback');
     expect(deps.openExternal).toHaveBeenCalledWith('https://developer.spotify.com/dashboard');
     expect(deps.config.set).toHaveBeenCalledWith('spotifyClientId', CLIENT_ID);

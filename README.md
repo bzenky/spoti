@@ -12,7 +12,7 @@ A local-first command-line client for controlling Spotify through Spotify Connec
 
 - Node.js 22 or newer
 - A Spotify developer application and client ID
-- Spotify Premium for playback-control commands
+- Spotify Premium: Spotify requires the owner of a development-mode app to have Premium, and each `spoti` user owns their app
 - A Spotify client or Connect device available for playback
 
 ## Spotify application setup

@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- `spoti setup` is now a guided first run: it shows the Spotify Developer Dashboard link and the exact redirect URI to register, offers to open the dashboard, and continues straight into login. `spoti setup <client-id>` still only saves the ID. `spoti login` starts the same guide when no client ID is saved.
+- `spoti setup` is now a guided first run: it shows the Spotify Developer Dashboard link and the exact redirect URI to register, offers to open the dashboard, notes that Spotify requires Premium, and continues straight into login. `spoti setup <client-id>` still only saves the ID. `spoti login` starts the same guide when no client ID is saved.
 - After login, `spoti` lists online Spotify devices or explains how to bring one online, and suggests first commands. Setup warns when `SPOTIFY_CLIENT_ID` overrides the saved client ID.
 - The browser callback page is a styled confirmation page instead of plain text.
 

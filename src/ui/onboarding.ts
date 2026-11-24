@@ -7,7 +7,8 @@ export function formatSetupGuide(redirectUri: string): string {
   return [
     'Connect spoti to Spotify',
     '',
-    'spoti signs in through your own Spotify developer app. This takes about a minute:',
+    'spoti signs in through your own Spotify developer app. This takes about a minute.',
+    'You need Spotify Premium: Spotify developer apps only work for Premium accounts.',
     '',
     `  1. Create an app at ${SPOTIFY_DASHBOARD_URL}`,
     '     Use any name and description, and select "Web API" when asked which APIs you use.',
